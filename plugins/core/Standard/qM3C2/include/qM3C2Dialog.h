@@ -67,10 +67,13 @@ public:
 	enum ExportOptions {	PROJECT_ON_CLOUD1,
 							PROJECT_ON_CLOUD2,
 							PROJECT_ON_CORE_POINTS,
+                            PROJECT_ON_CLOUD1_AND_CLOUD2,
+                            PROJECT_ON_CLOUD2_WITH_NORM2,
 	};
 
-	//! Returns selected export option
+    //! Returns selected export option
 	ExportOptions getExportOption() const;
+    qM3C2Tools::DistAndUncerMethod getDistAndUncerMethod() const;
 
 	//! Returns whether the original cloud should be kept instead of creating a new output one
 	/** Only valid if the export option is PROJECT_ON_CORE_POINTS.
@@ -86,6 +89,8 @@ public:
 	void loadParamsFromPersistentSettings();
 	//! Saves parameters to persistent settings
 	void saveParamsToPersistentSettings();
+
+    int getRequestedNormMode(void) const;
 
 protected:
 
@@ -126,6 +131,8 @@ protected: //members
 	ccPointCloud* m_cloud1;
 	ccPointCloud* m_cloud2;
 	ccPointCloud* m_corePointsCloud;
+
+    int requestedNormMode;
 };
 
 #endif //Q_M3C2_DIALOG_HEADER

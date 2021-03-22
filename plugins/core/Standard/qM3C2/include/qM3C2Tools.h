@@ -77,15 +77,21 @@ class qM3C2Tools
 {
 public:
 
+    enum DistAndUncerMethod {   USE_MEAN_AND_STD_DEV,
+                                USE_MEDIAN_AND_IQR,
+                                USE_MIN_AND_MAX_MINUS_MIN,
+                                USE_PERCENTILES,
+                            };
+
 	//! Computes statistics on a neighbors set
 	/** Either the mean distance and std. dev. (if useMedian is false)
 		or the median and interquartile range (if useMedian is true).
 		See http://en.wikipedia.org/wiki/Interquartile_range
 	**/
-	static void ComputeStatistics(	CCCoreLib::DgmOctree::NeighboursSet& set,
-									bool useMedian,
-									double& meanOrMedian,
-									double& stdDevOrIQR);
+    static void ComputeStatistics(CCCoreLib::DgmOctree::NeighboursSet& set,
+                                    DistAndUncerMethod method,
+                                    double& dist,
+                                    double& uncer);
 
 	//! M3C2 parameters that can be guessed automatically by 'probing'
 	struct GuessedParams

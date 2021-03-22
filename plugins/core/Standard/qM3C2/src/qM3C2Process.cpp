@@ -141,15 +141,16 @@ struct M3C2Params
 {
 	//input data
 	ccPointCloud* outputCloud = nullptr;
+    ccPointCloud* outputCloud2 = nullptr;
 	ccPointCloud* corePoints = nullptr;
 	NormsIndexesTableType* coreNormals = nullptr;
+    NormsIndexesTableType* coreNormals2 = nullptr;
 
 	//main options
 	PointCoordinateType projectionRadius = 0;
 	PointCoordinateType projectionDepth = 0;
 	bool updateNormal = false;
 	bool exportNormal = false;
-	bool useMedian = false;
 	bool computeConfidence = false;
 	bool progressiveSearch = false;
 	bool onlyPositiveSearch = false;
@@ -182,6 +183,9 @@ struct M3C2Params
 	//progress notification
 	CCCoreLib::NormalizedProgress* nProgress = nullptr;
 	bool processCanceled = false;
+
+    // distance and uncertainty computation method
+    qM3C2Tools::DistAndUncerMethod distAndUncerMethod;
 };
 static M3C2Params s_M3C2Params;
 
@@ -198,6 +202,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 
 	//get core point's normal #i
 	CCVector3 N(0, 0, 1);
+    CCVector3 N2(0, 0, 1);
 	if (s_M3C2Params.updateNormal) //i.e. all cases but the VERTICAL mode
 	{
 		N = ccNormalVectors::GetNormal(s_M3C2Params.coreNormals->getValue(index));
@@ -205,6 +210,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 
 	//output point
 	CCVector3 outputP = P;
+    CCVector3 outputP2 = P;
 
 	//compute M3C2 distance
 	{
@@ -233,7 +239,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 					//do we have enough points for computing stats?
 					if (neighbourCount >= s_M3C2Params.minPoints4Stats)
 					{
-						qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.useMedian, mean1, stdDev1);
+                        qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
 						validStats1 = true;
 						//do we have a sharp enough 'mean' to stop?
 						if (fabs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength))
@@ -254,7 +260,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 			//compute stat. dispersion on cloud #1 neighbours (if necessary)
 			if (!validStats1)
 			{
-				qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.useMedian, mean1, stdDev1);
+                qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
 			}
 
 			if (s_M3C2Params.usePrecisionMaps && (s_M3C2Params.computeConfidence || s_M3C2Params.stdDevCloud1SF))
@@ -263,7 +269,8 @@ void ComputeM3C2DistForPoint(unsigned index)
 				stdDev1 = ComputePMUncertainty(cn1.neighbours, N, s_M3C2Params.cloud1PM);
 			}
 
-			if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1)
+            if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1
+                    || s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
 			{
 				//shift output point on the 1st cloud
 				outputP += static_cast<PointCoordinateType>(mean1) * N;
@@ -286,7 +293,8 @@ void ComputeM3C2DistForPoint(unsigned index)
 
 		//now we can process cloud #2
 		if (	n1 != 0
-			||	s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2
+            ||	s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2
+            ||  s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2_WITH_NORM2
 			||	s_M3C2Params.stdDevCloud2SF
 			||	s_M3C2Params.densityCloud2SF
 			)
@@ -316,7 +324,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 						//do we have enough points for computing stats?
 						if (neighbourCount >= s_M3C2Params.minPoints4Stats)
 						{
-							qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.useMedian, mean2, stdDev2);
+                            qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
 							validStats2 = true;
 							//do we have a sharp enough 'mean' to stop?
 							if (fabs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength))
@@ -337,15 +345,17 @@ void ComputeM3C2DistForPoint(unsigned index)
 				//compute stat. dispersion on cloud #2 neighbours (if necessary)
 				if (!validStats2)
 				{
-					qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.useMedian, mean2, stdDev2);
+                    qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
 				}
 				assert(stdDev2 != stdDev2 || stdDev2 >= 0); //first inequality fails if stdDev2 is NaN ;)
 
-				if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2)
-				{
-					//shift output point on the 2nd cloud
-					outputP += static_cast<PointCoordinateType>(mean2) * N;
-				}
+                if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2 || s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2_WITH_NORM2)
+                    //shift output point on the 2nd cloud
+                    outputP += static_cast<PointCoordinateType>(mean2) * N;
+
+                else if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
+                    //shift output point on the 2nd cloud
+                    outputP2 += static_cast<PointCoordinateType>(mean2) * N;
 
 				if (s_M3C2Params.usePrecisionMaps && (s_M3C2Params.computeConfidence || s_M3C2Params.stdDevCloud2SF))
 				{
@@ -423,11 +433,18 @@ void ComputeM3C2DistForPoint(unsigned index)
 	if (s_M3C2Params.outputCloud != s_M3C2Params.corePoints)
 	{
 		*const_cast<CCVector3*>(s_M3C2Params.outputCloud->getPoint(index)) = outputP;
+        if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
+            *const_cast<CCVector3*>(s_M3C2Params.outputCloud2->getPoint(index)) = outputP2;
 	}
-	if (s_M3C2Params.exportNormal)
-	{
-		s_M3C2Params.outputCloud->setPointNormal(index, N);
-	}
+    if (s_M3C2Params.exportNormal)
+        s_M3C2Params.outputCloud->setPointNormal(index, N);
+
+    // if requested, the normals are replaced by the normals computed using cloud 2 as the base cloud
+    if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2_WITH_NORM2)
+    {
+        N2 = ccNormalVectors::GetNormal(s_M3C2Params.coreNormals2->getValue(index));
+        s_M3C2Params.outputCloud->setPointNormal(index, N2);
+    }
 
 	//progress notification
 	if (s_M3C2Params.nProgress && !s_M3C2Params.nProgress->oneStep())
@@ -436,10 +453,11 @@ void ComputeM3C2DistForPoint(unsigned index)
 	}
 }
 
-bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPointCloud*& outputCloud, bool allowDialogs, QWidget* parentWidget/*=nullptr*/, ccMainAppInterface* app/*=nullptr*/)
+bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPointCloud*& outputCloud, ccPointCloud *&outputCloud2/*=nullptr*/, bool allowDialogs, QWidget* parentWidget/*=nullptr*/, ccMainAppInterface* app/*=nullptr*/)
 {
 	errorMessage.clear();
 	outputCloud = nullptr;
+    outputCloud2 = nullptr;
 
 	//get the clouds in the right order
 	ccPointCloud* cloud1 = dlg.getCloud1();
@@ -457,6 +475,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	qM3C2Normals::ComputationMode normMode = dlg.getNormalsComputationMode();
 	double samplingDist = dlg.cpSubsamplingDoubleSpinBox->value();
 	ccScalarField* normalScaleSF = nullptr; //normal scale (multi-scale mode only)
+    ccScalarField* normalScaleSF2 = nullptr; //normal scale (multi-scale mode only)
 
 	//other parameters are stored in 's_M3C2Params' for parallel call
 	s_M3C2Params = M3C2Params();
@@ -466,10 +485,23 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	s_M3C2Params.registrationRms = dlg.rmsCheckBox->isChecked() ? dlg.rmsDoubleSpinBox->value() : 0.0;
 	s_M3C2Params.exportOption = dlg.getExportOption();
 	s_M3C2Params.keepOriginalCloud = dlg.keepOriginalCloud();
-	s_M3C2Params.useMedian = dlg.useMedianCheckBox->isChecked();
+    s_M3C2Params.distAndUncerMethod = dlg.getDistAndUncerMethod();
 	s_M3C2Params.minPoints4Stats = dlg.getMinPointsForStats();
 	s_M3C2Params.progressiveSearch = !dlg.useSinglePass4DepthCheckBox->isChecked();
 	s_M3C2Params.onlyPositiveSearch = dlg.positiveSearchOnlyCheckBox->isChecked();
+
+    ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
+
+    // PLE to allow the usage of core points with normals using the command line interface
+    if (!app)
+    {
+        int requestedNormMode = dlg.getRequestedNormMode(); // the normMode in the parameters file
+        if ((requestedNormMode == qM3C2Normals::USE_CORE_POINTS_NORMALS) && s_M3C2Params.corePoints->hasNormals())
+        {
+            ccLog::Warning("core points have normals, normMode has been changed from %d (auto) to %d (requested)", normMode, requestedNormMode);
+            normMode = qM3C2Normals::USE_CORE_POINTS_NORMALS;
+        }
+    }
 
 	//precision maps
 	{
@@ -501,7 +533,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			}
 		}
 	}
-
 
 	//max thread count
 	int maxThreadCount = dlg.getMaxThreadCount();
@@ -588,6 +619,26 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 	//output
 	QString outputName(s_M3C2Params.usePrecisionMaps ? "M3C2-PM output" : "M3C2 output");
+    QString outputName2(s_M3C2Params.usePrecisionMaps ? "M3C2-PM_2 output" : "M3C2_2 output");
+    switch (s_M3C2Params.distAndUncerMethod)
+    {
+    case qM3C2Tools::USE_MEAN_AND_STD_DEV:
+        outputName += " [mean+std]";
+        outputName2 += " [mean+std]";
+        break;
+    case qM3C2Tools::USE_MEDIAN_AND_IQR:
+        outputName += " [med+iqr]";
+        outputName2 += " [med+iqr]";
+        break;
+    case qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN:
+        outputName += " [min+max]";
+        outputName2 += " [min+max]";
+        break;
+    case qM3C2Tools::USE_PERCENTILES:
+        outputName += " [prctile5+95]";
+        outputName2 += " [prctile5+95]";
+        break;
+    }
 
 	if (!error)
 	{
@@ -608,6 +659,15 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 				errorMessage = "Not enough memory!";
 				error = true;
 			}
+            if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
+            {
+                s_M3C2Params.outputCloud2 = new ccPointCloud(/*outputName*/); //setName will be called at the end
+                if (!s_M3C2Params.outputCloud2->resize(s_M3C2Params.corePoints->size())) //resize as we will 'set' the new points positions in 'ComputeM3C2DistForPoint'
+                {
+                    errorMessage = "Not enough memory!";
+                    error = true;
+                }
+            }
 			s_M3C2Params.corePoints->setEnabled(false); //we can hide the core points
 		}
 	}
@@ -643,6 +703,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 				}
 
 				outputName += QString(" scale=[%1:%2:%3]").arg(startScale).arg(step).arg(stopScale);
+                outputName2 += QString(" scale=%1").arg(normalScale);
 
 				normalScaleSF = new ccScalarField(NORMAL_SCALE_SF_NAME);
 				normalScaleSF->link(); //will be released anyway at the end of the process
@@ -650,6 +711,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			else
 			{
 				outputName += QString(" scale=%1").arg(normalScale);
+                outputName2 += QString(" scale=%1").arg(normalScale);
 				//otherwise, we use a unique scale by default
 				radii.push_back(static_cast<PointCoordinateType>(normalScale / 2)); //we want the radius in fact ;)
 			}
@@ -739,7 +801,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		{
 			normalsAreOk = s_M3C2Params.corePoints && s_M3C2Params.corePoints->hasNormals();
 			if (normalsAreOk)
-			{
+            {
 				s_M3C2Params.coreNormals = s_M3C2Params.corePoints->normals();
 				s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
 			}
@@ -763,6 +825,110 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			error = true;
 		}
 	}
+
+    // PLE compute the normals of cloud 2
+    if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD2_WITH_NORM2)
+    {
+        if (app)
+            app->dispToConsole("[M3C2] compute normals using cloud 2 as base", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
+        else
+            ccLog::Print("[M3C2] compute normals using cloud 2 as base");
+
+        bool normalsAreOk2 = false;
+
+        s_M3C2Params.coreNormals2 = new NormsIndexesTableType();
+        s_M3C2Params.coreNormals2->link(); //will be released anyway at the end of the process
+
+        std::vector<PointCoordinateType> radii;
+        if (normMode == qM3C2Normals::MULTI_SCALE_MODE)
+        {
+            //get multi-scale parameters
+            double startScale = dlg.minScaleDoubleSpinBox->value();
+            double step = dlg.stepScaleDoubleSpinBox->value();
+            double stopScale = dlg.maxScaleDoubleSpinBox->value();
+            stopScale = std::max(startScale, stopScale); //just to be sure
+            //generate all corresponding 'scales'
+            for (double scale = startScale; scale <= stopScale; scale += step)
+            {
+                radii.push_back(static_cast<PointCoordinateType>(scale / 2));
+            }
+
+            normalScaleSF2 = new ccScalarField(NORMAL_SCALE_SF_NAME);
+            normalScaleSF2->link(); //will be released anyway at the end of the process
+        }
+        else
+        {
+            //otherwise, we use a unique scale by default
+            radii.push_back(static_cast<PointCoordinateType>(normalScale / 2)); //we want the radius in fact ;)
+        }
+
+        bool invalidNormals2 = false;
+        ccPointCloud* baseCloud2 = cloud2;
+        ccOctree* baseOctree2 = (baseCloud2 == cloud2 ? s_M3C2Params.cloud2Octree.data() : nullptr);
+
+        //dedicated core points method
+        normalsAreOk2 = qM3C2Normals::ComputeCorePointsNormals(s_M3C2Params.corePoints,
+            s_M3C2Params.coreNormals2,
+            baseCloud2,
+            radii,
+            invalidNormals2,
+            maxThreadCount,
+            normalScaleSF2,
+            &pDlg,
+            baseOctree2);
+
+        //now fix the orientation
+        if (normalsAreOk2)
+        {
+            //some invalid normals?
+            if (invalidNormals2 && app)
+            {
+                app->dispToConsole("[M3C2] Some normals are invalid! You may have to increase the scale.", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
+            }
+
+            //make normals horizontal if necessary
+            if (normMode == qM3C2Normals::HORIZ_MODE)
+            {
+                qM3C2Normals::MakeNormalsHorizontal(*s_M3C2Params.coreNormals2);
+            }
+
+            //then either use a simple heuristic
+            bool usePreferredOrientation = dlg.normOriPreferredRadioButton->isChecked();
+            if (usePreferredOrientation)
+            {
+                int preferredOrientation = dlg.normOriPreferredComboBox->currentIndex();
+                assert(preferredOrientation >= ccNormalVectors::MINUS_X && preferredOrientation <= ccNormalVectors::PLUS_ZERO);
+                if (!ccNormalVectors::UpdateNormalOrientations(s_M3C2Params.corePoints,
+                    *s_M3C2Params.coreNormals2,
+                    static_cast<ccNormalVectors::Orientation>(preferredOrientation)))
+                {
+                    errorMessage = "[M3C2] Failed to re-orient the normals (invalid parameter?)";
+                    error = true;
+                }
+            }
+            else //or use external points
+            {
+                ccPointCloud* orientationCloud = dlg.getNormalsOrientationCloud();
+                assert(orientationCloud);
+
+                if (!qM3C2Normals::UpdateNormalOrientationsWithCloud(s_M3C2Params.corePoints,
+                    *s_M3C2Params.coreNormals2,
+                    orientationCloud,
+                    maxThreadCount,
+                    &pDlg))
+                {
+                    errorMessage = "[M3C2] Failed to re-orient the normals with input point cloud!";
+                    error = true;
+                }
+            }
+        }
+
+        if (!normalsAreOk2)
+        {
+            errorMessage = "Failed to compute normals!";
+            error = true;
+        }
+    }
 
 	if (!error && s_M3C2Params.coreNormals && corePointsHaveBeenSubsampled)
 	{
@@ -839,10 +1005,18 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			{
 				prefix = "SigmaN";
 			}
-			else if (s_M3C2Params.useMedian)
+            else if (s_M3C2Params.distAndUncerMethod == qM3C2Tools::USE_MEDIAN_AND_IQR)
 			{
 				prefix = "IQR";
 			}
+            else if (s_M3C2Params.distAndUncerMethod == qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN)
+            {
+                prefix = "MAX-MIN";
+            }
+            else if (s_M3C2Params.distAndUncerMethod == qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN)
+            {
+                prefix = "PRCT";
+            }
 			//allocate cloud #1 std. dev. SF
 			QString stdDevSFName1 = QString(STD_DEV_CLOUD1_SF_NAME).arg(prefix);
 			s_M3C2Params.stdDevCloud1SF = new ccScalarField(qPrintable(stdDevSFName1));
@@ -1060,19 +1234,35 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		s_M3C2Params.outputCloud->showNormals(true);
 		s_M3C2Params.outputCloud->setVisible(true);
 
+        if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
+        {
+            s_M3C2Params.outputCloud->invalidateBoundingBox(); //see 'const_cast<...>' in ComputeM3C2DistForPoint ;)
+            s_M3C2Params.outputCloud->showNormals(true);
+            s_M3C2Params.outputCloud->setVisible(true);
+        }
+
 		if (s_M3C2Params.outputCloud != cloud1 && s_M3C2Params.outputCloud != cloud2)
 		{
 			s_M3C2Params.outputCloud->setName(outputName);
+            if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
+            {
+                s_M3C2Params.outputCloud2->setName(outputName2);
+            }
 			s_M3C2Params.outputCloud->setDisplay(s_M3C2Params.corePoints->getDisplay());
 			s_M3C2Params.outputCloud->importParametersFrom(s_M3C2Params.corePoints);
 			if (app)
 			{
 				app->addToDB(s_M3C2Params.outputCloud);
+                if (s_M3C2Params.exportOption == qM3C2Dialog::PROJECT_ON_CLOUD1_AND_CLOUD2)
+                {
+                    app->addToDB(s_M3C2Params.outputCloud2);
+                }
 			}
 			else
 			{
 				//command line mode
 				outputCloud = s_M3C2Params.outputCloud;
+                outputCloud2 = s_M3C2Params.outputCloud2;
 			}
 		}
 	}
@@ -1108,6 +1298,11 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	if (s_M3C2Params.densityCloud2SF)
 		s_M3C2Params.densityCloud2SF->release();
 
-	return !error;
+    if (normalScaleSF2)
+        normalScaleSF2->release();
+    if (s_M3C2Params.coreNormals2)
+        s_M3C2Params.coreNormals2->release();
+
+    return !error;
 }
 

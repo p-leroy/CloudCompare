@@ -601,10 +601,49 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="useMedianCheckBox">
-         <property name="text">
-          <string>Use median and interquatile range (instead of mean and std. dev.)</string>
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Distance and uncertainty estimation methods</string>
          </property>
+         <layout class="QGridLayout" name="gridLayout_3">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="useMeanRadioButton">
+            <property name="text">
+             <string>mean | standard deviation</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QRadioButton" name="useMedianRadioButton">
+            <property name="text">
+             <string>median | interquartile range (IQR)</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QRadioButton" name="useMinRadioButton">
+            <property name="text">
+             <string>min | max - min</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QRadioButton" name="usePrctileRadioButton">
+            <property name="text">
+             <string>prctile5% | prctile95% - prctile5%</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
        <item>
@@ -897,13 +936,13 @@ p, li { white-space: pre-wrap; }
          <item>
           <widget class="QComboBox" name="projDestComboBox">
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="maxVisibleItems">
-            <number>3</number>
+            <number>5</number>
            </property>
            <property name="maxCount">
-            <number>3</number>
+            <number>5</number>
            </property>
            <item>
             <property name="text">
@@ -918,6 +957,16 @@ p, li { white-space: pre-wrap; }
            <item>
             <property name="text">
              <string>Keep original positions</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cloud #1 and #2</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cloud #2 with normals of cloud #2</string>
             </property>
            </item>
           </widget>
@@ -1049,7 +1098,6 @@ p, li { white-space: pre-wrap; }
   <tabstop>normOriUseCloudRadioButton</tabstop>
   <tabstop>normOriCloudComboBox</tabstop>
   <tabstop>useSinglePass4DepthCheckBox</tabstop>
-  <tabstop>useMedianCheckBox</tabstop>
   <tabstop>useMinPoints4StatCheckBox</tabstop>
   <tabstop>minPoints4StatSpinBox</tabstop>
   <tabstop>projDestComboBox</tabstop>
@@ -1188,22 +1236,6 @@ p, li { white-space: pre-wrap; }
     <hint type="destinationlabel">
      <x>263</x>
      <y>308</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>precisionMapsGroupBox</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>useMedianCheckBox</receiver>
-   <slot>setDisabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>282</x>
-     <y>248</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>282</x>
-     <y>150</y>
     </hint>
    </hints>
   </connection>
