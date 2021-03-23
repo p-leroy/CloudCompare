@@ -98,6 +98,7 @@ struct AsciiOpenContext
 	bool applyAll;
 	bool commaDecimal;
 };
+
 //! Semi-persistent loading context
 static AsciiOpenContext s_asciiOpenContext;
 
@@ -139,10 +140,15 @@ AsciiOpenDlg::~AsciiOpenDlg()
 	m_ui = nullptr;
 }
 
-void AsciiOpenDlg::setFilename(const QString &filename)
+void AsciiOpenDlg::setInput(const QString &filename, QTextStream* stream/*=nullptr*/)
 {
 	m_filename = filename;
+	m_stream = stream;
+
+	// update title
 	m_ui->lineEditFileName->setText(m_filename);
+
+	updateTable();
 
 	autoFindBestSeparator();
 }
@@ -284,28 +290,35 @@ void AsciiOpenDlg::updateTable()
 	bool hadValidHeader = !m_headerLine.isEmpty();
 	m_headerLine.clear();
 
-	if (m_filename.isEmpty())
+	if (m_filename.isEmpty() && m_stream == nullptr)
 	{
 		m_ui->tableWidget->clear();
 		m_ui->extractSFNamesFrom1stLineCheckBox->setEnabled(false);
 		return;
 	}
-	//we open the file in ASCII mode
-	QFile file(m_filename);
-	if (!file.open(QFile::ReadOnly))
+
+	//open the file
+	QFile file;
+	if (nullptr == m_stream)
 	{
-		m_ui->tableWidget->clear();
-		m_columnType.clear();
-		m_ui->extractSFNamesFrom1stLineCheckBox->setEnabled(false);
-		return;
+		file.setFileName(m_filename);
+		if (!file.open(QFile::ReadOnly))
+		{
+			m_ui->tableWidget->clear();
+			m_columnType.clear();
+			m_ui->extractSFNamesFrom1stLineCheckBox->setEnabled(false);
+			return;
+		}
+		m_stream = new QTextStream(&file);
 	}
-	QTextStream stream(&file);
+	assert(m_stream);
+	m_stream->seek(0);
 
 	//we skip first lines (if needed)
 	{
 		for (unsigned i = 0; i < m_skippedLines;)
 		{
-			QString currentLine = stream.readLine();
+			QString currentLine = m_stream->readLine();
 			if (currentLine.isNull())
 			{
 				//end of file reached
@@ -349,7 +362,7 @@ void AsciiOpenDlg::updateTable()
 	QChar decimalPoint = commaAsDecimal ? ',' : '.';
 	while (lineCount < LINES_READ_FOR_STATS)
 	{
-		QString currentLine = stream.readLine();
+		QString currentLine = m_stream->readLine();
 		if (currentLine.isNull())
 		{
 			//end of file reached
@@ -429,7 +442,7 @@ void AsciiOpenDlg::updateTable()
 							valueIsInteger[i]  = true;
 							valueIsBelow255[i] = true;
 						}
-						valueIsBelowOne[i] = valueIsBelowOne[i] && (fabs(value) <= 1.0);
+						valueIsBelowOne[i] = valueIsBelowOne[i] && (std::abs(value) <= 1.0);
 						valueIsInteger[i] = valueIsInteger[i] && !parts[i].contains(decimalPoint);
 						valueIsBelow255[i] = valueIsBelow255[i] && valueIsInteger[i] && (value >= 0.0 && value <= 255.0);
 					}

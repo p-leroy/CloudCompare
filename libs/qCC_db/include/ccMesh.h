@@ -129,6 +129,11 @@ public:
 	bool normalsShown() const override;
 	void toggleMaterials() override { showMaterials(!materialsShown()); }
 
+	//! Inverts normals (if any)
+	/** Either the per-triangle normals, or the per-vertex ones
+	**/
+	void invertNormals();
+
 	//! Shifts all triangles indexes
 	/** \param shift index shift (positive)
 	**/
@@ -222,6 +227,9 @@ public:
 
 	//! Removes any per-triangle triplets of normal indexes
 	void removePerTriangleNormalIndexes();
+
+	//! Invert per-triangle normals
+	void invertPerTriangleNormals();
 
 	/********************************************************/
 	/************    PER-TRIANGLE MATERIAL    ***************/
@@ -387,6 +395,12 @@ public:
 
 	//! Transforms the mesh per-triangle normals
 	void transformTriNormals(const ccGLMatrix& trans);
+
+	//! Default octree level for the 'mergeDuplicatedVertices' algorithm
+	static const unsigned char DefaultMergeDulicateVerticesLevel = 10;
+
+	//! Merges duplicated vertices
+	bool mergeDuplicatedVertices(unsigned char octreeLevel = DefaultMergeDulicateVerticesLevel, QWidget* parentWidget = nullptr);
 
 protected: //methods
 

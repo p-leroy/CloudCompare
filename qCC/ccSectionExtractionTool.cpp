@@ -653,8 +653,8 @@ bool ccSectionExtractionTool::addCloud(ccGenericPointCloud* inputCloud, bool alr
 		//test (on the first cloud) that the global shift & scale info is the same
 		if (!s_mixedShiftAndScaleInfo && it == m_clouds.begin())
 		{
-			if (cloud.entity->getGlobalScale() != inputCloud->getGlobalScale()
-				|| CCCoreLib::LessThanEpsilon( (cloud.entity->getGlobalShift() - inputCloud->getGlobalShift()).norm() ))
+			if (	cloud.entity->getGlobalScale() != inputCloud->getGlobalScale()
+				||	CCCoreLib::LessThanEpsilon((cloud.entity->getGlobalShift() - inputCloud->getGlobalShift()).norm()))
 			{
 				ccLog::Warning("[ccSectionExtractionTool] Clouds have different shift & scale information! Only the first one will be used");
 				s_mixedShiftAndScaleInfo = true;
@@ -687,7 +687,7 @@ void ccSectionExtractionTool::updatePolyLine(int x, int y, Qt::MouseButtons butt
 	if ((m_state & RUNNING) == 0)
 		return;
 
-	if (!m_editedPoly)
+	if (!m_editedPolyVertices)
 		return;
 
 	unsigned vertCount = m_editedPolyVertices->size();
@@ -727,13 +727,13 @@ void ccSectionExtractionTool::addPointToPolyline(int x, int y)
 		m_editedPoly->setColor(s_defaultEditedPolylineColor);
 		m_editedPoly->showColors(true);
 		m_editedPoly->set2DMode(true);
+		m_editedPoly->addChild(m_editedPolyVertices); //make sure the polyline is a parent of the polyline before copying the Global Shift & Scale info!
 		//copy (first) cloud shift & scale info!
 		if (!m_clouds.empty() && m_clouds.front().entity)
 		{
 			ccGenericPointCloud* cloud = m_clouds.front().entity;
 			m_editedPoly->copyGlobalShiftAndScale(*cloud);
 		}
-		m_editedPoly->addChild(m_editedPolyVertices);
 		m_associatedWin->addToOwnDB(m_editedPoly);
 	}
 
@@ -1841,7 +1841,7 @@ void ccSectionExtractionTool::extractPoints()
 						seg2D.s = s;
 						s += seg2D.lAB;
 
-						if ( CCCoreLib::LessThanEpsilon( seg2D.lAB ) )
+						if (CCCoreLib::LessThanEpsilon(seg2D.lAB))
 						{
 							//ignore too small segments
 							continue;

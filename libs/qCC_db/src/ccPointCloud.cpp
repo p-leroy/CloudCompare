@@ -72,7 +72,7 @@ ccPointCloud::ccPointCloud(QString name/*=QString()*/, unsigned uniqueID/*=ccUni
 	showSF(false);
 }
 
-ccPointCloud* ccPointCloud::From(CCCoreLib::GenericCloud* cloud, const ccGenericPointCloud* sourceCloud/*=0*/)
+ccPointCloud* ccPointCloud::From(CCCoreLib::GenericCloud* cloud, const ccGenericPointCloud* sourceCloud/*=nullptr*/)
 {
 	ccPointCloud* pc = new ccPointCloud("Cloud");
 
@@ -1781,7 +1781,7 @@ bool ccPointCloud::setRGBColorByHeight(unsigned char heightDim, ccColorScale::Sh
 
 	double minHeight = getOwnBB().minCorner().u[heightDim];
 	double height = getOwnBB().getDiagVec().u[heightDim];
-	if ( CCCoreLib::LessThanEpsilon( fabs(height) ) ) //flat cloud!
+	if (CCCoreLib::LessThanEpsilon(std::abs(height))) //flat cloud!
 	{
 		const ccColor::Rgb& col = colorScale->getColorByIndex(0);
 		return setColor(col);
@@ -1931,7 +1931,7 @@ void ccPointCloud::applyRigidTransformation(const ccGLMatrix& trans)
 
 void ccPointCloud::translate(const CCVector3& T)
 {
-	if ( CCCoreLib::LessThanEpsilon( fabs(T.x) + fabs(T.y) + fabs(T.z) ) )
+	if (CCCoreLib::LessThanEpsilon(std::abs(T.x) + std::abs(T.y) + std::abs(T.z)))
 		return;
 
 	unsigned count = size();
@@ -2159,7 +2159,7 @@ inline float GetSymmetricalNormalizedValue(const ScalarType& sfVal, const ccScal
 {
 	//normalized sf value
 	ScalarType relativeValue = 0;
-	if (fabs(sfVal) > saturationRange.start()) //we avoid the 'flat' SF case by the way
+	if (std::abs(sfVal) > saturationRange.start()) //we avoid the 'flat' SF case by the way
 	{
 		if (sfVal < 0)
 			relativeValue = (sfVal+saturationRange.start())/saturationRange.max();
@@ -3493,9 +3493,9 @@ bool ccPointCloud::interpolateColorsFrom(	ccGenericPointCloud* otherCloud,
 
 	CCVector3 dimSum = box.getDiagVec() + otherBox.getDiagVec();
 	CCVector3 dist = box.getCenter() - otherBox.getCenter();
-	if (	fabs(dist.x) > dimSum.x / 2
-		||	fabs(dist.y) > dimSum.y / 2
-		||	fabs(dist.z) > dimSum.z / 2)
+	if (	std::abs(dist.x) > dimSum.x / 2
+		||	std::abs(dist.y) > dimSum.y / 2
+		||	std::abs(dist.z) > dimSum.z / 2)
 	{
 		ccLog::Warning("[ccPointCloud::interpolateColorsFrom] Clouds are too far from each other! Can't proceed.");
 		return false;
@@ -3986,9 +3986,9 @@ ccPointCloud* ccPointCloud::unroll(	UnrollMode mode,
 //		progressCb->start();
 //	}
 //
-//	PointCoordinateType tan_alpha = static_cast<PointCoordinateType>(tan(alpha_deg*CCCoreLib::DEG_TO_RAD));
-//	PointCoordinateType cos_alpha = static_cast<PointCoordinateType>(cos(alpha_deg*CCCoreLib::DEG_TO_RAD));
-//	PointCoordinateType sin_alpha = static_cast<PointCoordinateType>(sin(alpha_deg*CCCoreLib::DEG_TO_RAD));
+//	PointCoordinateType tan_alpha = static_cast<PointCoordinateType>(tan(CCCoreLib::DegreesToRadians(alpha_deg)));
+//	PointCoordinateType cos_alpha = static_cast<PointCoordinateType>(cos(CCCoreLib::DegreesToRadians(alpha_deg)));
+//	PointCoordinateType sin_alpha = static_cast<PointCoordinateType>(sin(CCCoreLib::DegreesToRadians(alpha_deg)));
 //
 //	for (unsigned i = 0; i < numberOfPoints; i++)
 //	{
@@ -4853,7 +4853,7 @@ bool ccPointCloud::updateVBOs(const CC_DRAW_CONTEXT& context, const glDrawParams
 
 	//init VBOs
 	unsigned pointsInVBOs = 0;
-	int totalSizeBytesBefore = m_vboManager.totalMemSizeBytes;
+	size_t totalSizeBytesBefore = m_vboManager.totalMemSizeBytes;
 	m_vboManager.totalMemSizeBytes = 0;
 	{
 		//DGM: the context should be already active as this method should only be called from 'drawMeOnly'
@@ -4970,7 +4970,7 @@ bool ccPointCloud::updateVBOs(const CC_DRAW_CONTEXT& context, const glDrawParams
 				}
 				else
 				{
-					m_vboManager.totalMemSizeBytes += vboSizeBytes;
+					m_vboManager.totalMemSizeBytes += static_cast<size_t>(vboSizeBytes);
 					pointsInVBOs += chunkSize;
 				}
 			}
@@ -5079,6 +5079,11 @@ int ccPointCloud::VBO::init(int count, bool withColors, bool withNormals, bool* 
 	return totalSizeBytes;
 }
 
+size_t ccPointCloud::vboSize() const
+{
+	return m_vboManager.totalMemSizeBytes;
+}
+
 void ccPointCloud::releaseVBOs()
 {
 	if (m_vboManager.state == vboSet::NEW)
@@ -5168,7 +5173,7 @@ bool ccPointCloud::computeNormalsWithGrids(	double minTriangleAngle_deg/*=1.0*/,
 	}
 
 	PointCoordinateType minAngleCos = static_cast<PointCoordinateType>(cos( CCCoreLib::DegreesToRadians( minTriangleAngle_deg ) ));
-	//double minTriangleAngle_rad = minTriangleAngle_deg *CCCoreLib::CCCoreLib::DEG_TO_RAD;
+	//double minTriangleAngle_rad = CCCoreLib::DegreesToRadians(minTriangleAngle_deg);
 
 	//for each grid cell
 	for (size_t gi = 0; gi < gridCount(); ++gi)
@@ -5750,7 +5755,7 @@ ccMesh* ccPointCloud::triangulateGrid(const Grid& grid, double minTriangleAngle_
 	}
 
 	PointCoordinateType minAngleCos = static_cast<PointCoordinateType>(cos( CCCoreLib::DegreesToRadians( minTriangleAngle_deg ) ));
-	//double minTriangleAngle_rad = minTriangleAngle_deg *CCCoreLib::CCCoreLib::DEG_TO_RAD;
+	//double minTriangleAngle_rad = CCCoreLib::DegreesToRadians(minTriangleAngle_deg);
 	
 	for (int j = 0; j < static_cast<int>(grid.h) - 1; ++j)
 	{

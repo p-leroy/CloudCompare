@@ -565,6 +565,16 @@ ccGLWindow::~ccGLWindow()
 
 #ifdef CC_GL_WINDOW_USE_QWINDOW
 
+void ccGLWindow::grabMouse()
+{
+	setMouseGrabEnabled(true);
+}
+
+void ccGLWindow::releaseMouse()
+{
+	setMouseGrabEnabled(false);
+}
+
 void ccGLWindow::setParentWidget(QWidget* widget)
 {
 	m_parentWidget = widget;
@@ -1577,6 +1587,11 @@ void ccGLWindow::paintGL()
 	glFunc->glViewport(m_glViewport.x(), m_glViewport.y(), m_glViewport.width(), m_glViewport.height());
 #endif
 
+//#define DEBUG_TIMINGS
+#ifdef DEBUG_TIMINGS
+	std::vector<qint64> debugTimings;
+	debugTimings.push_back(m_timer.nsecsElapsed());
+#endif
 	qint64 startTime_ms = m_currentLODState.inProgress ? m_timer.elapsed() : 0;
 
 	//reset the texture pool index
@@ -1639,10 +1654,17 @@ void ccGLWindow::paintGL()
 		}
 	}
 
+#ifdef DEBUG_TIMINGS
+	debugTimings.push_back(m_timer.nsecsElapsed());
+#endif
+
 	//start the rendering passes
 	for (renderingParams.passIndex = 0; renderingParams.passIndex < renderingParams.passCount; ++renderingParams.passIndex)
 	{
 		fullRenderingPass(CONTEXT, renderingParams);
+#ifdef DEBUG_TIMINGS
+		debugTimings.push_back(m_timer.nsecsElapsed());
+#endif
 	}
 
 #ifdef CC_GL_WINDOW_USE_QWINDOW
@@ -1677,6 +1699,9 @@ void ccGLWindow::paintGL()
 		}
 		setPivotPoint(pivot, true, false);
 	}
+#ifdef DEBUG_TIMINGS
+	debugTimings.push_back(m_timer.nsecsElapsed());
+#endif
 
 	if (renderingParams.nextLODState.inProgress)
 	{
@@ -1735,6 +1760,17 @@ void ccGLWindow::paintGL()
 			m_LODPendingRefresh = false;
 		}
 	}
+#ifdef DEBUG_TIMINGS
+	debugTimings.push_back(m_timer.nsecsElapsed());
+
+	QString debugTimingsMessage;
+	for (size_t i = 1; i < debugTimings.size(); ++i)
+	{
+		debugTimingsMessage += QString("[DT%1 = %2]").arg(i).arg((debugTimings[i]- debugTimings[i - 1])/1000);
+	}
+	debugTimingsMessage += QString("[DT TOTAL = %2]").arg((debugTimings.back() - debugTimings.front()) / 1000);
+	ccLog::Print(debugTimingsMessage);
+#endif
 }
 
 void ccGLWindow::renderNextLODLevel()
@@ -2843,12 +2879,11 @@ void ccGLWindow::updateConstellationCenterAndZoom(const ccBBox* boundingBox/*=nu
 	}
 
 	//we compute the bounding-box diagonal length
-	double bbDiag = static_cast<double>(zoomedBox.getDiagNorm());
-
-	if ( CCCoreLib::LessThanEpsilon( bbDiag ) )
+	double bbDiag = zoomedBox.getDiagNorm();
+	if (CCCoreLib::LessThanEpsilon(bbDiag))
 	{
-		ccLog::Warning("[ccGLWindow] Entity/DB has a null bounding-box! Can't zoom in...");
-		return;
+		ccLog::Warning("[ccGLWindow] Entity/DB has a null bounding-box!");
+		bbDiag = 1.0;
 	}
 
 	//we set the pivot point on the box center
@@ -3797,6 +3832,27 @@ void ccGLWindow::mouseDoubleClickEvent(QMouseEvent *event)
 
 void ccGLWindow::mouseMoveEvent(QMouseEvent *event)
 {
+//#define DEBUG_MOUSE_MOVE_FREQ
+#ifdef DEBUG_MOUSE_MOVE_FREQ
+	static QElapsedTimer s_timer;
+	static size_t s_counter = 0;
+	if (s_counter == 0)
+	{
+		s_timer.start();
+	}
+	else
+	{
+		qint64 elapsed_ms = s_timer.elapsed();
+		if (elapsed_ms >= 1000)
+		{
+			ccLog::Print("mouseMoveEvent frequency: " + QString::number(s_counter / (elapsed_ms / 1000.0), 'f', 2) + QString(" Hz (mouse tracking: %1)").arg(hasMouseTracking() ? "ON" : "OFF"));
+			s_timer.restart();
+			s_counter = 0;
+		}
+	}
+	++s_counter;
+#endif
+
 	const int x = event->x();
 	const int y = event->y();
 
@@ -4370,7 +4426,11 @@ void ccGLWindow::mouseReleaseEvent(QMouseEvent *event)
 				if (!processClickableItems(x, y))
 				{
 					m_lastMousePos = event->pos(); //just in case (it should be already at this position)
-					m_deferredPickingTimer.start();
+					const ccGui::ParamStruct& displayParams = getDisplayParameters();
+					if (displayParams.singleClickPicking)
+					{
+						m_deferredPickingTimer.start();
+					}
 					//doPicking();
 				}
 			}
@@ -5038,8 +5098,8 @@ void ccGLWindow::startCPUBasedPointPicking(const PickingParameters& params)
 						}
 					}
 				}
-				else if (	ent->isKindOf(CC_TYPES::MESH)
-						&&	!ent->isA(CC_TYPES::MESH_GROUP)) //we don't need to process mesh groups as their children will be processed later
+				else if (ent->isKindOf(CC_TYPES::MESH)
+					&& !ent->isA(CC_TYPES::MESH_GROUP)) //we don't need to process mesh groups as their children will be processed later
 				{
 					ignoreSubmeshes = true;
 
@@ -5054,12 +5114,12 @@ void ccGLWindow::startCPUBasedPointPicking(const PickingParameters& params)
 					double nearestSquareDist = 0.0;
 					CCVector3d P;
 					CCVector3d barycentricCoords;
-					if (mesh->trianglePicking(	clickedPos,
-												camera,
-												nearestTriIndex,
-												nearestSquareDist,
-												P,
-												&barycentricCoords))
+					if (mesh->trianglePicking(clickedPos,
+						camera,
+						nearestTriIndex,
+						nearestSquareDist,
+						P,
+						&barycentricCoords))
 					{
 						if (nearestElementIndex < 0 || (nearestTriIndex >= 0 && nearestSquareDist < nearestElementSquareDist))
 						{
@@ -5068,6 +5128,28 @@ void ccGLWindow::startCPUBasedPointPicking(const PickingParameters& params)
 							nearestPoint = CCVector3::fromArray(P.u);
 							nearestEntity = mesh;
 							nearestPointBC = barycentricCoords;
+						}
+					}
+				}
+				else if (ent->isA(CC_TYPES::LABEL_2D))
+				{
+					cc2DLabel* label = static_cast<cc2DLabel*>(ent);
+
+					int nearestPointIndex = -1;
+					double nearestSquareDist = 0.0;
+
+					if (label->pointPicking(clickedPos,
+											camera,
+											nearestPointIndex,
+											nearestSquareDist))
+					{
+						if (nearestElementIndex < 0 || (nearestPointIndex >= 0 && nearestSquareDist < nearestElementSquareDist))
+						{
+							nearestElementSquareDist = nearestSquareDist;
+							assert(nearestPointIndex < static_cast<int>(label->size()));
+							nearestElementIndex = nearestPointIndex;
+							nearestPoint = label->getPickedPoint(nearestPointIndex).getPointPosition();
+							nearestEntity = label;
 						}
 					}
 				}
@@ -5643,7 +5725,7 @@ void ccGLWindow::setGLCameraAspectRatio(float ar)
 
 void ccGLWindow::setFov(float fov_deg)
 {
-	if ( CCCoreLib::LessThanEpsilon( fov_deg ) || (fov_deg > 180.0f))
+	if (CCCoreLib::LessThanEpsilon(fov_deg) || (fov_deg > 180.0f))
 	{
 		ccLog::Warning("[ccGLWindow::setFov] Invalid FOV value!");
 		return;
@@ -5685,7 +5767,7 @@ float ccGLWindow::getFov() const
 
 void ccGLWindow::setBubbleViewFov(float fov_deg)
 {
-	if ( CCCoreLib::LessThanEpsilon( fov_deg ) || (fov_deg > 180.0f))
+	if (CCCoreLib::LessThanEpsilon(fov_deg) || (fov_deg > 180.0f))
 	{
 		return;
 	}

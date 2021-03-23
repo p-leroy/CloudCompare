@@ -150,7 +150,7 @@ CC_FILE_ERROR ObjFilter::saveToFile(ccHObject* entity, const QString& filename, 
 			//reset save dialog
 			unsigned numTriangleNormals = normsTable->currentSize();
 			if (pDlg)
-				pDlg->setInfo(QObject::tr("Writing $1 triangle normals").arg(numTriangleNormals));
+				pDlg->setInfo(QObject::tr("Writing %1 triangle normals").arg(numTriangleNormals));
 			nprogress.scale(numTriangleNormals);
 			nprogress.reset();
 
@@ -715,7 +715,7 @@ CC_FILE_ERROR ObjFilter::loadFile(const QString& filename, ccHObject& container,
 							static_cast<PointCoordinateType>(tokens[2].toDouble()),
 							static_cast<PointCoordinateType>(tokens[3].toDouble()));
 
-				if (fabs(N.norm2() - 1.0) > 0.005)
+				if (std::abs(N.norm2d() - 1.0) > 0.005)
 				{
 					objWarnings[INVALID_NORMALS] = true;
 					N.normalize();

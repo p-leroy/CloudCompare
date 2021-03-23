@@ -3,9 +3,23 @@ CloudCompare Version History
 
 v2.12 (???) - (in development)
 ----------------------
+- New tools:
+	- Menu 'Edit > Cloud'
+		-  'Edit > Cloud > Create single point cloud': to create a cloud with a single point (set by the user)
+		-  'Edit > Cloud > Paste from clipboard' (shortcut: CTRL+P): to create a cloud from ASCII/test data stored in the clipboard
+
 - Improvements
+    - RANSAC plugin
+        - Can save all leftover points into a new cloud (leftovers were points not assigned to a shape)
+        - Can select whether to use Least Squares fitting on found shapes (some shapes take a very long time to process this step specifically Cones)
+        - Can select whether to attemt to simplify shapes (torus->cone/cylinder/sphere/planes cone->cylinder/sphere/plane  cylinder->sphere/plane, sphere->plane)
+        - Can choose whether or not to have a random color assigned to each shape found.
+        - Ability to select min and max radii for various shapes (helps prevent giant spheres and cylinders from beating out the more likely plane feature)
+    - Single Click Picking option added to display options menu
+      - Single click picking can be disabled (can be very slow for very large point clouds) 
     - CommandLine mode new features
       - Added N_SIGMA_MIN and N_SIGMA_MAX options to the FILTER_SF command. Specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
+
 	- Clipping box tool:
 		- former 'contours' renamed 'envelopes' for the sake of clarity
 		- ability to extract the real contours of the points inside each slice (single slice mode or 'repeat' mode)
@@ -20,6 +34,8 @@ v2.12 (???) - (in development)
 	- Localization:
 		- Korean is now supported (thanks to Yun-Ho Chung)
 		- Russian translation has been updated (thanks to Gene Kalabin)
+		- Chinese is now supported (thanks to https://github.com/jindili)
+	- The option 'Edit > Normals > Invert' can now be used on meshes
 	- qCSF:
 		- added support for command line mode with all available options, except cloth export
 		- use -CSF to run the plugin with the next optional settings:
@@ -36,17 +52,32 @@ v2.12 (???) - (in development)
 				The former '-OUTPUT_RASTER_Z' option will only export the altitudes as its name implies.
 		- New sub-option for the RANSAC plugin command line option (-RANSAC)
 			- OUT_RANDOM_COLOR = generate random colors for the output clouds (false by default now)
-
+        - New sub-option for the FILTER_SF command:
+			- N_SIGMA_MIN and N_SIGMA_MAX: specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
+		- new option '-INVERT_NORMALS':
+			- Inverts the normals of the loaded entities (cloud or mesh, and per-triangle or per-vertex for meshes)
+		- new option '-RENAME_SF' ({scalar field index} {name}):
+			- To rename a scalar field
 	- STL:
 		- loading speed should be greatly improved (compared to v2.10 and v2.11)
 	- Global Shift & Scale:
 		- the qRansacSD plugin can now transfer the Global Shift & Scale info to the created primitives
 		- The fit functions (Fit shpere, Fit plane, Fit facet and Fit quadric) as well
+	- Align tool (Point-pair based registration):
+		- labels associated to a point cloud will now remain visible and the user can pick them
+		- the tool will display the corresponding label title in the registration summary tables
+	- 2.5D Volume calculation tool
+		- the tool now preserves the Global Shift when exporting the difference map/cloud
+	- LAS files:
+	    - the Global Shift, if defined, will now be used as LAS offset if no offset was previously set
+		- the PDAL LAS I/O filter and the libLAS I/O filter should now both handle LAS offset
+		  and scale the same way at export time.
 
 - New plugins
 	- MPlane: perform normal distance measurements against a defined plane (see https://www.cloudcompare.org/doc/wiki/index.php?title=MPlane_(plugin) )
 	- Colorimetric Segmenter: color-based segmentation of point clouds (see https://gitlab.univ-nantes.fr/E164955Z/ptrans)
 	- Masonry Segmentation: segmentation of dense point clouds of masonry structures into their individual stones (see: https://github.com/CyberbuildLab/masonry-cc)
+	- STEP I/O filter: to load STEP files (as a single mesh for now) (thanks to Raphael Marc, EDF R&D)
 
 - Bug fixes
 	- qBroom: the broom was not working properly on a non horizontal surface!
@@ -60,6 +91,12 @@ v2.12 (???) - (in development)
 	- E57:  "invalid data" flags were wrongly interpreted
 	- The 'Clean > Noise' tool was mixing the number of neighbors (knn) and the 'kernel radius' parameters
 	- PLY filter was exporting large coordinates with a limited accuracy when creating ASCII files
+	- the 'flip normals' checkbox of the C2M comparison dialog was not accessible anymore
+	- minimal LAS scale suggested by CC was sometimes too small, potentially triggering a PDAL exception.
+	- When loading raster files, GDAL can sometimes report wrong min and max altitudes. This would then let CC think that invalid pixels are
+		present. And when telling CC to keep these invalid points, the altitude was actually already replaced by a strange one...
+	- CloudCompare was reporting truncated (integer) dip and dip direction values instead of rounded values
+	- the SHP I/O filter was writing the local bounding-box in the file header instead of the global one (if the saved entities were shifted)
 
 
 v2.11.3 (Anoia) - 08/09/2020

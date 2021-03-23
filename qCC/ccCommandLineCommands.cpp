@@ -94,6 +94,7 @@ constexpr char COMMAND_DELAUNAY_BF[]					= "BEST_FIT";
 constexpr char COMMAND_DELAUNAY_MAX_EDGE_LENGTH[]		= "MAX_EDGE_LENGTH";
 constexpr char COMMAND_SF_ARITHMETIC[]					= "SF_ARITHMETIC";
 constexpr char COMMAND_SF_OP[]							= "SF_OP";
+constexpr char COMMAND_RENAME_SF[]						= "RENAME_SF";
 constexpr char COMMAND_COORD_TO_SF[]					= "COORD_TO_SF";
 constexpr char COMMAND_EXTRACT_VERTICES[]				= "EXTRACT_VERTICES";
 constexpr char COMMAND_ICP[]							= "ICP";
@@ -109,6 +110,7 @@ constexpr char COMMAND_ICP_USE_DATA_SF_AS_WEIGHT[]		= "DATA_SF_AS_WEIGHTS";
 constexpr char COMMAND_ICP_ROT[]						= "ROT";
 constexpr char COMMAND_PLY_EXPORT_FORMAT[]				= "PLY_EXPORT_FMT";
 constexpr char COMMAND_COMPUTE_GRIDDED_NORMALS[]		= "COMPUTE_NORMALS";
+constexpr char COMMAND_INVERT_NORMALS[]					= "INVERT_NORMALS";
 constexpr char COMMAND_COMPUTE_OCTREE_NORMALS[]			= "OCTREE_NORMALS";
 constexpr char COMMAND_CONVERT_NORMALS_TO_DIP[]			= "NORMALS_TO_DIP";
 constexpr char COMMAND_CONVERT_NORMALS_TO_SFS[]			= "NORMALS_TO_SFS";
@@ -199,14 +201,12 @@ bool CommandChangeCloudOutputFormat::process(ccCommandLineInterface &cmd)
 	//default options for ASCII output
 	if (fileFilter == AsciiFilter::GetFileFilter())
 	{
-		AsciiSaveDlg* saveDialog = AsciiFilter::GetSaveDialog();
-		assert(saveDialog);
-		saveDialog->setCoordsPrecision(cmd.numericalPrecision());
-		saveDialog->setSfPrecision(cmd.numericalPrecision());
-		saveDialog->setSeparatorIndex(0); //space
-		saveDialog->enableSwapColorAndSF(false); //default order: point, color, SF, normal
-		saveDialog->enableSaveColumnsNamesHeader(false);
-		saveDialog->enableSavePointCountHeader(false);
+		AsciiFilter::SetOutputCoordsPrecision(cmd.numericalPrecision());
+		AsciiFilter::SetOutputSFPrecision(cmd.numericalPrecision());
+		AsciiFilter::SetOutputSeparatorIndex(0); //space
+		AsciiFilter::SaveSFBeforeColor(false); //default order: point, color, SF, normal
+		AsciiFilter::SaveColumnsNamesHeader(false);
+		AsciiFilter::SavePointCountHeader(false);
 	}
 	
 	//look for additional parameters
@@ -247,13 +247,8 @@ bool CommandChangeCloudOutputFormat::process(ccCommandLineInterface &cmd)
 				cmd.warning(QObject::tr("Argument '%1' is only applicable to ASCII format!").arg(argument));
 			}
 			
-			AsciiSaveDlg* saveDialog = AsciiFilter::GetSaveDialog();
-			assert(saveDialog);
-			if (saveDialog)
-			{
-				saveDialog->setCoordsPrecision(precision);
-				saveDialog->setSfPrecision(precision);
-			}
+			AsciiFilter::SetOutputCoordsPrecision(precision);
+			AsciiFilter::SetOutputSFPrecision(precision);
 		}
 		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ASCII_EXPORT_SEPARATOR))
 		{
@@ -294,12 +289,7 @@ bool CommandChangeCloudOutputFormat::process(ccCommandLineInterface &cmd)
 				return cmd.error(QObject::tr("Invalid separator! ('%1')").arg(separatorStr));
 			}
 			
-			AsciiSaveDlg* saveDialog = AsciiFilter::GetSaveDialog();
-			assert(saveDialog);
-			if (saveDialog)
-			{
-				saveDialog->setSeparatorIndex(index);
-			}
+			AsciiFilter::SetOutputSeparatorIndex(index);
 		}
 		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ASCII_EXPORT_ADD_COL_HEADER))
 		{
@@ -311,12 +301,7 @@ bool CommandChangeCloudOutputFormat::process(ccCommandLineInterface &cmd)
 				cmd.warning(QObject::tr("Argument '%1' is only applicable to ASCII format!").arg(argument));
 			}
 			
-			AsciiSaveDlg* saveDialog = AsciiFilter::GetSaveDialog();
-			assert(saveDialog);
-			if (saveDialog)
-			{
-				saveDialog->enableSaveColumnsNamesHeader(true);
-			}
+			AsciiFilter::SaveColumnsNamesHeader(true);
 		}
 		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ASCII_EXPORT_ADD_PTS_COUNT))
 		{
@@ -328,12 +313,7 @@ bool CommandChangeCloudOutputFormat::process(ccCommandLineInterface &cmd)
 				cmd.warning(QObject::tr("Argument '%1' is only applicable to ASCII format!").arg(argument));
 			}
 			
-			AsciiSaveDlg* saveDialog = AsciiFilter::GetSaveDialog();
-			assert(saveDialog);
-			if (saveDialog)
-			{
-				saveDialog->enableSavePointCountHeader(true);
-			}
+			AsciiFilter::SavePointCountHeader(true);
 		}
 		else
 		{
@@ -486,11 +466,9 @@ bool CommandLoad::process(ccCommandLineInterface &cmd)
 		}
 	}
 	
-	if (skipLines > 0)
+	if (skipLines >= 0)
 	{
-		AsciiOpenDlg* openDialog = AsciiFilter::GetOpenDialog();
-		assert(openDialog);
-		openDialog->setSkippedLines(skipLines);
+		AsciiFilter::SetDefaultSkippedLineCount(skipLines);
 	}
 	
 	//open specified file
@@ -560,6 +538,70 @@ bool CommandClearNormals::process(ccCommandLineInterface &cmd)
 	return true;
 }
 
+CommandInvertNormal::CommandInvertNormal()
+	: ccCommandLineInterface::Command(QObject::tr("Invert normals"), COMMAND_INVERT_NORMALS)
+{}
+
+bool CommandInvertNormal::process(ccCommandLineInterface &cmd)
+{
+	cmd.print(QObject::tr("[INVERT NORMALS]"));
+
+	if (cmd.clouds().empty() && cmd.meshes().empty())
+	{
+		return cmd.error(QObject::tr("No input point cloud or mesh (be sure to open one with \"-%1 [cloud filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_INVERT_NORMALS));
+	}
+
+	for (CLCloudDesc& thisCloudDesc : cmd.clouds())
+	{
+		ccPointCloud* cloud = thisCloudDesc.pc;
+
+		if (!cloud->hasNormals())
+		{
+			cmd.warning(QObject::tr("Cloud %1 has no normals").arg(cloud->getName()));
+			continue;
+		}
+
+		cloud->invertNormals();
+
+		if (cmd.autoSaveMode())
+		{
+			QString errorStr = cmd.exportEntity(thisCloudDesc, "_INVERTED_NORMALS");
+			if (!errorStr.isEmpty())
+			{
+				return cmd.error(errorStr);
+			}
+		}
+	}
+
+	for (CLMeshDesc& thisMeshDesc : cmd.meshes())
+	{
+		ccMesh* mesh = ccHObjectCaster::ToMesh(thisMeshDesc.mesh);
+		if (!mesh)
+		{
+			assert(false);
+			continue;
+		}
+
+		if (!mesh->hasNormals())
+		{
+			cmd.warning(QObject::tr("Mesh %1 has no normals").arg(mesh->getName()));
+			continue;
+		}
+
+		mesh->invertNormals();
+
+		if (cmd.autoSaveMode())
+		{
+			QString errorStr = cmd.exportEntity(thisMeshDesc, "_INVERTED_NORMALS");
+			if (!errorStr.isEmpty())
+			{
+				return cmd.error(errorStr);
+			}
+		}
+	}
+
+	return true;
+}
 CommandOctreeNormal::CommandOctreeNormal()
 	: ccCommandLineInterface::Command(QObject::tr("Compute normals with octree"), COMMAND_COMPUTE_OCTREE_NORMALS)
 {}
@@ -4141,6 +4183,108 @@ bool CommandSFOperation::process(ccCommandLineInterface &cmd)
 		}
 	}
 	
+	return true;
+}
+
+
+CommandSFRename::CommandSFRename()
+	: ccCommandLineInterface::Command(QObject::tr("Rename SF"), COMMAND_RENAME_SF)
+{}
+
+bool CommandSFRename::process(ccCommandLineInterface &cmd)
+{
+	cmd.print(QObject::tr("[RENAME SF]"));
+
+	if (cmd.arguments().size() < 2)
+	{
+		return cmd.error(QObject::tr("Missing parameter(s): SF index and/or scalar field name after '%1' (2 values expected)").arg(COMMAND_RENAME_SF));
+	}
+
+	//read sf index
+	int sfIndex = -1;
+	bool ok = true;
+	QString sfIndexStr = cmd.arguments().takeFirst();
+	if (sfIndexStr.toUpper() == OPTION_LAST)
+	{
+		sfIndex = -2;
+	}
+	else
+	{
+		sfIndex = sfIndexStr.toInt(&ok);
+	}
+
+	if (!ok || sfIndex == -1)
+	{
+		return cmd.error(QObject::tr("Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
+	}
+
+	//read the SF name
+	QString sfName = cmd.arguments().takeFirst();
+
+	//apply operation on clouds
+	for (CLCloudDesc& cloudDesc : cmd.clouds())
+	{
+		ccPointCloud* cloud = cloudDesc.pc;
+		if (cloud && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
+		{
+			int thisSFIndex = (sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex);
+			int indexOfSFWithSameName = cloud->getScalarFieldIndexByName(qPrintable(sfName));
+			if (indexOfSFWithSameName >= 0 && thisSFIndex != indexOfSFWithSameName)
+			{
+				return cmd.error("A SF with the same name is already defined on cloud " + cloud->getName());
+			}
+			CCCoreLib::ScalarField* sf = cloud->getScalarField(thisSFIndex);
+			if (!sf)
+			{
+				assert(false);
+				return cmd.error("Internal error: invalid SF index");
+			}
+			sf->setName(qPrintable(sfName));
+
+			if (cmd.autoSaveMode())
+			{
+				QString errorStr = cmd.exportEntity(cloudDesc, "SF_RENAMED");
+				if (!errorStr.isEmpty())
+				{
+					return cmd.error(errorStr);
+				}
+			}
+		}
+	}
+
+	//and meshes!
+	for (CLMeshDesc& meshDesc : cmd.meshes())
+	{
+		bool isLocked = false;
+		ccGenericMesh* mesh = meshDesc.mesh;
+		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(mesh, &isLocked);
+		if (cloud && !isLocked && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
+		{
+			int thisSFIndex = (sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex);
+			int indexOfSFWithSameName = cloud->getScalarFieldIndexByName(qPrintable(sfName));
+			if (indexOfSFWithSameName >= 0 && thisSFIndex != indexOfSFWithSameName)
+			{
+				return cmd.error("A SF with the same name is already defined on cloud " + cloud->getName());
+			}
+			CCCoreLib::ScalarField* sf = cloud->getScalarField(thisSFIndex);
+			if (!sf)
+			{
+				assert(false);
+				return cmd.error("Internal error: invalid SF index");
+			}
+			sf->setName(qPrintable(sfName));
+
+			if (cmd.autoSaveMode())
+			{
+				QString errorStr = cmd.exportEntity(meshDesc, "SF_RENAMED");
+				if (!errorStr.isEmpty())
+				{
+					return cmd.error(errorStr);
+				}
+			}
+		}
+	}
+
 	return true;
 }
 
