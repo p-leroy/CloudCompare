@@ -75,6 +75,11 @@ public:
 	ExportOptions getExportOption() const;
     qM3C2Tools::DistAndUncerMethod getDistAndUncerMethod() const;
 
+    //! Set export option
+    void setProjDestIndex(ExportOptions);
+    //! Set normal computation mode
+    void setNormalMode(qM3C2Normals::ComputationMode);
+
 	//! Returns whether the original cloud should be kept instead of creating a new output one
 	/** Only valid if the export option is PROJECT_ON_CORE_POINTS.
 	**/
@@ -89,6 +94,8 @@ public:
 	void loadParamsFromPersistentSettings();
 	//! Saves parameters to persistent settings
 	void saveParamsToPersistentSettings();
+    //! Load parameters from a specified QSettings
+    bool loadParamsFromQSettings(const QSettings &settings);
 
     int getRequestedNormMode(void) const;
 
@@ -116,6 +123,9 @@ protected: //methods
 
 	//! Load parameters from QSettings
 	void loadParamsFrom(const QSettings& settings);
+    //! Apply normal mode
+    void applyNormalModeParameter(int normModeInt);
+
 	//! Saves parameters to QSettings
 	void saveParamsTo(QSettings& settings);
 

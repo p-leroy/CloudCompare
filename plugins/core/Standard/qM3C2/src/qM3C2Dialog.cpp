@@ -449,6 +449,16 @@ qM3C2Tools::DistAndUncerMethod qM3C2Dialog::getDistAndUncerMethod() const
     return method;
 }
 
+void qM3C2Dialog::setProjDestIndex(ExportOptions val)
+{
+    projDestComboBox->setCurrentIndex(val);
+}
+
+void qM3C2Dialog::setNormalMode(qM3C2Normals::ComputationMode val)
+{
+    applyNormalModeParameter(val);
+}
+
 void qM3C2Dialog::projDestIndexChanged(int index)
 {
 	useOriginalCloudCheckBox->setEnabled(getExportOption() == PROJECT_ON_CORE_POINTS);
@@ -487,7 +497,7 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	bool normUseCorePoints = settings.value("NormalUseCorePoints", normUseCorePointsCheckBox->isChecked()).toBool();
 	int normPreferredOri = settings.value("NormalPreferedOri", normOriPreferredComboBox->currentIndex()).toInt();
 
-	double seachScale = settings.value("SearchScale", cylDiameterDoubleSpinBox->value()).toDouble();
+    double searchScale = settings.value("SearchScale", cylDiameterDoubleSpinBox->value()).toDouble();
 	double searchDepth = settings.value("SearchDepth", cylHalfHeightDoubleSpinBox->value()).toDouble();
 
 	double subsampleRadius = settings.value("SubsampleRadius", cpSubsamplingDoubleSpinBox->value()).toDouble();
@@ -520,11 +530,56 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 
 	//apply parameters
 	normalScaleDoubleSpinBox->setValue(normalScale);
-	switch(normModeInt)
-	{
-	case qM3C2Normals::USE_CLOUD1_NORMALS:
-	case qM3C2Normals::USE_CORE_POINTS_NORMALS:
-	{
+    applyNormalModeParameter(normModeInt);
+
+	minScaleDoubleSpinBox->setValue(normMinScale);
+	stepScaleDoubleSpinBox->setValue(normStep);
+	maxScaleDoubleSpinBox->setValue(normMaxScale);
+	normUseCorePointsCheckBox->setChecked(normUseCorePoints);
+	normOriPreferredComboBox->setCurrentIndex(normPreferredOri);
+
+    cylDiameterDoubleSpinBox->setValue(searchScale);
+	cylHalfHeightDoubleSpinBox->setValue(searchDepth);
+	
+	cpSubsamplingDoubleSpinBox->setValue(subsampleRadius);
+	if (subsampleEnabled)
+		cpSubsampleRadioButton->setChecked(true);
+	else
+		cpUseCloud1RadioButton->setChecked(true);
+
+	rmsCheckBox->setChecked(registrationErrorEnabled);
+	rmsDoubleSpinBox->setValue(registrationError);
+
+	useSinglePass4DepthCheckBox->setChecked(useSinglePass4Depth);
+	positiveSearchOnlyCheckBox->setChecked(positiveSearchOnly);
+    useMeanRadioButton->setChecked(useMean);
+    useMedianRadioButton->setChecked(useMedian);
+    useMinRadioButton->setChecked(useMin);
+    usePrctileRadioButton->setChecked(usePrctile);
+	
+	useMinPoints4StatCheckBox->setChecked(useMinPoints4Stat);
+	minPoints4StatSpinBox->setValue(minPoints4Stat);
+
+	projDestComboBox->setCurrentIndex(projDestIndex);
+	useOriginalCloudCheckBox->setChecked(useOriginalCloud);
+
+	exportStdDevInfoCheckBox->setChecked(exportStdDevInfo);
+	exportDensityAtProjScaleCheckBox->setChecked(exportDensityAtProjScale);
+
+	maxThreadCountSpinBox->setValue(maxThreadCount);
+
+	precisionMapsGroupBox->setChecked(usePrecisionMaps);
+	pm1ScaleDoubleSpinBox->setValue(pm1Scale);
+	pm2ScaleDoubleSpinBox->setValue(pm2Scale);
+}
+
+void qM3C2Dialog::applyNormalModeParameter(int normModeInt)
+{
+    switch(normModeInt)
+    {
+    case qM3C2Normals::USE_CLOUD1_NORMALS:
+    case qM3C2Normals::USE_CORE_POINTS_NORMALS:
+    {
         if (m_app)
         {
             bool found = false;
@@ -568,75 +623,41 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
             if (!status)
                 ccLog::Warning("Can't restore the previous normal computation method (cloud #1 or core points has no normals)");
         }
-	}
-	break;
-	
-	case qM3C2Normals::DEFAULT_MODE:
-		normDefaultRadioButton->setChecked(true);
-		break;
-	
-	case qM3C2Normals::MULTI_SCALE_MODE:
-		normMultiScaleRadioButton->setChecked(true);
-		break;
-	
-	case qM3C2Normals::VERT_MODE:
-		normVertRadioButton->setChecked(true);
-		break;
-	
-	case qM3C2Normals::HORIZ_MODE:
-		normHorizRadioButton->setChecked(true);
-		break;
-	
-	default:
-		//nothing to do
-		break;
-	}
+    }
+    break;
 
-	minScaleDoubleSpinBox->setValue(normMinScale);
-	stepScaleDoubleSpinBox->setValue(normStep);
-	maxScaleDoubleSpinBox->setValue(normMaxScale);
-	normUseCorePointsCheckBox->setChecked(normUseCorePoints);
-	normOriPreferredComboBox->setCurrentIndex(normPreferredOri);
+    case qM3C2Normals::DEFAULT_MODE:
+        normDefaultRadioButton->setChecked(true);
+        break;
 
-	cylDiameterDoubleSpinBox->setValue(seachScale);
-	cylHalfHeightDoubleSpinBox->setValue(searchDepth);
-	
-	cpSubsamplingDoubleSpinBox->setValue(subsampleRadius);
-	if (subsampleEnabled)
-		cpSubsampleRadioButton->setChecked(true);
-	else
-		cpUseCloud1RadioButton->setChecked(true);
+    case qM3C2Normals::MULTI_SCALE_MODE:
+        normMultiScaleRadioButton->setChecked(true);
+        break;
 
-	rmsCheckBox->setChecked(registrationErrorEnabled);
-	rmsDoubleSpinBox->setValue(registrationError);
+    case qM3C2Normals::VERT_MODE:
+        normVertRadioButton->setChecked(true);
+        break;
 
-	useSinglePass4DepthCheckBox->setChecked(useSinglePass4Depth);
-	positiveSearchOnlyCheckBox->setChecked(positiveSearchOnly);
-    useMeanRadioButton->setChecked(useMean);
-    useMedianRadioButton->setChecked(useMedian);
-    useMinRadioButton->setChecked(useMin);
-    usePrctileRadioButton->setChecked(usePrctile);
-	
-	useMinPoints4StatCheckBox->setChecked(useMinPoints4Stat);
-	minPoints4StatSpinBox->setValue(minPoints4Stat);
+    case qM3C2Normals::HORIZ_MODE:
+        normHorizRadioButton->setChecked(true);
+        break;
 
-	projDestComboBox->setCurrentIndex(projDestIndex);
-	useOriginalCloudCheckBox->setChecked(useOriginalCloud);
-
-	exportStdDevInfoCheckBox->setChecked(exportStdDevInfo);
-	exportDensityAtProjScaleCheckBox->setChecked(exportDensityAtProjScale);
-
-	maxThreadCountSpinBox->setValue(maxThreadCount);
-
-	precisionMapsGroupBox->setChecked(usePrecisionMaps);
-	pm1ScaleDoubleSpinBox->setValue(pm1Scale);
-	pm2ScaleDoubleSpinBox->setValue(pm2Scale);
+    default:
+        //nothing to do
+        break;
+    }
 }
 
 void qM3C2Dialog::saveParamsToPersistentSettings()
 {
 	QSettings settings("qM3C2");
 	saveParamsTo(settings);
+}
+
+bool qM3C2Dialog::loadParamsFromQSettings(const QSettings &settings)
+{
+    loadParamsFrom(settings);
+    return true;
 }
 
 void qM3C2Dialog::saveParamsTo(QSettings& settings)

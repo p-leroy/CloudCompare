@@ -1250,6 +1250,8 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             }
 			s_M3C2Params.outputCloud->setDisplay(s_M3C2Params.corePoints->getDisplay());
 			s_M3C2Params.outputCloud->importParametersFrom(s_M3C2Params.corePoints);
+            if (s_M3C2Params.outputCloud2)
+                s_M3C2Params.outputCloud2->importParametersFrom(s_M3C2Params.corePoints);
 			if (app)
 			{
 				app->addToDB(s_M3C2Params.outputCloud);
