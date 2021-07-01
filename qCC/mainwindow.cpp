@@ -113,6 +113,7 @@
 #include "ccSensorComputeScatteringAnglesDlg.h"
 #include "ccSORFilterDlg.h"
 #include "ccSubsamplingDlg.h"
+#include "ccSubsampleUsingNormalsDlg.h"
 #include "ccTracePolylineTool.h"
 #include "ccTranslationManager.h"
 #include "ccUnrollDlg.h"
@@ -625,7 +626,8 @@ void MainWindow::connectActions()
 	connect(m_UI->actionCrop,						&QAction::triggered, this, &MainWindow::doActionCrop);
 	connect(m_UI->actionEditGlobalShiftAndScale,	&QAction::triggered, this, &MainWindow::doActionEditGlobalShiftAndScale);
 	connect(m_UI->actionSubsample,					&QAction::triggered, this, &MainWindow::doActionSubsample);
-	connect(m_UI->actionDelete,						&QAction::triggered,	m_ccRoot,	&ccDBRoot::deleteSelectedEntities);
+
+    connect(m_UI->actionDelete,						&QAction::triggered,	m_ccRoot,	&ccDBRoot::deleteSelectedEntities);
 
 	//"Tools > Clean" menu
 	connect(m_UI->actionSORFilter,					&QAction::triggered, this, &MainWindow::doActionSORFilter);
@@ -3975,6 +3977,11 @@ void MainWindow::doActionSubsample()
 
 	refreshAll();
 	updateUI();
+}
+
+void MainWindow::doActionSubsampleUsingNormals()
+{
+
 }
 
 void MainWindow::doActionStatisticalTest()

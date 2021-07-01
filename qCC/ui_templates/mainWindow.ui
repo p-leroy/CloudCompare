@@ -39,7 +39,7 @@
      <x>0</x>
      <y>0</y>
      <width>1024</width>
-     <height>21</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -438,6 +438,7 @@
      </property>
      <addaction name="actionComputeGeometricFeature"/>
      <addaction name="actionRemoveDuplicatePoints"/>
+     <addaction name="actionSubsampleUsingNormals"/>
     </widget>
     <widget class="QMenu" name="menuSandBox">
      <property name="title">
@@ -3114,6 +3115,11 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Ctrl+P</string>
    </property>
   </action>
+  <action name="actionSubsampleUsingNormals">
+   <property name="text">
+    <string>Subsample using normals</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -3128,6 +3134,7 @@ QTreeView::branch:open:has-children:has-siblings  {
   </customwidget>
  </customwidgets>
  <resources>
+  <include location="../icons.qrc"/>
   <include location="../icons.qrc"/>
  </resources>
  <connections>
