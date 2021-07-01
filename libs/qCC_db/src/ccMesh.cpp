@@ -3157,24 +3157,24 @@ bool ccMesh::interpolateNormals(const CCCoreLib::VerticesIndexes& vertIndexes, c
 		if (!triNormIndexes || triNormIndexes->u[0] >= 0)
 		{
 			const CCVector3& N1 = triNormIndexes ? ccNormalVectors::GetNormal(m_triNormals->getValue(triNormIndexes->u[0])) : m_associatedCloud->getPointNormal(vertIndexes.i1);
-			Nd += CCVector3d(N1.x, N1.y, N1.z) * w.u[0];
+			Nd += N1.toDouble() * w.u[0];
 		}
 
 		if (!triNormIndexes || triNormIndexes->u[1] >= 0)
 		{
 			const CCVector3& N2 = triNormIndexes ? ccNormalVectors::GetNormal(m_triNormals->getValue(triNormIndexes->u[1])) : m_associatedCloud->getPointNormal(vertIndexes.i2);
-			Nd += CCVector3d(N2.x, N2.y, N2.z) * w.u[1];
+			Nd += N2.toDouble() * w.u[1];
 		}
 
 		if (!triNormIndexes || triNormIndexes->u[2] >= 0)
 		{
 			const CCVector3& N3 = triNormIndexes ? ccNormalVectors::GetNormal(m_triNormals->getValue(triNormIndexes->u[2])) : m_associatedCloud->getPointNormal(vertIndexes.i3);
-			Nd += CCVector3d(N3.x, N3.y, N3.z) * w.u[2];
+			Nd += N3.toDouble() * w.u[2];
 		}
 		Nd.normalize();
 	}
 
-	N = CCVector3::fromArray(Nd.u);
+	N = Nd.toPC();
 
 	return true;
 }
@@ -3897,7 +3897,6 @@ static bool TagDuplicatedVertices(	const CCCoreLib::DgmOctree::octreeCell& cell,
 	CCCoreLib::DgmOctree::NearestNeighboursSphericalSearchStruct nNSS;
 	nNSS.level = cell.level;
 	static const PointCoordinateType c_defaultSearchRadius = static_cast<PointCoordinateType>(sqrt(CCCoreLib::ZERO_TOLERANCE_F));
-	nNSS.prepare(c_defaultSearchRadius, cell.parentOctree->getCellSize(nNSS.level));
 	cell.parentOctree->getCellPos(cell.truncatedCode, cell.level, nNSS.cellPos, true);
 	cell.parentOctree->computeCellCenter(nNSS.cellPos, cell.level, nNSS.cellCenter);
 
@@ -4109,15 +4108,14 @@ bool ccMesh::mergeDuplicatedVertices(unsigned char octreeLevel/*=10*/, QWidget* 
 		{
 			addChild(m_associatedCloud);
 		}
-		vertCount = m_associatedCloud->size();
+		vertCount = (m_associatedCloud ? m_associatedCloud->size() : 0);
 		ccLog::Print("[MergeDuplicatedVertices] Remaining vertices after auto-removal of duplicate ones: %i", vertCount);
 		ccLog::Print("[MergeDuplicatedVertices] Remaining faces after auto-removal of duplicate ones: %i", size());
-		return false;
 	}
 	catch (const std::bad_alloc&)
 	{
 		ccLog::Warning("[MergeDuplicatedVertices] Not enough memory: could not remove duplicated vertices!");
 	}
 
-	return false;
+	return true;
 }

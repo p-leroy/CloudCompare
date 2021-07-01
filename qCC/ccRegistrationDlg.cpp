@@ -50,8 +50,10 @@ static int		s_maxThreadCount = 0;
 static bool		s_pointsRemoval = false;
 static bool		s_useDataSFAsWeights = false;
 static bool		s_useModelSFAsWeights = false;
+static bool		s_useC2MSignedDistances = false;
+static int		s_normalsMatchingOption = CCCoreLib::ICPRegistrationTools::NO_NORMAL;
 
-ccRegistrationDlg::ccRegistrationDlg(ccHObject *data, ccHObject *model, QWidget* parent/*=0*/)
+ccRegistrationDlg::ccRegistrationDlg(ccHObject *data, ccHObject *model, QWidget* parent/*=nullptr*/)
 	: QDialog(parent, Qt::Tool)
 	, Ui::RegistrationDialog()
 {
@@ -66,7 +68,7 @@ ccRegistrationDlg::ccRegistrationDlg(ccHObject *data, ccHObject *model, QWidget*
 	rmsValidator->setRange(GetAbsoluteMinRMSDecrease(), 1.0, 1);
 	rmsDifferenceLineEdit->setValidator(rmsValidator);
 
-	setColorsAndLabels();
+	updateGUI();
 
 	ccQtHelpers::SetButtonColor(dataColorButton, Qt::red);
 	ccQtHelpers::SetButtonColor(modelColorButton, Qt::yellow);
@@ -97,8 +99,10 @@ ccRegistrationDlg::ccRegistrationDlg(ccHObject *data, ccHObject *model, QWidget*
 		TyCheckBox->setChecked(s_transCheckboxes[1]);
 		TzCheckBox->setChecked(s_transCheckboxes[2]);
 		pointsRemoval->setChecked(s_pointsRemoval);
-		checkBoxUseDataSFAsWeights->setChecked(s_useDataSFAsWeights && checkBoxUseDataSFAsWeights->isEnabled());
-		checkBoxUseModelSFAsWeights->setChecked(s_useModelSFAsWeights && checkBoxUseModelSFAsWeights->isEnabled());
+		checkBoxUseDataSFAsWeights->setChecked(s_useDataSFAsWeights);
+		checkBoxUseModelSFAsWeights->setChecked(s_useModelSFAsWeights);
+		useC2MSignedDistancesCheckBox->setChecked(s_useC2MSignedDistances);
+		normalsComboBox->setCurrentIndex(s_normalsMatchingOption);
 	}
 
 	connect(swapButton, &QAbstractButton::clicked, this, &ccRegistrationDlg::swapModelAndData);
@@ -136,6 +140,8 @@ void ccRegistrationDlg::saveParameters() const
 	s_pointsRemoval = removeFarthestPoints();
 	s_useDataSFAsWeights = checkBoxUseDataSFAsWeights->isChecked();
 	s_useModelSFAsWeights = checkBoxUseModelSFAsWeights->isChecked();
+	s_useC2MSignedDistances = useC2MSignedDistancesCheckBox->isChecked();
+	s_normalsMatchingOption = normalsComboBox->currentIndex();
 }
 
 ccHObject *ccRegistrationDlg::getDataEntity()
@@ -156,6 +162,23 @@ bool ccRegistrationDlg::useDataSFAsWeights() const
 bool ccRegistrationDlg::useModelSFAsWeights() const
 {
 	return checkBoxUseModelSFAsWeights->isEnabled() && checkBoxUseModelSFAsWeights->isChecked();
+}
+
+bool ccRegistrationDlg::useC2MSignedDistances() const
+{
+	return useC2MSignedDistancesCheckBox->isEnabled() && useC2MSignedDistancesCheckBox->isChecked();
+}
+
+CCCoreLib::ICPRegistrationTools::NORMALS_MATCHING ccRegistrationDlg::normalsMatchingOption() const
+{
+	if (normalsComboBox->isEnabled())
+	{
+		return static_cast<CCCoreLib::ICPRegistrationTools::NORMALS_MATCHING>(normalsComboBox->currentIndex());
+	}
+	else
+	{
+		return CCCoreLib::ICPRegistrationTools::NO_NORMAL;
+	}
 }
 
 bool ccRegistrationDlg::adjustScale() const
@@ -254,7 +277,7 @@ int ccRegistrationDlg::getTransformationFilters() const
 	return filters;
 }
 
-void ccRegistrationDlg::setColorsAndLabels()
+void ccRegistrationDlg::updateGUI()
 {
 	if (!modelEntity || !dataEntity)
 		return;
@@ -270,14 +293,17 @@ void ccRegistrationDlg::setColorsAndLabels()
 	dataEntity->prepareDisplayForRefresh_recursive();
 
 	checkBoxUseDataSFAsWeights->setEnabled(dataEntity->hasDisplayedScalarField());
-	checkBoxUseModelSFAsWeights->setEnabled(modelEntity->hasDisplayedScalarField());
+	checkBoxUseModelSFAsWeights->setEnabled(modelEntity->isKindOf(CC_TYPES::POINT_CLOUD) && modelEntity->hasDisplayedScalarField()); //only supported for clouds
+
+	useC2MSignedDistancesCheckBox->setEnabled(modelEntity->isKindOf(CC_TYPES::MESH)); //only supported if a mesh is the reference cloud
+	normalsComboBox->setEnabled(dataEntity->hasNormals() && modelEntity->hasNormals()); //only supported if both the aligned and the reference entities have normals
 
 	MainWindow::RefreshAllGLWindow(false);
 }
 
 void ccRegistrationDlg::swapModelAndData()
 {
-	std::swap(dataEntity,modelEntity);
-	setColorsAndLabels();
-	checkBoxUseModelSFAsWeights->setDisabled(modelEntity->isKindOf(CC_TYPES::MESH));
+	std::swap(dataEntity, modelEntity);
+
+	updateGUI();
 }

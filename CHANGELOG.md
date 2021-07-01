@@ -19,7 +19,11 @@ v2.12 (???) - (in development)
       - Single click picking can be disabled (can be very slow for very large point clouds) 
     - CommandLine mode new features
       - Added N_SIGMA_MIN and N_SIGMA_MAX options to the FILTER_SF command. Specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
-
+	- ICP registration:
+	    - new option to take the normals into account (if both entites have normals)
+			(several matching modes are available: same side, opposite side, or double-sided)
+ 		- new 'research' option to use signed distances when registering a cloud with a (reference) mesh
+		  (helfpul to prevent the cloud from sinking below the mesh surface if used in conjunction of a small overlap percentage)
 	- Clipping box tool:
 		- former 'contours' renamed 'envelopes' for the sake of clarity
 		- ability to extract the real contours of the points inside each slice (single slice mode or 'repeat' mode)
@@ -29,6 +33,8 @@ v2.12 (???) - (in development)
 	- qAnimation:
 		- option to smooth the trajectory
 		- option to choose the video output codec/format
+	- qM3C2:
+		- new options to orient normals: with the previous normal (if any) or with the associated sensor origin
 	- ATI cards:
 		- the display should now be faster with ATI cards thanks to a smarter way to manage (2D text) textures
 	- Localization:
@@ -56,12 +62,24 @@ v2.12 (???) - (in development)
 			- N_SIGMA_MIN and N_SIGMA_MAX: specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
 		- new option '-INVERT_NORMALS':
 			- Inverts the normals of the loaded entities (cloud or mesh, and per-triangle or per-vertex for meshes)
-		- new option '-RENAME_SF' ({scalar field index} {name}):
+		- new option '-RENAME_SF' {scalar field index} {name}:
 			- To rename a scalar field
+		- new option 'REMOVE_SF' {scalar field index}:
+			- To remove a specific scalar field
+		- new option '-NOISE KNN/RADIUS {value 1} REL/ABS {value 2} {RIP}':
+			- To apply the Noise filter to the loaded point clouds
+			- value 1: number of neighbors if KNN, radius if RADIUS
+			- value 2: relative error (standard deviation multiplier) if REL, absolute error if ABS
+			- RIP: remove isolated poins (optional)
+		- the 'OCTREE_NORMALS' option has been updated:
+			- MINUS_ZERO and PLUS_ZERO can now also be written MINUS_ORIGIN and PLUS_ORIGIN
+			- new sub-option '-ORIENT SENSOR_ORIGIN' (to use the sensor origin to orient the normals - a sensor must be associated to the cloud of course ;)
 	- PCD:
 		- CC can now load PCL files with integer xyz coordinates (16 and 32 bits) as well as double coordinates
 	- STL:
 		- loading speed should be greatly improved (compared to v2.10 and v2.11)
+	- LAS (1.3/1.4):
+		- the 'LAS 1.3 or 1.4' filter (based on LibLas) will now preserve the Coordinate Reference System (if the LAS file is loaded and saved with this filter)
 	- Global Shift & Scale:
 		- the qRansacSD plugin can now transfer the Global Shift & Scale info to the created primitives
 		- The fit functions (Fit shpere, Fit plane, Fit facet and Fit quadric) as well
@@ -99,6 +117,10 @@ v2.12 (???) - (in development)
 		present. And when telling CC to keep these invalid points, the altitude was actually already replaced by a strange one...
 	- CloudCompare was reporting truncated (integer) dip and dip direction values instead of rounded values
 	- the SHP I/O filter was writing the local bounding-box in the file header instead of the global one (if the saved entities were shifted)
+	- PLY files with point elements containing a 'list' property would be considered as face elements (preventing the user from loading the cloud).
+		It is now possible to load it if the 'list' is composed of floating point values.
+	- When merging two clouds, CC could crash is the LoD structure was currently being built at the same time on one of the clouds
+	- Command line mode: the '-GLOBA_SHIFT FIRST' option was not working properly
 
 
 v2.11.3 (Anoia) - 08/09/2020

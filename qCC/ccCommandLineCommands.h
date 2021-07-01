@@ -188,11 +188,20 @@ struct CommandSetActiveSF : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
-struct CommandRemoveAllSF : public ccCommandLineInterface::Command
+struct CommandRemoveAllSFs : public ccCommandLineInterface::Command
 {
-	CommandRemoveAllSF();
+	CommandRemoveAllSFs();
 
 	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandRemoveSF : public ccCommandLineInterface::Command
+{
+	CommandRemoveSF();
+
+	bool process(ccCommandLineInterface& cmd) override;
+
+	bool removeSF(int sfIndex, ccPointCloud& pc);
 };
 
 struct CommandRemoveRGB : public ccCommandLineInterface::Command
@@ -240,6 +249,13 @@ struct CommandOrientNormalsMST : public ccCommandLineInterface::Command
 struct CommandSORFilter : public ccCommandLineInterface::Command
 {
 	CommandSORFilter();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandNoiseFilter : public ccCommandLineInterface::Command
+{
+	CommandNoiseFilter();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };

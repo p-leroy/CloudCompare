@@ -541,15 +541,15 @@ ccHObject::GlobalBoundingBox ccHObject::getOwnGlobalBB(bool withGLFeatures/*=fal
 {
 	//by default this method returns the local bounding-box!
 	ccBBox box = getOwnBB(false);
-	return GlobalBoundingBox(CCVector3d::fromArray(box.minCorner().u), CCVector3d::fromArray(box.maxCorner().u));
+	return GlobalBoundingBox(box.minCorner(), box.maxCorner());
 }
 
 bool ccHObject::getOwnGlobalBB(CCVector3d& minCorner, CCVector3d& maxCorner)
 {
 	//by default this method returns the local bounding-box!
 	ccBBox box = getOwnBB(false);
-	minCorner = CCVector3d::fromArray(box.minCorner().u);
-	maxCorner = CCVector3d::fromArray(box.maxCorner().u);
+	minCorner = box.minCorner();
+	maxCorner = box.maxCorner();
 	return box.isValid();
 }
 
@@ -943,9 +943,13 @@ void ccHObject::removeChild(int pos)
 	{
 		//delete object
 		if (child->isShareable())
+		{
 			dynamic_cast<CCShareable*>(child)->release();
+		}
 		else/* if (!child->isA(CC_TYPES::POINT_OCTREE))*/
+		{
 			delete child;
+		}
 	}
 	else if (child->getParent() == this)
 	{

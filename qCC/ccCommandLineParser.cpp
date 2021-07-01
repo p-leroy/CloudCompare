@@ -369,9 +369,44 @@ void ccCommandLineParser::removeMeshes(bool onlyLast/*=false*/)
 	}
 }
 
-bool ccCommandLineParser::importFile(QString filename, FileIOFilter::Shared filter)
+bool ccCommandLineParser::importFile(QString filename, const GlobalShiftOptions& globalShiftOptions, FileIOFilter::Shared filter)
 {
 	print(QString("Opening file: '%1'").arg(filename));
+
+	//whether Global (coordinate) shift has already been defined
+	static bool s_firstCoordinatesShiftEnabled = false;
+	//global shift (if defined)
+	static CCVector3d s_firstGlobalShift;
+
+	//default Global Shift handling parameters
+	m_loadingParameters.shiftHandlingMode = ccGlobalShiftManager::NO_DIALOG;
+	m_loadingParameters.m_coordinatesShiftEnabled = false;
+	m_loadingParameters.m_coordinatesShift = CCVector3d(0, 0, 0);
+
+	switch (globalShiftOptions.mode)
+	{
+	case GlobalShiftOptions::AUTO_GLOBAL_SHIFT:
+		//let CC handle the global shift automatically
+		m_loadingParameters.shiftHandlingMode = ccGlobalShiftManager::NO_DIALOG_AUTO_SHIFT;
+		break;
+
+	case GlobalShiftOptions::FIRST_GLOBAL_SHIFT:
+		//use the first encountered global shift value (if any)
+		m_loadingParameters.shiftHandlingMode = ccGlobalShiftManager::NO_DIALOG_AUTO_SHIFT;
+		m_loadingParameters.m_coordinatesShiftEnabled = s_firstCoordinatesShiftEnabled;
+		m_loadingParameters.m_coordinatesShift = s_firstGlobalShift;
+		break;
+
+	case GlobalShiftOptions::CUSTOM_GLOBAL_SHIFT:
+		//set the user defined shift vector as default shift information
+		m_loadingParameters.m_coordinatesShiftEnabled = true;
+		m_loadingParameters.m_coordinatesShift = globalShiftOptions.customGlobalShift;
+		break;
+
+	default:
+		//nothing to do
+		break;
+	}
 
 	CC_FILE_ERROR result = CC_FERR_NO_ERROR;
 	ccHObject* db = nullptr;
@@ -387,6 +422,18 @@ bool ccCommandLineParser::importFile(QString filename, FileIOFilter::Shared filt
 	if (!db)
 	{
 		return false/*cmd.error(QString("Failed to open file '%1'").arg(filename))*/; //Error message already issued
+	}
+
+	if (globalShiftOptions.mode != GlobalShiftOptions::NO_GLOBAL_SHIFT)
+	{
+		static bool s_firstTime = true;
+		if (s_firstTime)
+		{
+			// remember the first Global Shift parameters used
+			s_firstCoordinatesShiftEnabled = m_loadingParameters.m_coordinatesShiftEnabled;
+			s_firstGlobalShift = m_loadingParameters.m_coordinatesShift;
+			s_firstTime = false;
+		}
 	}
 
 	std::unordered_set<unsigned> verticesIDs;
@@ -609,7 +656,8 @@ void ccCommandLineParser::registerBuiltInCommands()
 	registerCommand(Command::Shared(new CommandMergeClouds));
 	registerCommand(Command::Shared(new CommandMergeMeshes));
 	registerCommand(Command::Shared(new CommandSetActiveSF));
-	registerCommand(Command::Shared(new CommandRemoveAllSF));
+	registerCommand(Command::Shared(new CommandRemoveAllSFs));
+	registerCommand(Command::Shared(new CommandRemoveSF));
 	registerCommand(Command::Shared(new CommandRemoveRGB));
 	registerCommand(Command::Shared(new CommandRemoveNormals));
 	registerCommand(Command::Shared(new CommandRemoveScanGrids));
@@ -617,6 +665,7 @@ void ccCommandLineParser::registerBuiltInCommands()
 	registerCommand(Command::Shared(new CommandMatchBestFitPlane));
 	registerCommand(Command::Shared(new CommandOrientNormalsMST));
 	registerCommand(Command::Shared(new CommandSORFilter));
+	registerCommand(Command::Shared(new CommandNoiseFilter));
 	registerCommand(Command::Shared(new CommandSampleMesh));
 	registerCommand(Command::Shared(new CommandExtractVertices));
 	registerCommand(Command::Shared(new CommandCrossSection));

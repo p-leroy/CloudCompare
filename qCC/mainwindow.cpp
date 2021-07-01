@@ -77,7 +77,7 @@
 //dialogs
 #include "ccAboutDialog.h"
 #include "ccAdjustZoomDlg.h"
-#include "ccAlignDlg.h" //Aurelien BEY
+#include "ccAlignDlg.h"
 #include "ccApplication.h"
 #include "ccApplyTransformationDlg.h"
 #include "ccAskThreeDoubleValuesDlg.h"
@@ -101,18 +101,18 @@
 #include "ccPlaneEditDlg.h"
 #include "ccPointListPickingDlg.h"
 #include "ccPointPairRegistrationDlg.h"
-#include "ccPointPropertiesDlg.h" //Aurelien BEY
+#include "ccPointPropertiesDlg.h"
 #include "ccPrimitiveFactoryDlg.h"
 #include "ccPtsSamplingDlg.h"
 #include "ccRasterizeTool.h"
-#include "ccRegistrationDlg.h" //Aurelien BEY
+#include "ccRegistrationDlg.h"
 #include "ccRenderToFileDlg.h"
 #include "ccScaleDlg.h"
 #include "ccSectionExtractionTool.h"
 #include "ccSensorComputeDistancesDlg.h"
 #include "ccSensorComputeScatteringAnglesDlg.h"
 #include "ccSORFilterDlg.h"
-#include "ccSubsamplingDlg.h" //Aurelien BEY
+#include "ccSubsamplingDlg.h"
 #include "ccTracePolylineTool.h"
 #include "ccTranslationManager.h"
 #include "ccUnrollDlg.h"
@@ -1104,7 +1104,7 @@ void MainWindow::applyTransformation(const ccGLMatrixd& mat)
 					//(in which case we won't bother the user about the fact
 					//that the transformed cloud will be too big...)
 					ccBBox localBBox = entity->getOwnBB();
-					CCVector3d Pl = CCVector3d::fromArray(localBBox.minCorner().u);
+					CCVector3d Pl = localBBox.minCorner();
 					double Dl = localBBox.getDiagNormd();
 
 					//the cloud was alright
@@ -1114,7 +1114,7 @@ void MainWindow::applyTransformation(const ccGLMatrixd& mat)
 						//test if the translated cloud is not "too big" (in local coordinate space)
 						ccBBox rotatedBox = entity->getOwnBB() * transMat;
 						double Dl2 = rotatedBox.getDiagNorm();
-						CCVector3d Pl2 = CCVector3d::fromArray(rotatedBox.getCenter().u);
+						CCVector3d Pl2 = rotatedBox.getCenter();
 
 						bool needShift = ccGlobalShiftManager::NeedShift(Pl2);
 						bool needRescale = ccGlobalShiftManager::NeedRescale(Dl2);
@@ -1132,7 +1132,7 @@ void MainWindow::applyTransformation(const ccGLMatrixd& mat)
 							//and we apply it to the cloud bounding-box
 							ccBBox rotatedBox = cloud->getOwnBB() * globalTransMat;
 							double Dg = rotatedBox.getDiagNorm();
-							CCVector3d Pg = CCVector3d::fromArray(rotatedBox.getCenter().u);
+							CCVector3d Pg = rotatedBox.getCenter();
 
 							//ask the user the right values!
 							ccShiftAndScaleCloudDlg sasDlg(Pl2, Dl2, Pg, Dg, this);
@@ -1469,7 +1469,7 @@ void MainWindow::doActionEditGlobalShiftAndScale()
 		Pg = globalBBmin;
 		Dg = (globalBBmax - globalBBmin).norm();
 
-		Pl = CCVector3d::fromArray(localBB.minCorner().u);
+		Pl = localBB.minCorner();
 		Dl = (localBB.maxCorner() - localBB.minCorner()).normd();
 
 		if (!uniqueShift)
@@ -1519,7 +1519,7 @@ void MainWindow::doActionEditGlobalShiftAndScale()
 			if (preserveGlobalPos)
 			{
 				//to preserve the global position of the cloud, we may have to translate and/or rescale the cloud
-				CCVector3d Ql = CCVector3d::fromArray(ent->getOwnBB().minCorner().u);
+				CCVector3d Ql = ent->getOwnBB().minCorner();
 				CCVector3d Qg = shifted->toGlobal3d(Ql);
 				CCVector3d Ql2 = Qg * scale + shift;
 				CCVector3d T = Ql2 - Ql;
@@ -3562,14 +3562,19 @@ void MainWindow::doActionRegister()
 		return;
 	}
 
-	ccHObject* data = static_cast<ccHObject*>(m_selectedEntities[1]);
-	ccHObject* model = static_cast<ccHObject*>(m_selectedEntities[0]);
+	ccHObject* data = static_cast<ccHObject*>(m_selectedEntities[0]);
+	ccHObject* model = static_cast<ccHObject*>(m_selectedEntities[1]);
+	if (data->isKindOf(CC_TYPES::MESH) && model->isKindOf(CC_TYPES::POINT_CLOUD))
+	{
+		//by default, prefer the mesh as the reference
+		std::swap(data, model);
+	}
 
 	ccRegistrationDlg rDlg(data, model, this);
 	if (!rDlg.exec())
 		return;
 
-	//DGM (23/01/09): model and data order may have changed!
+	//model and data order may have changed!
 	model = rDlg.getModelEntity();
 	data = rDlg.getDataEntity();
 
@@ -3586,16 +3591,22 @@ void MainWindow::doActionRegister()
 		rDlg.setMinRMSDecrease(minRMSDecrease);
 	}
 
-	unsigned maxIterationCount									= rDlg.getMaxIterationCount();
-	unsigned randomSamplingLimit								= rDlg.randomSamplingLimit();
-	bool removeFarthestPoints									= rDlg.removeFarthestPoints();
-	bool useDataSFAsWeights										= rDlg.useDataSFAsWeights();
-	bool useModelSFAsWeights									= rDlg.useModelSFAsWeights();
-	bool adjustScale											= rDlg.adjustScale();
-	int transformationFilters									= rDlg.getTransformationFilters();
-	unsigned finalOverlap										= rDlg.getFinalOverlap();
-	CCCoreLib::ICPRegistrationTools::CONVERGENCE_TYPE method	= rDlg.getConvergenceMethod();
-	int maxThreadCount											= rDlg.getMaxThreadCount();
+	CCCoreLib::ICPRegistrationTools::Parameters parameters;
+	{
+		parameters.convType					= rDlg.getConvergenceMethod();
+		parameters.minRMSDecrease			= minRMSDecrease;
+		parameters.nbMaxIterations			= rDlg.getMaxIterationCount();
+		parameters.adjustScale				= rDlg.adjustScale();
+		parameters.filterOutFarthestPoints	= rDlg.removeFarthestPoints();
+		parameters.samplingLimit			= rDlg.randomSamplingLimit();
+		parameters.finalOverlapRatio		= rDlg.getFinalOverlap() / 100.0;
+		parameters.transformationFilters	= rDlg.getTransformationFilters();
+		parameters.maxThreadCount			= rDlg.getMaxThreadCount();
+		parameters.useC2MSignedDistances	= rDlg.useC2MSignedDistances();
+		parameters.normalsMatching			= rDlg.normalsMatchingOption();
+	}
+	bool useDataSFAsWeights		= rDlg.useDataSFAsWeights();
+	bool useModelSFAsWeights	= rDlg.useModelSFAsWeights();
 
 	//semi-persistent storage (for next call)
 	rDlg.saveParameters();
@@ -3611,24 +3622,19 @@ void MainWindow::doActionRegister()
 									finalScale,
 									finalError,
 									finalPointCount,
-									minRMSDecrease,
-									maxIterationCount,
-									randomSamplingLimit,
-									removeFarthestPoints,
-									method,
-									adjustScale,
-									finalOverlap / 100.0,
+									parameters,
 									useDataSFAsWeights,
 									useModelSFAsWeights,
-									transformationFilters,
-									maxThreadCount,
 									this))
 	{
-		QString rmsString = tr("Final RMS: %1 (computed on %2 points)").arg(finalError).arg(finalPointCount);
+		QString rmsString = tr("Final RMS*: %1 (computed on %2 points)").arg(finalError).arg(finalPointCount);
+		QString rmsDisclaimerString = tr("(* RMS is potentially weighted, depending on the selected options)");
 		ccLog::Print(QString("[Register] ") + rmsString);
+		ccLog::Print(QString("[Register] ") + rmsDisclaimerString);
 
 		QStringList summary;
 		summary << rmsString;
+		summary << rmsDisclaimerString;
 		summary << "----------------";
 
 		//transformation matrix
@@ -3642,7 +3648,7 @@ void MainWindow::doActionRegister()
 			ccLog::Print(tr("Hint: copy it (CTRL+C) and apply it - or its inverse - on any entity with the 'Edit > Apply transformation' tool"));
 		}
 
-		if (adjustScale)
+		if (parameters.adjustScale)
 		{
 			QString scaleString = tr("Scale: %1 (already integrated in above matrix!)").arg(finalScale);
 			ccLog::Warning(QString("[Register] ") + scaleString);
@@ -3656,7 +3662,7 @@ void MainWindow::doActionRegister()
 
 		//overlap
 		summary << "----------------";
-		QString overlapString = tr("Theoretical overlap: %1%").arg(finalOverlap);
+		QString overlapString = tr("Theoretical overlap: %1%").arg(static_cast<int>(parameters.finalOverlapRatio * 100));
 		ccLog::Print(QString("[Register] ") + overlapString);
 		summary << overlapString;
 
@@ -3817,7 +3823,7 @@ void MainWindow::doAction4pcsRegister()
 	{
 		//output resulting transformation matrix
 		{
-			ccGLMatrix transMat = FromCCLibMatrix<PointCoordinateType, float>(transform.R, transform.T);
+			ccGLMatrix transMat = FromCCLibMatrix<double, float>(transform.R, transform.T);
 			forceConsoleDisplay();
 			ccConsole::Print(tr("[Align] Resulting matrix:"));
 			ccConsole::Print(transMat.toString(12, ' ')); //full precision
@@ -4305,7 +4311,7 @@ void MainWindow::doMeshTwoPolylines()
 		useViewingDir = (QMessageBox::question(this, tr("Projection method"), tr("Use best fit plane (yes) or the current viewing direction (no)"), QMessageBox::Yes, QMessageBox::No) == QMessageBox::No);
 		if (useViewingDir)
 		{
-			viewingDir = -CCVector3::fromArray(p1->getDisplay()->getViewportParameters().getViewDir().u);
+			viewingDir = -p1->getDisplay()->getViewportParameters().getViewDir().toPC();
 		}
 	}
 
@@ -5143,13 +5149,13 @@ void MainWindow::doActionComputeCPS()
 		ccConsole::Error(tr("Not enough memory!"));
 		return;
 	}
-	//cmpPC->forEach(CCCoreLib::ScalarFieldTools::SetScalarValueToNaN); //now done by default by computeCloud2CloudDistance
+	//cmpPC->forEach(CCCoreLib::ScalarFieldTools::SetScalarValueToNaN); //now done by default by computeCloud2CloudDistances
 
 	CCCoreLib::ReferenceCloud CPSet(srcCloud);
 	ccProgressDialog pDlg(true, this);
-	CCCoreLib::DistanceComputationTools::Cloud2CloudDistanceComputationParams params;
+	CCCoreLib::DistanceComputationTools::Cloud2CloudDistancesComputationParams params;
 	params.CPSet = &CPSet;
-	int result = CCCoreLib::DistanceComputationTools::computeCloud2CloudDistance(compCloud,srcCloud,params,&pDlg);
+	int result = CCCoreLib::DistanceComputationTools::computeCloud2CloudDistances(compCloud, srcCloud, params, &pDlg);
 	cmpPC->deleteScalarField(sfIdx);
 
 	if (result >= 0)
@@ -5157,9 +5163,9 @@ void MainWindow::doActionComputeCPS()
 		ccPointCloud* newCloud = nullptr;
 		//if the source cloud is a "true" cloud, the extracted CPS
 		//will also get its attributes
-		newCloud = srcCloud->isA(CC_TYPES::POINT_CLOUD) ? static_cast<ccPointCloud*>(srcCloud)->partialClone(&CPSet) : ccPointCloud::From(&CPSet,srcCloud);
+		newCloud = srcCloud->isA(CC_TYPES::POINT_CLOUD) ? static_cast<ccPointCloud*>(srcCloud)->partialClone(&CPSet) : ccPointCloud::From(&CPSet, srcCloud);
 
-		newCloud->setName(QString("[%1]->CPSet(%2)").arg(srcCloud->getName(),compCloud->getName()));
+		newCloud->setName(QString("[%1]->CPSet(%2)").arg(srcCloud->getName(), compCloud->getName()));
 		newCloud->setDisplay(compCloud->getDisplay());
 		newCloud->prepareDisplayForRefresh();
 		addToDB(newCloud);
@@ -7430,7 +7436,7 @@ void MainWindow::onItemPicked(const PickedItem& pi)
 				CCVector3 Z = X.cross(Y);
 				//we choose 'Z' so that it points 'upward' relatively to the camera (assuming the user will be looking from the top)
 				CCVector3d viewDir = s_pickingWindow->getViewportParameters().getViewDir();
-				if (CCVector3d::fromArray(Z.u).dot(viewDir) > 0)
+				if (Z.toDouble().dot(viewDir) > 0)
 				{
 					Z = -Z;
 				}
@@ -7446,9 +7452,9 @@ void MainWindow::onItemPicked(const PickedItem& pi)
 				mat[2] = Z.x; mat[6] = Z.y; mat[10] = Z.z; mat[14] = 0;
 				mat[3] = 0  ; mat[7] = 0  ; mat[11] = 0  ; mat[15] = 1;
 
-				CCVector3d T = -CCVector3d::fromArray(A->u);
+				CCVector3d T = -A->toDouble();
 				trans.apply(T);
-				T += CCVector3d::fromArray(A->u);
+				T += *A;
 				trans.setTranslation(T);
 
 				assert(haveOneSelection() && m_selectedEntities.front() == s_levelEntity);
@@ -7471,7 +7477,7 @@ void MainWindow::onItemPicked(const PickedItem& pi)
 
 	case PICKING_ROTATION_CENTER:
 		{
-			CCVector3d newPivot = CCVector3d::fromArray(pickedPoint.u);
+			CCVector3d newPivot = pickedPoint;
 			//specific case: transformation tool is enabled
 			if (m_transTool && m_transTool->started())
 			{
@@ -9573,7 +9579,7 @@ void MainWindow::createSinglePointCloud()
 		return;
 	}
 	cloud->setName(tr("Point #%1").arg(++s_lastPointIndex));
-	cloud->addPoint(CCVector3::fromArray(s_lastPoint.u));
+	cloud->addPoint(s_lastPoint.toPC());
 	cloud->setPointSize(5);
 
 	// add it to the DB tree
@@ -9820,7 +9826,7 @@ void MainWindow::addToDB(	ccHObject* obj,
 		CCVector3 center = bBox.getCenter();
 		PointCoordinateType diag = bBox.getDiagNorm();
 
-		CCVector3d P = CCVector3d::fromArray(center.u);
+		CCVector3d P = center;
 		CCVector3d Pshift(0, 0, 0);
 		double scale = 1.0;
 		bool preserveCoordinateShift = true;

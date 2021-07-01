@@ -88,6 +88,12 @@ public:
 	//! Whether to use model displayed SF as weights
 	bool useModelSFAsWeights() const;
 
+	//! Whether to use signed distances when the reference is a mesh
+	bool useC2MSignedDistances() const;
+
+	//! Method to take normals into account
+	CCCoreLib::ICPRegistrationTools::NORMALS_MATCHING normalsMatchingOption() const;
+
 	//! Returns whether to adjust the scale during optimization
 	/** This is useful for co-registration of lidar and photogrammetric clouds
 	for instance.
@@ -110,7 +116,7 @@ protected:
 
 protected:
 
-	void setColorsAndLabels();
+	void updateGUI();
 
 	//! 'Model' entity
 	ccHObject* modelEntity;
