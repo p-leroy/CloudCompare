@@ -626,7 +626,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionCrop,						&QAction::triggered, this, &MainWindow::doActionCrop);
 	connect(m_UI->actionEditGlobalShiftAndScale,	&QAction::triggered, this, &MainWindow::doActionEditGlobalShiftAndScale);
 	connect(m_UI->actionSubsample,					&QAction::triggered, this, &MainWindow::doActionSubsample);
-
+    connect(m_UI->actionSubsampleUsingNormals,      &QAction::triggered, this, &MainWindow::doActionSubsampleUsingNormals);
     connect(m_UI->actionDelete,						&QAction::triggered,	m_ccRoot,	&ccDBRoot::deleteSelectedEntities);
 
 	//"Tools > Clean" menu
@@ -3981,6 +3981,68 @@ void MainWindow::doActionSubsample()
 
 void MainWindow::doActionSubsampleUsingNormals()
 {
+    //find candidates
+    std::vector<ccPointCloud*> clouds;
+
+    for ( ccHObject *entity : getSelectedEntities() )
+    {
+        if (entity->isA(CC_TYPES::POINT_CLOUD))
+        {
+            ccPointCloud* cloud = static_cast<ccPointCloud*>(entity);
+            clouds.push_back(cloud);
+        }
+    }
+
+    if (clouds.empty())
+    {
+        ccConsole::Error(tr("Select at least one point cloud!"));
+        return;
+    }
+
+    //Display dialog
+    ccSubsampleUsingNormalsDlg dlg(this, this);
+
+    if (!dlg.exec())
+        return;
+
+    double angle = dlg.getAngle();
+    bool keep = dlg.keepIntermediateClouds();
+
+    //process clouds
+    ccHObject::Container resultingClouds;
+    ccProgressDialog pDlg(false, this);
+    pDlg.setAutoClose(false);
+
+    pDlg.setMethodTitle(tr("Subsampling using normals"));
+
+    QElapsedTimer eTimer;
+    eTimer.start();
+
+    for (size_t i = 0; i < clouds.size(); ++i)
+    {
+        ccPointCloud *cloud = clouds[i];
+        ccPointCloud *sampledCloud = dlg.getSampledCloud(cloud, angle, keep);
+        if (!sampledCloud)
+        {
+            ccConsole::Error(tr("[SubsamplingUsingNormals] Failed to subsample cloud '%1'!").arg(cloud->getName()));
+        }
+        else
+        {
+            sampledCloud->setName(cloud->getName() + QString(".subsampled"));
+            sampledCloud->copyGlobalShiftAndScale(*cloud);
+            sampledCloud->setDisplay(cloud->getDisplay());
+            sampledCloud->prepareDisplayForRefresh();
+            if (cloud->getParent())
+                cloud->getParent()->addChild(sampledCloud);
+            cloud->setEnabled(false);
+            addToDB(sampledCloud);
+
+            sampledCloud->prepareDisplayForRefresh();
+            resultingClouds.push_back(sampledCloud);
+        }
+    }
+
+    ccLog::Print("[SubsamplingUsingNormals] Timing: %3.3f s.",eTimer.elapsed()/1000.0);
 
 }
 
