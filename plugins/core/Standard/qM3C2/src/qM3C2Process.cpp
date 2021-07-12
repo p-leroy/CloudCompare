@@ -490,7 +490,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	s_M3C2Params.progressiveSearch = !dlg.useSinglePass4DepthCheckBox->isChecked();
 	s_M3C2Params.onlyPositiveSearch = dlg.positiveSearchOnlyCheckBox->isChecked();
 
-    ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
+    //ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
 
     // PLE to allow the usage of core points with normals using the command line interface
     if (!app)
@@ -498,7 +498,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         int requestedNormMode = dlg.getRequestedNormMode(); // the normMode in the parameters file
         if ((requestedNormMode == qM3C2Normals::USE_CORE_POINTS_NORMALS) && s_M3C2Params.corePoints->hasNormals())
         {
-            ccLog::Warning("core points have normals, normMode has been changed from %d (auto) to %d (requested)", normMode, requestedNormMode);
+            //ccLog::Warning("core points have normals, normMode has been changed from %d (auto) to %d (requested)", normMode, requestedNormMode);
             normMode = qM3C2Normals::USE_CORE_POINTS_NORMALS;
         }
     }
