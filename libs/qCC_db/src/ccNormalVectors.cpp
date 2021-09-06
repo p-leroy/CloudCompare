@@ -199,13 +199,14 @@ bool ccNormalVectors::UpdateNormalOrientations(	ccGenericPointCloud* theCloud,
 					{
 						useOriginPoint = true;
 						fromOriginPoint = true;
+						sensorFound = true;
 						break;
 					}
 				}
 			}
 			if (!sensorFound)
 			{
-				ccLog::Warning("[UpdateNormalOrientations] Could not found a valid sensor child");
+				ccLog::Warning("[UpdateNormalOrientations] Could not find a valid sensor child");
 				return false;
 			}
 		}
@@ -258,9 +259,9 @@ PointCoordinateType ccNormalVectors::GuessNaiveRadius(ccGenericPointCloud* cloud
 		return 0;
 	}
 
-	PointCoordinateType largetDim = cloud->getOwnBB().getMaxBoxDim();
+	PointCoordinateType largestDim = cloud->getOwnBB().getMaxBoxDim();
 
-	return largetDim / std::min<unsigned>(100, std::max<unsigned>(1, cloud->size()/100 ) );
+	return largestDim / std::min<unsigned>(100, std::max<unsigned>(1, cloud->size()/100 ) );
 }
 
 PointCoordinateType ccNormalVectors::GuessBestRadius(	ccGenericPointCloud* cloud,
@@ -361,7 +362,7 @@ PointCoordinateType ccNormalVectors::GuessBestRadius(	ccGenericPointCloud* cloud
 			double stdDevPop = sqrt(std::abs(static_cast<double>(totalSquareCount) / sampleCount - meanPop*meanPop));
 			double aboveMinPopRatio = static_cast<double>(aboveMinPopCount) / sampleCount;
 
-			ccLog::Print(QString("[GuessBestRadius] Radius = %1 -> samples population in [%2 ; %3] (mean %4 / std. dev. %5 / %6% above mininmum)")
+			ccLog::Print(QString("[GuessBestRadius] Radius = %1 -> samples population in [%2 ; %3] (mean %4 / std. dev. %5 / %6% above minimum)")
 										.arg(radius)
 										.arg(minPop)
 										.arg(maxPop)

@@ -193,7 +193,7 @@ MainWindow::MainWindow()
 	, m_gamepadManager(nullptr)
 	, m_viewModePopupButton(nullptr)
 	, m_pivotVisibilityPopupButton(nullptr)
-	, m_FirstShow(true)
+	, m_firstShow(true)
 	, m_pickingHub(nullptr)
 	, m_cpeDlg(nullptr)
 	, m_gsTool(nullptr)
@@ -4909,8 +4909,8 @@ void MainWindow::doActionComputeDistanceMap()
 
 		ccBBox box = entity->getOwnBB();
 		PointCoordinateType largestDim = box.getMaxBoxDim() + static_cast<PointCoordinateType>(margin);
-		PointCoordinateType cellDim = largestDim / steps;
 		CCVector3 minCorner = box.getCenter() - CCVector3(1, 1, 1) * (largestDim / 2);
+		PointCoordinateType cellDim = largestDim / steps + std::numeric_limits<PointCoordinateType>::epsilon(); //to avoid rounding issues when projecting triangles or points inside the grid
 
 		bool result = false;
 		if (entity->isKindOf(CC_TYPES::MESH))
@@ -5936,46 +5936,43 @@ void MainWindow::doActionResetAllVBOs()
 	}
 }
 
-void MainWindow::showEvent(QShowEvent* event)
+void MainWindow::restoreGUIElementsPos()
 {
-	QMainWindow::showEvent( event );
-
-	if ( !m_FirstShow )
-	{
-		return;
-	}
-	
 	QSettings settings;
-	QVariant  geometry = settings.value(ccPS::MainWinGeom());
-	
-	if ( geometry.isValid() )
+
+	QVariant previousState = settings.value(ccPS::MainWinState());
+	if (previousState.isValid())
 	{
-		restoreGeometry(geometry.toByteArray());
-		restoreState(settings.value(ccPS::MainWinState()).toByteArray());
+		restoreState(previousState.toByteArray());
 	}
-	
-	m_FirstShow = false;
-	
-	if ( !geometry.isValid() )
+
+	//randomly makes CC freeze if restored on the second screen?!
+	//QVariant previousGeometry = settings.value(ccPS::MainWinGeom());
+	//if (previousGeometry.isValid())
+	//{
+	//	restoreGeometry(previousGeometry.toByteArray()); 
+	//}
+	//else
 	{
 		showMaximized();
 	}
-	
-	if ( isFullScreen() )
+
+	//if (isFullScreen())
+	//{
+	//	m_UI->actionFullScreen->setChecked(true);
+	//}
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+	if (m_firstShow)
 	{
-		m_UI->actionFullScreen->setChecked( true );
+		restoreGUIElementsPos();
+
+		m_firstShow = false;
 	}
-	
-#ifdef Q_OS_MAC
-	if ( isFullScreen() )
-	{
-		m_UI->actionFullScreen->setText( tr( "Exit Full Screen" ) );
-	}
-	else
-	{
-		m_UI->actionFullScreen->setText( tr( "Enter Full Screen" ) );
-	}
-#endif
+
+	QMainWindow::showEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -9934,6 +9931,22 @@ void MainWindow::onExclusiveFullScreenToggled(bool state)
 		//auto disable stereo mode as NVidia Vision only works in full screen mode!
 		m_UI->actionEnableStereo->setChecked(false);
 	}
+}
+
+ccHObject* MainWindow::loadFile(QString filename, bool silent)
+{
+	FileIOFilter::LoadParameters parameters;
+	{
+		parameters.alwaysDisplayLoadDialog = silent ? false : true;
+		parameters.shiftHandlingMode = ccGlobalShiftManager::NO_DIALOG_AUTO_SHIFT;
+		parameters.parentWidget = silent ? nullptr : this;
+	}
+
+	CC_FILE_ERROR result = CC_FERR_NO_ERROR;
+	ccHObject* newGroup = FileIOFilter::LoadFromFile(filename, parameters, result);
+
+	return newGroup;
+
 }
 
 void MainWindow::addToDBAuto(const QStringList& filenames)

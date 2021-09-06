@@ -8,6 +8,10 @@ v2.12 (???) - (in development)
 		-  'Edit > Cloud > Create single point cloud': to create a cloud with a single point (set by the user)
 		-  'Edit > Cloud > Paste from clipboard' (shortcut: CTRL+P): to create a cloud from ASCII/test data stored in the clipboard
 
+- New command line options:
+    - Added N_SIGMA_MIN and N_SIGMA_MAX options to the FILTER_SF command.
+		- Specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
+
 - Improvements
     - RANSAC plugin
         - Can save all leftover points into a new cloud (leftovers were points not assigned to a shape)
@@ -17,8 +21,6 @@ v2.12 (???) - (in development)
         - Ability to select min and max radii for various shapes (helps prevent giant spheres and cylinders from beating out the more likely plane feature)
     - Single Click Picking option added to display options menu
       - Single click picking can be disabled (can be very slow for very large point clouds) 
-    - CommandLine mode new features
-      - Added N_SIGMA_MIN and N_SIGMA_MAX options to the FILTER_SF command. Specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
 	- ICP registration:
 	    - new option to take the normals into account (if both entites have normals)
 			(several matching modes are available: same side, opposite side, or double-sided)
@@ -35,6 +37,8 @@ v2.12 (???) - (in development)
 		- option to choose the video output codec/format
 	- qM3C2:
 		- new options to orient normals: with the previous normal (if any) or with the associated sensor origin
+	- Normal computation:
+		- New preferred orientation: sensor origin
 	- ATI cards:
 		- the display should now be faster with ATI cards thanks to a smarter way to manage (2D text) textures
 	- Localization:
@@ -80,6 +84,8 @@ v2.12 (???) - (in development)
 		- loading speed should be greatly improved (compared to v2.10 and v2.11)
 	- LAS (1.3/1.4):
 		- the 'LAS 1.3 or 1.4' filter (based on LibLas) will now preserve the Coordinate Reference System (if the LAS file is loaded and saved with this filter)
+	- OBJ:
+		- support of the 'Ke' (emission) option in MTL files
 	- Global Shift & Scale:
 		- the qRansacSD plugin can now transfer the Global Shift & Scale info to the created primitives
 		- The fit functions (Fit shpere, Fit plane, Fit facet and Fit quadric) as well
@@ -121,6 +127,7 @@ v2.12 (???) - (in development)
 		It is now possible to load it if the 'list' is composed of floating point values.
 	- When merging two clouds, CC could crash is the LoD structure was currently being built at the same time on one of the clouds
 	- Command line mode: the '-GLOBA_SHIFT FIRST' option was not working properly
+	- the 'Guess parameters' option of the M3C2 plugin was suggesting radii while M3C2 scales are diameters (i.e. ideal values should have been twice as big)
 
 
 v2.11.3 (Anoia) - 08/09/2020
