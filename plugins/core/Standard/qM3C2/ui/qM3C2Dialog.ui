@@ -63,7 +63,7 @@
    <item>
     <widget class="QTabWidget" name="m3c2PMTabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="mainParams">
       <attribute name="title">

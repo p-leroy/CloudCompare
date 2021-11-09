@@ -242,8 +242,8 @@ void ComputeM3C2DistForPoint(unsigned index)
                         qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
 						validStats1 = true;
 						//do we have a sharp enough 'mean' to stop?
-						if (std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength))
-							break;
+//						if (std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength))
+//							break;
 					}
 					previousNeighbourCount = neighbourCount;
 				}
