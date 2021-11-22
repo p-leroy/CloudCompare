@@ -55,6 +55,10 @@ static const char DENSITY_CLOUD1_SF_NAME[]		= "Npoints_cloud1";
 static const char DENSITY_CLOUD2_SF_NAME[]		= "Npoints_cloud2";
 static const char NORMAL_SCALE_SF_NAME[]		= "normal scale";
 
+static ccPointCloud *projectionCloud;
+static QMutex mutex;
+static int sfIdx;
+
 static void RemoveScalarField(ccPointCloud* cloud, const char sfName[])
 {
 	int sfIdx = cloud ? cloud->getScalarFieldIndexByName(sfName) : -1;
@@ -253,7 +257,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 		{
 			s_M3C2Params.cloud1Octree->getPointsInCylindricalNeighbourhood(cn1);
 		}
-		
+
 		size_t n1 = cn1.neighbours.size();
 		if (n1 != 0)
 		{
@@ -282,6 +286,17 @@ void ComputeM3C2DistForPoint(unsigned index)
 				ScalarType val = static_cast<ScalarType>(stdDev1);
 				s_M3C2Params.stdDevCloud1SF->setValue(index, val);
 			}
+
+            mutex.lock();
+            unsigned currentSize = projectionCloud->size();
+            projectionCloud->reserve(currentSize + n1);
+            projectionCloud->getScalarField(sfIdx)->reserve(currentSize + n1);
+            for(unsigned int k = 0; k < n1; k++)
+            {
+                projectionCloud->addPoint(cn1.center +  cn1.dir * cn1.neighbours[k].squareDistd);
+                projectionCloud->addPointScalarValue(index);
+            }
+            mutex.unlock();
 		}
 
 		//save cloud #1's density
@@ -462,6 +477,10 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	//get the clouds in the right order
 	ccPointCloud* cloud1 = dlg.getCloud1();
 	ccPointCloud* cloud2 = dlg.getCloud2();
+
+    projectionCloud = new ccPointCloud();
+    sfIdx = projectionCloud->addScalarField("index");
+    projectionCloud->setName("projectionCloud");
 
 	if (!cloud1 || !cloud2)
 	{
@@ -1306,6 +1325,9 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         normalScaleSF2->release();
     if (s_M3C2Params.coreNormals2)
         s_M3C2Params.coreNormals2->release();
+
+    if (app)
+        app->addToDB(projectionCloud);
 
     return !error;
 }
