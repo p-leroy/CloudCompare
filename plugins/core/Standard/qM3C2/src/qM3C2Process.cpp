@@ -45,6 +45,8 @@
 #include <QtConcurrentMap>
 #include <QMessageBox>
 
+#include <iostream>
+
 //! Default name for M3C2 scalar fields
 static const char M3C2_DIST_SF_NAME[]			= "M3C2 distance";
 static const char DIST_UNCERTAINTY_SF_NAME[]	= "distance uncertainty";
@@ -193,6 +195,16 @@ struct M3C2Params
 };
 static M3C2Params s_M3C2Params;
 
+void Cout(QString str)
+{
+    std::cout << str.toLatin1().data() << std::endl;
+}
+
+void CoutPoint(Vector3Tpl<float> P)
+{
+    Cout("(" + QString::number(P.x) + ", " + QString::number(P.y) + ", " + QString::number(P.z) + ")");
+}
+
 void ComputeM3C2DistForPoint(unsigned index)
 {
 	if (s_M3C2Params.processCanceled)
@@ -290,11 +302,16 @@ void ComputeM3C2DistForPoint(unsigned index)
             mutex.lock();
             unsigned currentSize = projectionCloud->size();
             projectionCloud->reserve(currentSize + n1);
-            projectionCloud->getScalarField(sfIdx)->reserve(currentSize + n1);
+            Cout("======= currentSize " + QString::number(currentSize));
+            CoutPoint(cn1.center);
+            CoutPoint(cn1.dir);
             for(unsigned int k = 0; k < n1; k++)
             {
-                projectionCloud->addPoint(cn1.center +  cn1.dir * cn1.neighbours[k].squareDistd);
-                projectionCloud->addPointScalarValue(index);
+                Cout("currentSize + k = " + QString::number(currentSize + k));
+                CoutPoint(static_cast<PointCoordinateType>(cn1.neighbours[k].squareDistd) * cn1.dir);
+                Cout(QString::number(cn1.neighbours[k].squareDistd));
+                projectionCloud->addPoint(cn1.center + static_cast<PointCoordinateType>(cn1.neighbours[k].squareDistd) * cn1.dir);
+//                projectionCloud->addPointScalarValue(index);
             }
             mutex.unlock();
 		}
@@ -480,6 +497,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
     projectionCloud = new ccPointCloud();
     sfIdx = projectionCloud->addScalarField("index");
+    projectionCloud->setCurrentInScalarField(sfIdx);
     projectionCloud->setName("projectionCloud");
 
 	if (!cloud1 || !cloud2)
