@@ -63,6 +63,8 @@ public:
 	//! Returns the minimum number of points to compute stats (confidence mainly)
 	unsigned getMinPointsForStats(unsigned defaultValue = 5) const;
 
+    bool getMultiInterception() const;
+
 	//! Exportation options
 	enum ExportOptions {	PROJECT_ON_CLOUD1,
 							PROJECT_ON_CLOUD2,

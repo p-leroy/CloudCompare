@@ -479,6 +479,11 @@ unsigned qM3C2Dialog::getMinPointsForStats(unsigned defaultValue/*=5*/) const
 	return useMinPoints4StatCheckBox->isChecked() ? static_cast<unsigned>(std::max(0,minPoints4StatSpinBox->value())) : defaultValue;
 }
 
+bool qM3C2Dialog::getMultiInterception() const
+{
+    return checkBox_multiInterception->isChecked();
+}
+
 void qM3C2Dialog::loadParamsFromPersistentSettings()
 {
 	QSettings settings("qM3C2");

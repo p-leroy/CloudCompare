@@ -57,9 +57,10 @@ static const char DENSITY_CLOUD1_SF_NAME[]		= "Npoints_cloud1";
 static const char DENSITY_CLOUD2_SF_NAME[]		= "Npoints_cloud2";
 static const char NORMAL_SCALE_SF_NAME[]		= "normal scale";
 
-static ccPointCloud *projectionCloud;
-static QMutex mutex;
+static ccPointCloud *projectionCloud1;
+static ccPointCloud *projectionCloud2;
 static int sfIdx;
+static bool multiInterception = false;
 
 static void RemoveScalarField(ccPointCloud* cloud, const char sfName[])
 {
@@ -299,21 +300,23 @@ void ComputeM3C2DistForPoint(unsigned index)
 				s_M3C2Params.stdDevCloud1SF->setValue(index, val);
 			}
 
-            mutex.lock();
-            unsigned currentSize = projectionCloud->size();
-            projectionCloud->reserve(currentSize + n1);
-            Cout("======= currentSize " + QString::number(currentSize));
-            CoutPoint(cn1.center);
-            CoutPoint(cn1.dir);
-            for(unsigned int k = 0; k < n1; k++)
+            if (multiInterception)
             {
-                Cout("currentSize + k = " + QString::number(currentSize + k));
-                CoutPoint(static_cast<PointCoordinateType>(cn1.neighbours[k].squareDistd) * cn1.dir);
-                Cout(QString::number(cn1.neighbours[k].squareDistd));
-                projectionCloud->addPoint(cn1.center + static_cast<PointCoordinateType>(cn1.neighbours[k].squareDistd) * cn1.dir);
-//                projectionCloud->addPointScalarValue(index);
+                unsigned currentSize = projectionCloud1->size();
+                projectionCloud1->reserve(currentSize + n1);
+    //            Cout("======= currentSize " + QString::number(currentSize));
+    //            CoutPoint(cn1.center);
+    //            CoutPoint(cn1.dir);
+                for(unsigned int k = 0; k < n1; k++)
+                {
+    //                Cout("currentSize + k = " + QString::number(currentSize + k));
+    //                CoutPoint(static_cast<PointCoordinateType>(cn1.neighbours[k].squareDistd) * cn1.dir);
+    //                Cout(QString::number(cn1.neighbours[k].squareDistd));
+    //                projectionCloud1->addPoint(cn1.center + static_cast<PointCoordinateType>(cn1.neighbours[k].squareDistd) * cn1.dir);
+                    projectionCloud1->addPoint(*cn1.neighbours[k].point);
+    //                projectionCloud->addPointScalarValue(index);
+                }
             }
-            mutex.unlock();
 		}
 
 		//save cloud #1's density
@@ -359,8 +362,8 @@ void ComputeM3C2DistForPoint(unsigned index)
                             qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
 							validStats2 = true;
 							//do we have a sharp enough 'mean' to stop?
-							if (std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength))
-								break;
+//							if (std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength))
+//								break;
 						}
 						previousNeighbourCount = neighbourCount;
 					}
@@ -450,6 +453,16 @@ void ComputeM3C2DistForPoint(unsigned index)
 					ScalarType val = static_cast<ScalarType>(stdDev2);
 					s_M3C2Params.stdDevCloud2SF->setValue(index, val);
 				}
+
+                if (multiInterception)
+                {
+                    unsigned currentSize = projectionCloud2->size();
+                    projectionCloud2->reserve(currentSize + n2);
+                    for(unsigned int k = 0; k < n1; k++)
+                    {
+                        projectionCloud2->addPoint(*cn2.neighbours[k].point);
+                    }
+                }
 			}
 
 			//save cloud #2's density
@@ -495,11 +508,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	ccPointCloud* cloud1 = dlg.getCloud1();
 	ccPointCloud* cloud2 = dlg.getCloud2();
 
-    projectionCloud = new ccPointCloud();
-    sfIdx = projectionCloud->addScalarField("index");
-    projectionCloud->setCurrentInScalarField(sfIdx);
-    projectionCloud->setName("projectionCloud");
-
 	if (!cloud1 || !cloud2)
 	{
 		assert(false);
@@ -526,6 +534,20 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	s_M3C2Params.minPoints4Stats = dlg.getMinPointsForStats();
 	s_M3C2Params.progressiveSearch = !dlg.useSinglePass4DepthCheckBox->isChecked();
 	s_M3C2Params.onlyPositiveSearch = dlg.positiveSearchOnlyCheckBox->isChecked();
+
+    multiInterception = dlg.getMultiInterception();
+    if (multiInterception)
+    {
+        projectionCloud1 = new ccPointCloud();
+        sfIdx = projectionCloud1->addScalarField("index");
+        projectionCloud1->setCurrentInScalarField(sfIdx);
+        projectionCloud1->setName("projectionCloud1");
+
+        projectionCloud2 = new ccPointCloud();
+        sfIdx = projectionCloud2->addScalarField("index");
+        projectionCloud2->setCurrentInScalarField(sfIdx);
+        projectionCloud2->setName("projectionCloud2");
+    }
 
     //ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
 
@@ -1132,6 +1154,14 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 #ifdef _DEBUG
 			useParallelStrategy = false;
 #endif
+
+            if (multiInterception)
+            {
+                if (app)
+                    app->dispToConsole("multiInterception", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
+                useParallelStrategy = false;
+            }
+
 			if (useParallelStrategy)
 			{
 				try
@@ -1344,8 +1374,11 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
     if (s_M3C2Params.coreNormals2)
         s_M3C2Params.coreNormals2->release();
 
-    if (app)
-        app->addToDB(projectionCloud);
+    if (app && multiInterception)
+    {
+        app->addToDB(projectionCloud1);
+        app->addToDB(projectionCloud2);
+    }
 
     return !error;
 }
