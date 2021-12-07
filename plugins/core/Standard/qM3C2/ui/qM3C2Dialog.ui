@@ -222,9 +222,16 @@
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QCheckBox" name="checkBox_multiInterception">
+           <widget class="QCheckBox" name="checkBox_projectionDetails">
             <property name="text">
-             <string>multiInterception</string>
+             <string>projection details</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="checkBox_computeWelch">
+            <property name="text">
+             <string>compute Welch's test</string>
             </property>
            </widget>
           </item>
