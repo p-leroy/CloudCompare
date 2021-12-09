@@ -7,3 +7,7 @@ target_sources( ${PROJECT_NAME}
 		${CMAKE_CURRENT_LIST_DIR}/qM3C2Process.cpp
 		${CMAKE_CURRENT_LIST_DIR}/qM3C2Tools.cpp
 )
+
+target_include_directories( ${PROJECT_NAME}
+    PRIVATE
+    )

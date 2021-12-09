@@ -47,6 +47,9 @@
 
 #include <iostream>
 
+// Boost
+#include <boost/math/distributions/students_t.hpp>
+
 //! Default name for M3C2 scalar fields
 static const char M3C2_DIST_SF_NAME[]			= "M3C2 distance";
 static const char DIST_UNCERTAINTY_SF_NAME[]	= "distance uncertainty";
@@ -60,6 +63,7 @@ static const char SEARCH_DEPTH1_SF_NAME[]		= "search depth 1";
 static const char SEARCH_DEPTH2_SF_NAME[]		= "search depth 2";
 static const char WELCH_T_SF_NAME[]             = "Welch t";
 static const char WELCH_V_SF_NAME[]             = "Welch v";
+static const char WELCH_Q_SF_NAME[]             = "Welch q";
 
 static ccPointCloud *projectionCloud;
 static int sfIdx_index;
@@ -194,6 +198,7 @@ struct M3C2Params
     ccScalarField* indexSF = nullptr;           //the search depth used during the projection of cloud #2
     ccScalarField* welch_t_SF = nullptr;        //Welch's test
     ccScalarField* welch_v_SF = nullptr;        //Welch's test degrees of freedom
+    ccScalarField* welch_q_SF = nullptr;        //probability that difference is due to chance
 
 	//precision maps
 	PrecisionMaps cloud1PM, cloud2PM;
@@ -480,6 +485,34 @@ void ComputeM3C2DistForPoint(unsigned index)
 									s_M3C2Params.sigChangeSF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
 								}
 							}
+
+                            if (computeWelch)
+                            {
+                                // A Students t test applied to two sets of data. We are testing the null hypothesis that the two
+                                // samples have the same mean and that any difference if due to chance.
+                                // Welch's t-test
+                                // t-statistic
+                                // t = (mu_1 - mu_2) / sqrt(std1^2 / n1 + std2^2 / n2)
+                                double t = (mean1 - mean2) / sqrt(pow(stdDev1, 2) / n1 + pow(stdDev2, 2) / n2);
+                                s_M3C2Params.welch_t_SF->setValue(index, t);
+                                // degrees of freedom (possible to round down to the next lowest integer)
+                                //          (std1^2 / N1 + std2^2 / N2)^2
+                                // v = ---------------------------------------
+                                //     std1^4 / (N1^2 v1) + std2^4 / (N2^2 v2)
+                                // v1 = N1 - 1 degrees of freedom associated with the iith variance estimate
+                                // v2 = N2 - 1
+                                double v1 = n1 - 1;
+                                double v2 = n2 - 1;
+                                if (n1 != 1 && n2 != 1)
+                                {
+                                    double v = pow((pow(stdDev1, 2) / n1 + pow(stdDev2, 2) / n2), 2)
+                                            / (pow(stdDev1, 4) / (pow(n1, 2) * v1) + pow(stdDev2, 4) / (pow(n2, 2) * v2));
+                                    boost::math::students_t dist(v);
+                                    double q = boost::math::cdf(boost::math::complement(dist, fabs(t)));
+                                    s_M3C2Params.welch_v_SF->setValue(index, v);
+                                    s_M3C2Params.welch_q_SF->setValue(index, q);
+                                }
+                            }
 						}
 						//else //DGM: scalar fields have already been initialized with the right 'default' values
 						//{
@@ -489,20 +522,6 @@ void ComputeM3C2DistForPoint(unsigned index)
 						//		sigChangeSF->setValue(index, SCALAR_ZERO);
 						//}
 					}
-
-                    // Welch's t-test
-                    // t = (mu_1 - mu_2) / sqrt(std1^2 + std2^2)
-                    double t = (mean1 - mean2) / sqrt(pow(stdDev1, 2) + pow(stdDev2, 2));
-                    // degrees of freedom
-                    //          (std1^2 / N1 + std2^2 / N2)^2
-                    // v = ---------------------------------------
-                    //     std1^4 / (N1^2 v1) + std2^4 / (N2^2 v2)
-                    // v1 = N1 - 1
-                    // v2 = N2 - 1
-                    double v1 = n1 - 1;
-                    double v2 = n2 - 1;
-                    double v = (pow(stdDev1, 2) / n1 + pow(stdDev2, 2) / n2)
-                            / (pow(stdDev1, 4) / (pow(n1, 2) * v1) + pow(stdDev2, 4) / (pow(n2, 2) * v2));
 				}
 
 				//save cloud #2's std. dev.
@@ -632,6 +651,9 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
         s_M3C2Params.welch_v_SF = new ccScalarField(WELCH_V_SF_NAME);
         s_M3C2Params.welch_v_SF->link(); //will be released anyway at the end of the process
+
+        s_M3C2Params.welch_q_SF = new ccScalarField(WELCH_Q_SF_NAME);
+        s_M3C2Params.welch_q_SF->link(); //will be released anyway at the end of the process
     }
 
     //ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
@@ -767,7 +789,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         shuffled = ShuffleCloud(s_M3C2Params.corePoints);
         shuffled->setName("shuffledCorePoints");
         s_M3C2Params.corePoints = shuffled;
-        app->addToDB(s_M3C2Params.corePoints);
+//        app->addToDB(s_M3C2Params.corePoints);
     }
 
 	//output
@@ -1153,6 +1175,27 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
                 break;
             }
         }
+        if (computeWelch)
+        {
+            if (!s_M3C2Params.welch_t_SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.welch_v_SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.welch_q_SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+        }
 
 		//allocate dist. uncertainty SF
 		s_M3C2Params.distUncertaintySF = new ccScalarField(DIST_UNCERTAINTY_SF_NAME);
@@ -1427,12 +1470,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.searchDepth2SF->getName());
             sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.searchDepth2SF);
         }
-        if (s_M3C2Params.indexSF)
-        {
-            s_M3C2Params.indexSF->computeMinAndMax();
-            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.indexSF->getName());
-            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.indexSF);
-        }
         if (s_M3C2Params.welch_t_SF)
         {
             s_M3C2Params.welch_t_SF->computeMinAndMax();
@@ -1444,6 +1481,18 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             s_M3C2Params.welch_v_SF->computeMinAndMax();
             RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.welch_v_SF->getName());
             sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.welch_v_SF);
+        }
+        if (s_M3C2Params.welch_q_SF)
+        {
+            s_M3C2Params.welch_q_SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.welch_q_SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.welch_q_SF);
+        }
+        if (s_M3C2Params.indexSF)
+        {
+            s_M3C2Params.indexSF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.indexSF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.indexSF);
         }
 
 		s_M3C2Params.outputCloud->invalidateBoundingBox(); //see 'const_cast<...>' in ComputeM3C2DistForPoint ;)
@@ -1526,6 +1575,8 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.welch_t_SF->release();
     if (s_M3C2Params.welch_v_SF)
         s_M3C2Params.welch_v_SF->release();
+    if (s_M3C2Params.welch_q_SF)
+        s_M3C2Params.welch_q_SF->release();
 
     if (normalScaleSF2)
         normalScaleSF2->release();
