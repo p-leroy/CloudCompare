@@ -489,6 +489,11 @@ bool qM3C2Dialog::computeWelch() const
     return checkBox_computeWelch->isChecked();
 }
 
+bool qM3C2Dialog::getAlternativeProgresiveSearch() const
+{
+    return checkBox_alternativeProggressive->isChecked();
+}
+
 void qM3C2Dialog::loadParamsFromPersistentSettings()
 {
 	QSettings settings("qM3C2");

@@ -61,9 +61,12 @@ static const char DENSITY_CLOUD2_SF_NAME[]		= "Npoints_cloud2";
 static const char NORMAL_SCALE_SF_NAME[]		= "normal scale";
 static const char SEARCH_DEPTH1_SF_NAME[]		= "search depth 1";
 static const char SEARCH_DEPTH2_SF_NAME[]		= "search depth 2";
-static const char WELCH_T_SF_NAME[]             = "Welch t";
-static const char WELCH_V_SF_NAME[]             = "Welch v";
-static const char WELCH_Q_SF_NAME[]             = "Welch q";
+static const char WELCH_T_SF_NAME[]             = "Welch t (test)";
+static const char WELCH_V_SF_NAME[]             = "Welch v (degrees of freedom)";
+static const char WELCH_Q_SF_NAME[]             = "Welch q (probability)";
+static const char WELCH_P_SF_NAME[]             = "Welch p (critical value)";
+static const char WELCH_LOD_SF_NAME[]           = "Welch level of detection";
+static const char WELCH_SIG_SF_NAME[]           = "Welch significant change";
 
 static ccPointCloud *projectionCloud;
 static int sfIdx_index;
@@ -72,6 +75,7 @@ static CCCoreLib::ScalarField *index_SF_ptr;
 static CCCoreLib::ScalarField *cloud_SF_ptr;
 static bool multiInterception = false;
 static bool computeWelch = false;
+static bool alternativeProgressiveSearch = false;
 
 static void RemoveScalarField(ccPointCloud* cloud, const char sfName[])
 {
@@ -195,10 +199,13 @@ struct M3C2Params
 	ccScalarField* densityCloud2SF = nullptr;	//export point density at projection scale for cloud #2
     ccScalarField* searchDepth1SF = nullptr;    //the search depth used during the projection of cloud #1
     ccScalarField* searchDepth2SF = nullptr;    //the search depth used during the projection of cloud #2
-    ccScalarField* indexSF = nullptr;           //the search depth used during the projection of cloud #2
-    ccScalarField* welch_t_SF = nullptr;        //Welch's test
-    ccScalarField* welch_v_SF = nullptr;        //Welch's test degrees of freedom
-    ccScalarField* welch_q_SF = nullptr;        //probability that difference is due to chance
+    ccScalarField* indexSF = nullptr;           // index of the core point
+    ccScalarField* welch_t_SF = nullptr;        // Welch's test
+    ccScalarField* welch_v_SF = nullptr;        // Welch's test degrees of freedom
+    ccScalarField* welch_q_SF = nullptr;        // probability that difference is due to chance
+    ccScalarField* welch_p_SF = nullptr;        // critical value
+    ccScalarField* welch_lod_SF = nullptr;      // lod aka distance uncertainty
+    ccScalarField* welch_sig_SF = nullptr;      // significant change
 
 	//precision maps
 	PrecisionMaps cloud1PM, cloud2PM;
@@ -299,19 +306,36 @@ void ComputeM3C2DistForPoint(unsigned index)
 			while (cn1.currentHalfLength < cn1.maxHalfLength)
 			{
 				size_t neighbourCount = s_M3C2Params.cloud1Octree->getPointsInCylindricalNeighbourhoodProgressive(cn1);
-				if (neighbourCount != previousNeighbourCount)
-				{
-					//do we have enough points for computing stats?
-					if (neighbourCount >= s_M3C2Params.minPoints4Stats)
-					{
-                        qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
-						validStats1 = true;
-						//do we have a sharp enough 'mean' to stop?
-                        if (std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength))
+                if (alternativeProgressiveSearch)
+                {
+                    if ((neighbourCount != previousNeighbourCount) && (neighbourCount != 0))
+                    {
+                        //do we have enough points for computing stats?
+                        if (neighbourCount >= s_M3C2Params.minPoints4Stats)
+                        {
+                            qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
+                            validStats1 = true;
+                            // the number of points in the neighbouhood is stable
                             break;
-					}
-					previousNeighbourCount = neighbourCount;
-				}
+                        }
+                    }
+                }
+                else
+                {
+                    if (neighbourCount != previousNeighbourCount)
+                    {
+                        //do we have enough points for computing stats?
+                        if (neighbourCount >= s_M3C2Params.minPoints4Stats)
+                        {
+                            qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
+                            validStats1 = true;
+                            //do we have a sharp enough 'mean' to stop?
+                            if (std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength))
+                                break;
+                        }
+                    }
+                }
+                previousNeighbourCount = neighbourCount;
 			}
 		}
 		else
@@ -403,19 +427,36 @@ void ComputeM3C2DistForPoint(unsigned index)
 				while (cn2.currentHalfLength < cn2.maxHalfLength)
 				{
 					size_t neighbourCount = s_M3C2Params.cloud2Octree->getPointsInCylindricalNeighbourhoodProgressive(cn2);
-					if (neighbourCount != previousNeighbourCount)
-					{
-						//do we have enough points for computing stats?
-						if (neighbourCount >= s_M3C2Params.minPoints4Stats)
-						{
-                            qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
-							validStats2 = true;
-							//do we have a sharp enough 'mean' to stop?
-                            if (std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength))
+                    if (alternativeProgressiveSearch)
+                    {
+                        if ((neighbourCount != previousNeighbourCount) && (neighbourCount != 0))
+                        {
+                            //do we have enough points for computing stats?
+                            if (neighbourCount >= s_M3C2Params.minPoints4Stats)
+                            {
+                                qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
+                                validStats2 = true;
+                                // the number of points in the neighbouhood is stable
                                 break;
-						}
-						previousNeighbourCount = neighbourCount;
-					}
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (neighbourCount != previousNeighbourCount)
+                        {
+                            //do we have enough points for computing stats?
+                            if (neighbourCount >= s_M3C2Params.minPoints4Stats)
+                            {
+                                qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
+                                validStats2 = true;
+                                //do we have a sharp enough 'mean' to stop?
+                                if (std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength))
+                                    break;
+                            }
+                        }
+                    }
+                    previousNeighbourCount = neighbourCount;
 				}
 			}
 			else
@@ -493,7 +534,12 @@ void ComputeM3C2DistForPoint(unsigned index)
                                 // Welch's t-test
                                 // t-statistic
                                 // t = (mu_1 - mu_2) / sqrt(std1^2 / n1 + std2^2 / n2)
-                                double t = (mean1 - mean2) / sqrt(pow(stdDev1, 2) / n1 + pow(stdDev2, 2) / n2);
+                                double s1 = stdDev1 * sqrt(n1 / (n1 - 1.)); //  one needs a non biased estimator in Welch formula
+                                double s2 = stdDev2 * sqrt(n2 / (n2 - 1.)); //  one needs a non biased estimator in Welch formula
+                                //double s1 = stdDev1; //  one needs a non biased estimator in Welch formula
+                                //double s2 = stdDev2; //  one needs a non biased estimator in Welch formula
+                                double t_num = sqrt(pow(s1, 2) / n1 + pow(s2, 2) / n2);
+                                double t = (mean1 - mean2) / t_num;
                                 s_M3C2Params.welch_t_SF->setValue(index, t);
                                 // degrees of freedom (possible to round down to the next lowest integer)
                                 //          (std1^2 / N1 + std2^2 / N2)^2
@@ -505,12 +551,22 @@ void ComputeM3C2DistForPoint(unsigned index)
                                 double v2 = n2 - 1;
                                 if (n1 != 1 && n2 != 1)
                                 {
-                                    double v = pow((pow(stdDev1, 2) / n1 + pow(stdDev2, 2) / n2), 2)
-                                            / (pow(stdDev1, 4) / (pow(n1, 2) * v1) + pow(stdDev2, 4) / (pow(n2, 2) * v2));
-                                    boost::math::students_t dist(v);
-                                    double q = boost::math::cdf(boost::math::complement(dist, fabs(t)));
+                                    double v = pow((pow(s1, 2) / n1 + pow(s2, 2) / n2), 2)
+                                            / (pow(s1, 4) / (pow(n1, 2) * v1) + pow(s2, 4) / (pow(n2, 2) * v2));
+                                    boost::math::students_t t_dist(v);
+                                    // cdf(complement()) <=> survival function
+                                    double q = 2 * boost::math::cdf(boost::math::complement(t_dist, fabs(t)));
+                                    double welch_p = boost::math::quantile(t_dist, 0.975);
+                                    double welch_lod = welch_p * t_num;
                                     s_M3C2Params.welch_v_SF->setValue(index, v);
                                     s_M3C2Params.welch_q_SF->setValue(index, q);
+                                    s_M3C2Params.welch_p_SF->setValue(index, welch_p);
+                                    s_M3C2Params.welch_lod_SF->setValue(index, welch_lod);
+                                    bool welch_sig = (fabs(dist) > welch_lod);
+                                    if (welch_sig)
+                                    {
+                                        s_M3C2Params.welch_sig_SF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
+                                    }
                                 }
                             }
 						}
@@ -630,7 +686,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         sfIdx_cloud = projectionCloud->addScalarField("cloud");
         index_SF_ptr = projectionCloud->getScalarField(sfIdx_index);
         cloud_SF_ptr = projectionCloud->getScalarField(sfIdx_cloud);
-        projectionCloud->setCurrentInScalarField(sfIdx_index);
         projectionCloud->setName("projectionCloud");
 
         s_M3C2Params.searchDepth1SF = new ccScalarField(SEARCH_DEPTH1_SF_NAME);
@@ -654,7 +709,18 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
         s_M3C2Params.welch_q_SF = new ccScalarField(WELCH_Q_SF_NAME);
         s_M3C2Params.welch_q_SF->link(); //will be released anyway at the end of the process
+
+        s_M3C2Params.welch_p_SF = new ccScalarField(WELCH_P_SF_NAME);
+        s_M3C2Params.welch_p_SF->link(); //will be released anyway at the end of the process
+
+        s_M3C2Params.welch_lod_SF = new ccScalarField(WELCH_LOD_SF_NAME);
+        s_M3C2Params.welch_lod_SF->link(); //will be released anyway at the end of the process
+
+        s_M3C2Params.welch_sig_SF = new ccScalarField(WELCH_SIG_SF_NAME);
+        s_M3C2Params.welch_sig_SF->link(); //will be released anyway at the end of the process
     }
+    // ALTERNATIVE PROGRESSIVE SEARCH
+    alternativeProgressiveSearch = dlg.getAlternativeProgresiveSearch();
 
     //ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
 
@@ -1195,6 +1261,24 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
                 error = true;
                 break;
             }
+            if (!s_M3C2Params.welch_p_SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.welch_lod_SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.welch_sig_SF->resizeSafe(corePointCount, true, SCALAR_ZERO))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
         }
 
 		//allocate dist. uncertainty SF
@@ -1458,6 +1542,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.m3c2DistSF);
 		}
 
+        // MULTI-INTERCEPTION
         if (s_M3C2Params.searchDepth1SF)
         {
             s_M3C2Params.searchDepth1SF->computeMinAndMax();
@@ -1470,6 +1555,13 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.searchDepth2SF->getName());
             sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.searchDepth2SF);
         }
+        if (s_M3C2Params.indexSF)
+        {
+            s_M3C2Params.indexSF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.indexSF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.indexSF);
+        }
+        // WELCH
         if (s_M3C2Params.welch_t_SF)
         {
             s_M3C2Params.welch_t_SF->computeMinAndMax();
@@ -1488,11 +1580,24 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.welch_q_SF->getName());
             sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.welch_q_SF);
         }
-        if (s_M3C2Params.indexSF)
+        if (s_M3C2Params.welch_p_SF)
         {
-            s_M3C2Params.indexSF->computeMinAndMax();
-            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.indexSF->getName());
-            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.indexSF);
+            s_M3C2Params.welch_p_SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.welch_p_SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.welch_p_SF);
+        }
+        if (s_M3C2Params.welch_lod_SF)
+        {
+            s_M3C2Params.welch_lod_SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.welch_lod_SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.welch_lod_SF);
+        }
+        if (s_M3C2Params.welch_sig_SF)
+        {
+            s_M3C2Params.welch_sig_SF->computeMinAndMax();
+            s_M3C2Params.sigChangeSF->setMinDisplayed(SCALAR_ONE);
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.welch_sig_SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.welch_sig_SF);
         }
 
 		s_M3C2Params.outputCloud->invalidateBoundingBox(); //see 'const_cast<...>' in ComputeM3C2DistForPoint ;)
@@ -1544,6 +1649,15 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		s_M3C2Params.outputCloud = nullptr;
 	}
 
+    if (app && multiInterception)
+    {
+        app->addToDB(projectionCloud);
+        index_SF_ptr->computeMinAndMax();
+        cloud_SF_ptr->computeMinAndMax();
+        projectionCloud->setCurrentDisplayedScalarField(sfIdx_index);
+        projectionCloud->showSF(true);
+    }
+
 	if (app)
 		app->refreshAll();
 
@@ -1571,25 +1685,25 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.searchDepth1SF->release();
     if (s_M3C2Params.searchDepth2SF)
         s_M3C2Params.searchDepth2SF->release();
+    if (s_M3C2Params.indexSF)
+        s_M3C2Params.indexSF->release();
     if (s_M3C2Params.welch_t_SF)
         s_M3C2Params.welch_t_SF->release();
     if (s_M3C2Params.welch_v_SF)
         s_M3C2Params.welch_v_SF->release();
     if (s_M3C2Params.welch_q_SF)
         s_M3C2Params.welch_q_SF->release();
+    if (s_M3C2Params.welch_p_SF)
+        s_M3C2Params.welch_p_SF->release();
+    if (s_M3C2Params.welch_lod_SF)
+        s_M3C2Params.welch_lod_SF->release();
+    if (s_M3C2Params.welch_sig_SF)
+        s_M3C2Params.welch_sig_SF->release();
 
     if (normalScaleSF2)
         normalScaleSF2->release();
     if (s_M3C2Params.coreNormals2)
         s_M3C2Params.coreNormals2->release();
-
-    if (app && multiInterception)
-    {
-        index_SF_ptr->computeMinAndMax();
-        cloud_SF_ptr->computeMinAndMax();
-        projectionCloud->setCurrentDisplayedScalarField(sfIdx_index);
-        app->addToDB(projectionCloud);
-    }
 
     return !error;
 }
