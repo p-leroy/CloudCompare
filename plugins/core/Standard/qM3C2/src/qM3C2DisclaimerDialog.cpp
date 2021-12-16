@@ -32,6 +32,20 @@ DisclaimerDialog::DisclaimerDialog(QWidget *parent)
     , m_ui( new Ui::DisclaimerDialog )
 {
     m_ui->setupUi( this );
+
+    QString compilationInfo;
+    compilationInfo += "Version " + QString(QM3C2_VERSION);
+    compilationInfo += QStringLiteral("<br><i>Compiled with");
+
+#if defined(_MSC_VER)
+    compilationInfo += QStringLiteral(" MSVC %1 and").arg(_MSC_VER);
+#endif
+
+    compilationInfo += QStringLiteral(" Qt %1").arg(QT_VERSION_STR);
+    compilationInfo += QStringLiteral("</i>");
+    compilationInfo += " [cc " + QString(GIT_BRANCH_CC) + "/" + QString(GIT_COMMMIT_HASH_CC) + "]";
+
+    m_ui->label_compilationInformation->setText(compilationInfo);
 }
 
 DisclaimerDialog::~DisclaimerDialog()

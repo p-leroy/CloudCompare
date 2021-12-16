@@ -484,14 +484,24 @@ bool qM3C2Dialog::getProjectionDetails() const
     return checkBox_projectionDetails->isChecked();
 }
 
+bool qM3C2Dialog::exportSearchDepth() const
+{
+    return checkBox_exportSearchDepth->isChecked();
+}
+
 bool qM3C2Dialog::computeWelch() const
 {
     return checkBox_computeWelch->isChecked();
 }
 
-bool qM3C2Dialog::getAlternativeProgresiveSearch() const
+bool qM3C2Dialog::getAlternativeProgressiveSearch() const
 {
     return checkBox_alternativeProggressive->isChecked();
+}
+
+double qM3C2Dialog::getAlternativeProgressiveSearchStep() const
+{
+    return doubleSpinBox_progressiveSearch->value();
 }
 
 void qM3C2Dialog::loadParamsFromPersistentSettings()

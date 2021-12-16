@@ -65,9 +65,13 @@ public:
 
     bool getProjectionDetails() const;
 
+    bool exportSearchDepth() const;
+
     bool computeWelch() const;
 
-    bool getAlternativeProgresiveSearch() const;
+    bool getAlternativeProgressiveSearch() const;
+
+    double getAlternativeProgressiveSearchStep() const;
 
 	//! Exportation options
 	enum ExportOptions {	PROJECT_ON_CLOUD1,
