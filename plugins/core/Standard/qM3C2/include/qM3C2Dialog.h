@@ -73,6 +73,8 @@ public:
 
     double getAlternativeProgressiveSearchStep() const;
 
+    bool getSharpMean() const;
+
 	//! Exportation options
 	enum ExportOptions {	PROJECT_ON_CLOUD1,
 							PROJECT_ON_CLOUD2,

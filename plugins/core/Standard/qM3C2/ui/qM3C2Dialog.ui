@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>755</width>
-    <height>509</height>
+    <width>630</width>
+    <height>574</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -181,23 +181,6 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
-           <widget class="QRadioButton" name="cpUseOtherCloudRadioButton">
-            <property name="text">
-             <string>use other cloud</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QComboBox" name="cpOtherCloudComboBox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Alternative core points cloud</string>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="0">
            <widget class="QRadioButton" name="cpSubsampleRadioButton">
             <property name="text">
@@ -221,53 +204,20 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="0">
-           <widget class="QCheckBox" name="checkBox_computeWelch">
+          <item row="2" column="0">
+           <widget class="QRadioButton" name="cpUseOtherCloudRadioButton">
             <property name="text">
-             <string>compute Welch's test</string>
+             <string>use other cloud</string>
             </property>
-            <property name="checked">
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="cpOtherCloudComboBox">
+            <property name="enabled">
              <bool>false</bool>
             </property>
-           </widget>
-          </item>
-          <item row="6" column="0">
-           <widget class="QCheckBox" name="checkBox_alternativeProggressive">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The progressive search is performed step by step, search cylinder length is increased by step at each iteration. When n at step k+1 is equal to n at step k, the search is stopped.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>alternative progressive search</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="1">
-           <widget class="QDoubleSpinBox" name="doubleSpinBox_progressiveSearch">
-            <property name="buttonSymbols">
-             <enum>QAbstractSpinBox::NoButtons</enum>
-            </property>
-            <property name="value">
-             <double>1.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0" colspan="2">
-           <widget class="QCheckBox" name="checkBox_projectionDetails">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this option, all points used to compute the projections are stored in a new cloud, jointly with their projection on the normal.&lt;/p&gt;&lt;p&gt;Use it carefully:&lt;/p&gt;&lt;p&gt;=&amp;gt; the number of points can increase rapidly&lt;/p&gt;&lt;p&gt;=&amp;gt; the computation is not done using the parallel strategy!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>store projection information in a new cloud</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
-            <property name="text">
-             <string>export search depth</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
+             <string>Alternative core points cloud</string>
             </property>
            </widget>
           </item>
@@ -326,6 +276,75 @@
             </property>
             <property name="text">
              <string>Guess params</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_2">
+         <property name="title">
+          <string>Multi-interception diagnostic</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="checkBox_alternativeProggressive">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The progressive search is performed step by step, search cylinder length is increased by step at each iteration. When n at step k+1 is equal to n at step k, the search is stopped.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>alternative progressive search step</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_projectionDetails">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this option, all points used to compute the projections are stored in a new cloud, jointly with their projection on the normal.&lt;/p&gt;&lt;p&gt;Use it carefully:&lt;/p&gt;&lt;p&gt;=&amp;gt; the number of points can increase rapidly&lt;/p&gt;&lt;p&gt;=&amp;gt; the computation is not done using the parallel strategy!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>visualize the points used for the projection on core points</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="checkBox_computeWelch">
+            <property name="text">
+             <string>compute Welch's test</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
+            <property name="text">
+             <string>export search depth</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QDoubleSpinBox" name="doubleSpinBox_progressiveSearch">
+            <property name="buttonSymbols">
+             <enum>QAbstractSpinBox::NoButtons</enum>
+            </property>
+            <property name="value">
+             <double>1.000000000000000</double>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_sharpMean">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Do we have a sharp mean during the progressive search of the point projections?&lt;/p&gt;&lt;p&gt;abs(mean) + 2 * stdDev &amp;lt; currentHalfLength&lt;/p&gt;&lt;p&gt;If not, the significant change parameter is set to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>sharp mean</string>
             </property>
            </widget>
           </item>

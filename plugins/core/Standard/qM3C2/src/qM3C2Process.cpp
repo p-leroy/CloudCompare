@@ -77,6 +77,7 @@ static CCCoreLib::ScalarField *projCloud_SF_cloud;
 static bool storeProjectionInfo = false;
 static bool exportSearchDepth = false;
 static bool computeWelch = false;
+static bool sharpMean = false;
 static bool alternativeProgressiveSearch = false;
 static double alternativeProgessiveSearchStep = 1.0;
 
@@ -259,6 +260,16 @@ ccPointCloud *ShuffleCloud(ccPointCloud *&cloud)
     return shuffledCloud;
 }
 
+double isSharp(double mean, double stdDev, double halfLength)
+{
+    bool res = false;
+
+    if (std::abs(mean) + 2 * stdDev < static_cast<double>(halfLength))
+        res = true;
+
+    return res;
+}
+
 void ComputeM3C2DistForPoint(unsigned index)
 {
 	if (s_M3C2Params.processCanceled)
@@ -292,6 +303,8 @@ void ComputeM3C2DistForPoint(unsigned index)
 		double mean1 = 0;
 		double stdDev1 = 0;
 		bool validStats1 = false;
+        bool mean1IsSharp = false;
+        bool mean2IsSharp = false;
 
 		//extract cloud #1's neighbourhood
 		CCCoreLib::DgmOctree::ProgressiveCylindricalNeighbourhood cn1;
@@ -541,7 +554,15 @@ void ComputeM3C2DistForPoint(unsigned index)
 								bool significant = (dist < -LOD || dist > LOD);
 								if (significant)
 								{
-									s_M3C2Params.sigChangeSF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
+                                    if (sharpMean)
+                                    {
+                                        mean1IsSharp = isSharp(mean1, stdDev1, cn1.currentHalfLength);
+                                        mean2IsSharp = isSharp(mean2, stdDev2, cn2.currentHalfLength);
+                                        if (mean1IsSharp && mean2IsSharp) // check that both means are sharp
+                                            s_M3C2Params.sigChangeSF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
+                                    }
+                                    else
+                                        s_M3C2Params.sigChangeSF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
 								}
 							}
 
@@ -739,6 +760,8 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.welch_sig_SF = new ccScalarField(WELCH_SIG_SF_NAME);
         s_M3C2Params.welch_sig_SF->link(); //will be released anyway at the end of the process
     }
+    // SHARP MEAN
+    sharpMean = dlg.getSharpMean(); // use sharp mean diagnostic to reject projected points
     // ALTERNATIVE PROGRESSIVE SEARCH
     alternativeProgressiveSearch = dlg.getAlternativeProgressiveSearch();
     alternativeProgessiveSearchStep = dlg.getAlternativeProgressiveSearchStep();

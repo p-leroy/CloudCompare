@@ -504,6 +504,11 @@ double qM3C2Dialog::getAlternativeProgressiveSearchStep() const
     return doubleSpinBox_progressiveSearch->value();
 }
 
+bool qM3C2Dialog::getSharpMean() const
+{
+    return checkBox_sharpMean->isChecked();
+}
+
 void qM3C2Dialog::loadParamsFromPersistentSettings()
 {
 	QSettings settings("qM3C2");
