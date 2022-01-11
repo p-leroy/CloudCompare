@@ -68,6 +68,8 @@ static const char WELCH_Q_SF_NAME[]             = "Welch q (probability)";
 static const char WELCH_P_SF_NAME[]             = "Welch p (critical value)";
 static const char WELCH_LOD_SF_NAME[]           = "Welch level of detection";
 static const char WELCH_SIG_SF_NAME[]           = "Welch significant change";
+static const char MEAN_MINUS_MEDIAN_1_SF[]      = "Mean minus median 1";
+static const char MEAN_MINUS_MEDIAN_2_SF[]      = "Mean minus median 2";
 
 static ccPointCloud *projectionCloud;
 static int projCloud_sfIdx_index;
@@ -210,6 +212,8 @@ struct M3C2Params
     ccScalarField* welch_p_SF = nullptr;        // critical value
     ccScalarField* welch_lod_SF = nullptr;      // lod aka distance uncertainty
     ccScalarField* welch_sig_SF = nullptr;      // significant change
+    ccScalarField* meanMinusMed1SF = nullptr;   //the search depth used during the projection of cloud #1
+    ccScalarField* meanMinusMed2SF = nullptr;   //the search depth used during the projection of cloud #2
 
 	//precision maps
 	PrecisionMaps cloud1PM, cloud2PM;
@@ -268,6 +272,14 @@ double isSharp(double mean, double stdDev, double halfLength)
         res = true;
 
     return res;
+}
+
+double meanMinusMedian(CCCoreLib::DgmOctree::NeighboursSet& set, double mean)
+{
+    std::sort(set.begin(), set.end(), CCCoreLib::DgmOctree::PointDescriptor::distComp);
+    double median = qM3C2Tools::Median(set);
+
+    return (mean - median);
 }
 
 void ComputeM3C2DistForPoint(unsigned index)
@@ -366,7 +378,10 @@ void ComputeM3C2DistForPoint(unsigned index)
 		}
 
         if (exportSearchDepth)
+        {
             s_M3C2Params.searchDepth1SF->setValue(index, cn1.currentHalfLength);
+            s_M3C2Params.meanMinusMed1SF->setValue(index, meanMinusMedian(cn1.neighbours, mean1));
+        }
 		size_t n1 = cn1.neighbours.size();
 		if (n1 != 0)
 		{
@@ -494,7 +509,10 @@ void ComputeM3C2DistForPoint(unsigned index)
 			}
 
             if (exportSearchDepth)
+            {
                 s_M3C2Params.searchDepth2SF->setValue(index, cn2.currentHalfLength);
+                s_M3C2Params.meanMinusMed2SF->setValue(index, meanMinusMedian(cn2.neighbours, mean2));
+            }
 			size_t n2 = cn2.neighbours.size();
 			if (n2 != 0)
 			{
@@ -737,6 +755,10 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.searchDepth1SF->link(); //will be released anyway at the end of the process
         s_M3C2Params.searchDepth2SF = new ccScalarField(SEARCH_DEPTH2_SF_NAME);
         s_M3C2Params.searchDepth2SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.meanMinusMed1SF = new ccScalarField(MEAN_MINUS_MEDIAN_1_SF);
+        s_M3C2Params.meanMinusMed1SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.meanMinusMed2SF = new ccScalarField(MEAN_MINUS_MEDIAN_2_SF);
+        s_M3C2Params.meanMinusMed2SF->link(); //will be released anyway at the end of the process
     }
     // COMPUTE WELCH
     computeWelch = dlg.computeWelch();
@@ -1287,6 +1309,18 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
                 error = true;
                 break;
             }
+            if (!s_M3C2Params.meanMinusMed1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.meanMinusMed2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
         }
         if (computeWelch)
         {
@@ -1610,6 +1644,22 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.indexSF->getName());
             sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.indexSF);
         }
+        if (s_M3C2Params.meanMinusMed1SF)
+        {
+            s_M3C2Params.meanMinusMed1SF->computeMinAndMax();
+            s_M3C2Params.meanMinusMed1SF->setSymmetricalScale(true);
+            s_M3C2Params.meanMinusMed1SF->setColorScale(ccColorScalesManager::GetDefaultScale(ccColorScalesManager::BWR));
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.meanMinusMed1SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.meanMinusMed1SF);
+        }
+        if (s_M3C2Params.meanMinusMed2SF)
+        {
+            s_M3C2Params.meanMinusMed2SF->computeMinAndMax();
+            s_M3C2Params.meanMinusMed2SF->setSymmetricalScale(true);
+            s_M3C2Params.meanMinusMed2SF->setColorScale(ccColorScalesManager::GetDefaultScale(ccColorScalesManager::BWR));
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.meanMinusMed2SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.meanMinusMed2SF);
+        }
         // WELCH
         if (s_M3C2Params.welch_t_SF)
         {
@@ -1736,6 +1786,10 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.searchDepth2SF->release();
     if (s_M3C2Params.indexSF)
         s_M3C2Params.indexSF->release();
+    if (s_M3C2Params.meanMinusMed1SF)
+        s_M3C2Params.meanMinusMed1SF->release();
+    if (s_M3C2Params.meanMinusMed2SF)
+        s_M3C2Params.meanMinusMed2SF->release();
     if (s_M3C2Params.welch_t_SF)
         s_M3C2Params.welch_t_SF->release();
     if (s_M3C2Params.welch_v_SF)

@@ -93,6 +93,8 @@ public:
                                     double& dist,
                                     double& uncer);
 
+    static double Median(const CCCoreLib::DgmOctree::NeighboursSet& set, size_t begin = 0, size_t count = 0);
+
 	//! M3C2 parameters that can be guessed automatically by 'probing'
 	struct GuessedParams
 	{

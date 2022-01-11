@@ -489,7 +489,7 @@ void qM3C2Normals::MakeNormalsHorizontal(NormsIndexesTableType& normsCodes)
 /** Uses the common definition using mid-point average in the even case
 	just as the original m3c2 code by N. Brodu.
 **/
-static double Median(const CCCoreLib::DgmOctree::NeighboursSet& set, size_t begin = 0, size_t count = 0)
+double qM3C2Tools::Median(const CCCoreLib::DgmOctree::NeighboursSet& set, size_t begin, size_t count)
 {
 	if (count == 0)
 	{
@@ -522,8 +522,8 @@ double Interquartile(const CCCoreLib::DgmOctree::NeighboursSet& set)
 	size_t num_pts_each_half = (num + 1) / 2;
 	size_t offset_second_half = num / 2;
 
-	double q1 = Median(set, 0, num_pts_each_half);
-	double q3 = Median(set, offset_second_half, num_pts_each_half);
+    double q1 = qM3C2Tools::Median(set, 0, num_pts_each_half);
+    double q3 = qM3C2Tools::Median(set, offset_second_half, num_pts_each_half);
 
 	return q3 - q1;
 }
