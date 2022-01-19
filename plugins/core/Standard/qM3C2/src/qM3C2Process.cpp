@@ -420,9 +420,9 @@ void ComputeM3C2DistForPoint(unsigned index)
             if (storeProjectionInfo)
             {
                 unsigned currentSize = projectionCloud->size();
-                projectionCloud->reserve(currentSize + 2 * n1);
-                projCloud_SF_index->resizeSafe(currentSize + 2 * n1, true, CCCoreLib::NAN_VALUE);
-                projCloud_SF_cloud->resizeSafe(currentSize + 2 * n1, true, CCCoreLib::NAN_VALUE);
+                projectionCloud->reserve(currentSize + 2 * n1 + 1);
+                projCloud_SF_index->resizeSafe(currentSize + 2 * n1 + 1, true, CCCoreLib::NAN_VALUE);
+                projCloud_SF_cloud->resizeSafe(currentSize + 2 * n1 + 1, true, CCCoreLib::NAN_VALUE);
                 for(unsigned int k = 0; k < n1; k++)
                 {
                     projectionCloud->addPoint(*cn1.neighbours[k].point);
@@ -433,6 +433,10 @@ void ComputeM3C2DistForPoint(unsigned index)
                     projCloud_SF_index->setValue(currentSize + 2 * k + 1, index);
                     projCloud_SF_cloud->setValue(currentSize + 2 * k + 1, 1);
                 }
+                // add the core point to the cloud, with cloud number 0
+                projectionCloud->addPoint(P);
+                projCloud_SF_index->setValue(currentSize + 2 * n1, index);
+                projCloud_SF_cloud->setValue(currentSize + 2 * n1, 0);
             }
 		}
 
