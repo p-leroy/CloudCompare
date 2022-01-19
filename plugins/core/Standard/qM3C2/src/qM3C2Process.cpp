@@ -339,16 +339,21 @@ void ComputeM3C2DistForPoint(unsigned index)
                     cn1.currentHalfLength -= cn1.radius;
                     cn1.currentHalfLength += alternativeProgessiveSearchStep;
                     size_t neighbourCount = s_M3C2Params.cloud1Octree->getPointsInCylindricalNeighbourhoodProgressive(cn1);
-                    if ((neighbourCount == previousNeighbourCount) && (neighbourCount != 0))
+                    bool noChange = ((neighbourCount == previousNeighbourCount) && (neighbourCount != 0));
+                    // break if the number of points in the neighbourhood is stable
+                    if (noChange)
+                        break;
+                    else
                     {
                         //do we have enough points for computing stats?
                         if (neighbourCount >= s_M3C2Params.minPoints4Stats)
                         {
                             qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
                             validStats1 = true;
-                            // the number of points in the neighbouhood is stable
+                            bool sharp = std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength);
+                            if (sharp)
+                                break;
                         }
-                        break;
                     }
                     previousNeighbourCount = neighbourCount;
                 }
@@ -364,7 +369,8 @@ void ComputeM3C2DistForPoint(unsigned index)
                             qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
                             validStats1 = true;
                             //do we have a sharp enough 'mean' to stop?
-                            if (std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength))
+                            bool sharp = std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength);
+                            if (sharp)
                                 break;
                         }
                     }
@@ -470,16 +476,21 @@ void ComputeM3C2DistForPoint(unsigned index)
                         cn2.currentHalfLength -= cn2.radius;
                         cn2.currentHalfLength += alternativeProgessiveSearchStep;
                         size_t neighbourCount = s_M3C2Params.cloud2Octree->getPointsInCylindricalNeighbourhoodProgressive(cn2);
-                        if ((neighbourCount == previousNeighbourCount) && (neighbourCount != 0))
+                        bool noChange = ((neighbourCount == previousNeighbourCount) && (neighbourCount != 0));
+                        // break if the number of points in the neighbourhood is stable
+                        if (noChange)
+                            break;
+                        else
                         {
                             //do we have enough points for computing stats?
                             if (neighbourCount >= s_M3C2Params.minPoints4Stats)
                             {
                                 qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
                                 validStats2 = true;
-                                // the number of points in the neighbouhood is stable
+                                bool sharp = std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength);
+                                if (sharp)
+                                    break;
                             }
-                            break;
                         }
                         previousNeighbourCount = neighbourCount;
                     }
@@ -495,7 +506,8 @@ void ComputeM3C2DistForPoint(unsigned index)
                                 qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
                                 validStats2 = true;
                                 //do we have a sharp enough 'mean' to stop?
-                                if (std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength))
+                                bool sharp = std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength);
+                                if (sharp)
                                     break;
                             }
                         }
@@ -567,6 +579,10 @@ void ComputeM3C2DistForPoint(unsigned index)
 								s_M3C2Params.distUncertaintySF->setValue(index, LOD);
 							}
 
+                            // compute values for the sharp means criteria
+                            mean1IsSharp = isSharp(mean1, stdDev1, cn1.currentHalfLength);
+                            mean2IsSharp = isSharp(mean2, stdDev2, cn2.currentHalfLength);
+
 							if (s_M3C2Params.sigChangeSF)
 							{
 								bool significant = (dist < -LOD || dist > LOD);
@@ -574,8 +590,6 @@ void ComputeM3C2DistForPoint(unsigned index)
 								{
                                     if (sharpMean)
                                     {
-                                        mean1IsSharp = isSharp(mean1, stdDev1, cn1.currentHalfLength);
-                                        mean2IsSharp = isSharp(mean2, stdDev2, cn2.currentHalfLength);
                                         if (mean1IsSharp && mean2IsSharp) // check that both means are sharp
                                             s_M3C2Params.sigChangeSF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
                                     }
@@ -622,7 +636,13 @@ void ComputeM3C2DistForPoint(unsigned index)
                                     bool welch_sig = (fabs(dist) > welch_lod);
                                     if (welch_sig)
                                     {
-                                        s_M3C2Params.welch_sig_SF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
+                                        if (sharpMean)
+                                        {
+                                            if (mean1IsSharp && mean2IsSharp) // check that both means are sharp
+                                                s_M3C2Params.welch_sig_SF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
+                                        }
+                                        else
+                                            s_M3C2Params.welch_sig_SF->setValue(index, SCALAR_ONE); //already equal to SCALAR_ZERO otherwise
                                     }
                                 }
                             }
