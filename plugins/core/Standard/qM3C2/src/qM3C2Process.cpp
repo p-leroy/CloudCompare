@@ -23,6 +23,8 @@
 
 //CCCoreLib
 #include <CloudSamplingTools.h>
+#include <Neighbourhood.h>
+#include <Jacobi.h>
 
 //qCC_plugins
 #include <ccMainAppInterface.h>
@@ -70,6 +72,12 @@ static const char WELCH_LOD_SF_NAME[]           = "Welch level of detection";
 static const char WELCH_SIG_SF_NAME[]           = "Welch significant change";
 static const char MEAN_MINUS_MEDIAN_1_SF[]      = "Mean minus median 1";
 static const char MEAN_MINUS_MEDIAN_2_SF[]      = "Mean minus median 2";
+static const char NORMALS_ANGLE_SF[]            = "Normals angle";
+static const char SECTOR_SF[]                   = "sector1";
+static const char GAP_SF[]                      = "gap1";
+static const char SECTOR2_SF[]                  = "sector2";
+static const char GAP2_SF[]                     = "gap2";
+static const char SECTOR_GAP_SF[]               = "sectorGap";
 
 static ccPointCloud *projectionCloud;
 static int projCloud_sfIdx_index;
@@ -80,8 +88,6 @@ static bool storeProjectionInfo = false;
 static bool exportSearchDepth = false;
 static bool computeWelch = false;
 static bool sharpMean = false;
-static bool alternativeProgressiveSearch = false;
-static double alternativeProgessiveSearchStep = 1.0;
 
 static void RemoveScalarField(ccPointCloud* cloud, const char sfName[])
 {
@@ -212,8 +218,14 @@ struct M3C2Params
     ccScalarField* welch_p_SF = nullptr;        // critical value
     ccScalarField* welch_lod_SF = nullptr;      // lod aka distance uncertainty
     ccScalarField* welch_sig_SF = nullptr;      // significant change
-    ccScalarField* meanMinusMed1SF = nullptr;   //the search depth used during the projection of cloud #1
-    ccScalarField* meanMinusMed2SF = nullptr;   //the search depth used during the projection of cloud #2
+    ccScalarField* meanMinusMed1SF = nullptr;   // the search depth used during the projection of cloud #1
+    ccScalarField* meanMinusMed2SF = nullptr;   // the search depth used during the projection of cloud #2
+    ccScalarField* normalsAngleSF = nullptr;    // the angle between the normal and the normal of the extracted cloud 2 neighbour set
+    ccScalarField* sector1SF = nullptr;          // angular sector covered by the points of cloud 2 projected in the plane perpendicular to the normal
+    ccScalarField* gap1SF = nullptr;
+    ccScalarField* sector2SF = nullptr;         // angular sector covered by the points of cloud 2 projected in the plane perpendicular to the normal
+    ccScalarField* gap2SF = nullptr;
+    ccScalarField* sectorGapSF = nullptr;
 
 	//precision maps
 	PrecisionMaps cloud1PM, cloud2PM;
@@ -282,6 +294,239 @@ double meanMinusMedian(CCCoreLib::DgmOctree::NeighboursSet& set, double mean)
     return (mean - median);
 }
 
+CCVector3 computeNormal(CCCoreLib::DgmOctree::NeighboursSet neighbours, CCCoreLib::GenericIndexedCloudPersist *cloud)
+{
+    CCVector3 N(0, 0, 0);
+    size_t n = neighbours.size();
+    //if the widest neighborhood has less than 3 points in it, there's nothing we can do for this core point!
+    if (n >= 3)
+    {
+        CCCoreLib::ReferenceCloud subset(cloud);
+
+        // populate the subset
+        for (unsigned j = 0; j < static_cast<unsigned>(n); ++j)
+            subset.addPointIndex(neighbours[j].pointIndex);
+
+        CCCoreLib::Neighbourhood Z(&subset);
+
+        /*** we manually compute the least squares best fitting plane (so as to get the PCA eigen values) ***/
+
+        //we determine the plane normal by computing the smallest eigen value of M = 1/n * S[(p-µ)*(p-µ)']
+        CCCoreLib::SquareMatrixd eigVectors;
+        std::vector<double> eigValues;
+        if (CCCoreLib::Jacobi<double>::ComputeEigenValuesAndVectors(Z.computeCovarianceMatrix(), eigVectors, eigValues, true))
+        {
+            /*** code and comments below are from the original 'm3c2' code (N. Brodu) ***/
+
+            // The most 2D scale. For the criterion for how "2D" a scale is, see canupo
+            // Ideally first and second eigenvalue are equal
+            // convert to percent variance explained by each dim
+            double totalvar = 0;
+            CCVector3d svalues;
+            for (unsigned k = 0; k < 3; ++k)
+            {
+                // singular values are squared roots of eigenvalues
+                svalues.u[k] = eigValues[k];
+                svalues.u[k] = svalues.u[k] * svalues.u[k];
+                totalvar += svalues.u[k];
+            }
+            svalues /= totalvar;
+            //sort eigenvalues
+            std::sort(svalues.u, svalues.u + 3);
+            std::swap(svalues.x, svalues.z);
+
+            // ideally, 2D means first and second entries are both 1/2 and third is 0
+            // convert to barycentric coordinates and take the coefficient of the 2D
+            // corner as a quality measure.
+            // Use barycentric coordinates : a for 1D, b for 2D and c for 3D
+            // Formula on wikipedia page for barycentric coordinates
+            // using directly the triangle in %variance space, they simplify a lot
+            // double a = svalues[0] - svalues[1];
+            // double b = 2 * svalues[0] + 4 * svalues[1] - 2;
+            // double c = 1 - a - b; // they sum to 1
+
+            //the smallest eigen vector corresponds to the "least square best fitting plane" normal
+            double vec[3];
+            double minEigValue = 0;
+            CCCoreLib::Jacobi<double>::GetMinEigenValueAndVector(eigVectors, eigValues, minEigValue, vec);
+
+            N = CCVector3::fromArray(vec);
+            N.normalize();
+        }
+    }
+    return N;
+}
+
+double angle_rad(const CCVector3 &p, const CCVector3 &q, const CCVector3 &n)
+{
+    double productNorm = p.normd() * q.normd();
+    if (productNorm < std::numeric_limits<double>::epsilon())
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // atan2((p x q) . n, p . q)
+    return atan2((p.cross(q)).dot(n), p.dot(q));
+}
+
+double computeSector(const CCCoreLib::DgmOctree::ProgressiveCylindricalNeighbourhood &cn, const unsigned &index)
+{
+    size_t count = cn.neighbours.size();
+    std::vector<double> thetas(count);
+
+    // compute one vector belonging to the plane perpendicular to the normal
+    CCVector3 V = cn.dir.orthogonal(); // normalize is included in orthogonal!
+
+    // compute the angle between AP and V
+    // A the point in the neighbour set
+    // P the projection of A on the axis of the cylinder
+    // V a unit vector orthogonal to the cylinder axis
+    CCVector3 PA; // the vector between P and A
+    auto it = thetas.begin();
+    for (auto A : cn.neighbours)
+    {
+        PA = *(A.point) - (cn.center + static_cast<PointCoordinateType>(A.squareDistd) * cn.dir);
+//        *it = PA.angle_rad(V) * 180. / M_PI;
+        *it = angle_rad(V, PA, cn.dir) * 180. / M_PI;
+        it++;
+    }
+    double maxTheta = *std::max_element(thetas.begin(), thetas.end());
+    double minTheta = *std::min_element(thetas.begin(), thetas.end());
+
+    // initialize the histogram
+    unsigned numberOfClasses = 360;
+    std::vector<unsigned> histo(numberOfClasses);
+    std::fill(histo.begin(), histo.end(), 0);
+
+    // build the histogram
+    double step = 1.;
+    for (auto theta : thetas)
+    {
+        unsigned bin = static_cast<unsigned>(floor((theta + 180.) * step));
+        ++histo[std::min(bin, numberOfClasses - 1)];
+    }
+
+    // count the ajacent bins equal to zero
+    signed previousBin = -1;
+    std::vector<unsigned> nbins;
+    for (auto bin : histo)
+    {
+        if ((bin == 0) && (previousBin == 0))
+        {
+            nbins.back()++;
+        }
+        else if (bin == 0)
+        {
+            nbins.push_back(1);
+        }
+        previousBin = bin;
+    }
+
+    // merge the first and the last interval if needed
+    bool merge = false;
+    if ((histo.front() == 0) && (histo.back() == 0))
+    {
+        nbins.front() += nbins.back();
+        merge = true;
+    }
+
+    // now that we have the size of the intervals, find the largest one
+    unsigned maxNbBins = *std::max_element(nbins.begin(), nbins.end());
+
+    double sector = maxNbBins * step;
+
+    if (false)
+    {
+        QString msg = "index " + QString::number(index)
+                + " Npoints " + QString::number(count)
+                + " sector " + QString::number(sector)
+                + " Nintervals " + QString::number(nbins.size());
+
+        msg = msg
+                + " (" + QString::number(minTheta)
+                + ", " + QString::number(maxTheta) + ")";
+
+        if (merge)
+            msg = msg
+                    + " merge (" + QString::number(nbins.front())
+                    + ", " + QString::number(nbins.back()) + ")";
+
+        Cout(msg);
+    }
+
+    return (360. - sector); // the size of the sector containing the data
+}
+
+double computeGap(const CCCoreLib::DgmOctree::ProgressiveCylindricalNeighbourhood &cn, const unsigned &index)
+{
+    size_t count = cn.neighbours.size();
+
+    double dmax = std::max_element(cn.neighbours.begin(), cn.neighbours.end(), [] (auto a, auto b) {return a.squareDistd < b.squareDistd;})->squareDistd;
+    double dmin = std::min_element(cn.neighbours.begin(), cn.neighbours.end(), [] (auto a, auto b) {return a.squareDistd < b.squareDistd;})->squareDistd;
+    double range = dmax - dmin;
+
+    // initialize the histogram
+    unsigned numberOfClasses = 100;
+    std::vector<unsigned> histo(numberOfClasses);
+    std::fill(histo.begin(), histo.end(), 0);
+
+    // build the histogram
+    double step = static_cast<double>(numberOfClasses) / (2. * cn.maxHalfLength);
+    double shift = cn.maxHalfLength;;
+    if (cn.onlyPositiveDir) // no shift needed, all distances are >=0
+        shift = 0;
+
+    for (auto A : cn.neighbours)
+    {
+        unsigned bin = static_cast<unsigned>(floor((A.squareDistd + shift) * step));
+        ++histo[std::min(bin, numberOfClasses - 1)];
+    }
+
+    // count the ajacent bins equal to zero
+    signed previousBin = -1;
+    std::vector<unsigned> nbins;
+    for (auto bin : histo)
+    {
+        if ((previousBin == 0) && (bin == 0))
+        {
+            nbins.back()++;
+        }
+        else if (bin == 0)
+        {
+            nbins.push_back(1);
+        }
+        previousBin = bin;
+    }
+
+    // there is at least two intervals as we have points in the neighbourhood
+    double gap = 0;
+    if (nbins.size()>2)
+    {
+        // now that we have the size of the intervals, find the largest one, with some precautions
+        auto elem1 = nbins.begin();
+        auto elem2 = nbins.end();
+        if (histo.front() == 0) // the first gap is not relevent except when there is a point in the very first bin of the histogram
+            elem1++;
+        if (histo.back() == 0) // the last gap is not relevent except when there is a point in the very last bin of the histogram
+            elem2--;
+
+        unsigned maxNbBins = *std::max_element(elem1, elem2);
+
+        gap = maxNbBins / step;
+    }
+
+    if (false)
+    {
+        Cout("index " + QString::number(index)
+             + " n " + QString::number(count)
+             + " range " + QString::number(range)
+             + " gap " + QString::number(gap)
+             + " Nintervals " + QString::number(nbins.size()));
+    }
+
+    return gap;
+}
+
 void ComputeM3C2DistForPoint(unsigned index)
 {
 	if (s_M3C2Params.processCanceled)
@@ -309,6 +554,11 @@ void ComputeM3C2DistForPoint(unsigned index)
 	//output point
 	CCVector3 outputP = P;
     CCVector3 outputP2 = P;
+    double sector1 {0};
+    double gap1 {std::numeric_limits<float>::infinity()};
+    double sector2 {0};
+    double gap2 {std::numeric_limits<float>::infinity()};
+    bool sectorGap {false};
 
 	//compute M3C2 distance
 	{
@@ -331,52 +581,26 @@ void ComputeM3C2DistForPoint(unsigned index)
 		{
 			//progressive search
 			size_t previousNeighbourCount = 0;
-			while (cn1.currentHalfLength < cn1.maxHalfLength)
-			{
-                if (alternativeProgressiveSearch)
+            while (cn1.currentHalfLength < cn1.maxHalfLength)
+            {
+
+                // use the default step for the search
+                size_t neighbourCount = s_M3C2Params.cloud1Octree->getPointsInCylindricalNeighbourhoodProgressive(cn1);
+                if (neighbourCount != previousNeighbourCount)
                 {
-                    // use our step instead of the default step cn1.radius
-                    cn1.currentHalfLength -= cn1.radius;
-                    cn1.currentHalfLength += alternativeProgessiveSearchStep;
-                    size_t neighbourCount = s_M3C2Params.cloud1Octree->getPointsInCylindricalNeighbourhoodProgressive(cn1);
-                    bool noChange = ((neighbourCount == previousNeighbourCount) && (neighbourCount != 0));
-                    // break if the number of points in the neighbourhood is stable
-                    if (noChange)
-                        break;
-                    else
+                    //do we have enough points for computing stats?
+                    if (neighbourCount >= s_M3C2Params.minPoints4Stats)
                     {
-                        //do we have enough points for computing stats?
-                        if (neighbourCount >= s_M3C2Params.minPoints4Stats)
-                        {
-                            qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
-                            validStats1 = true;
-                            bool sharp = std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength);
-                            if (sharp)
-                                break;
-                        }
+                        qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
+                        validStats1 = true;
+                        //do we have a sharp enough 'mean' to stop?
+                        bool sharp = std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength);
+                        if (sharp)
+                            break;
                     }
-                    previousNeighbourCount = neighbourCount;
                 }
-                else
-                {
-                    // use the default step for the search
-                    size_t neighbourCount = s_M3C2Params.cloud1Octree->getPointsInCylindricalNeighbourhoodProgressive(cn1);
-                    if (neighbourCount != previousNeighbourCount)
-                    {
-                        //do we have enough points for computing stats?
-                        if (neighbourCount >= s_M3C2Params.minPoints4Stats)
-                        {
-                            qM3C2Tools::ComputeStatistics(cn1.neighbours, s_M3C2Params.distAndUncerMethod, mean1, stdDev1);
-                            validStats1 = true;
-                            //do we have a sharp enough 'mean' to stop?
-                            bool sharp = std::abs(mean1) + 2 * stdDev1 < static_cast<double>(cn1.currentHalfLength);
-                            if (sharp)
-                                break;
-                        }
-                    }
-                    previousNeighbourCount = neighbourCount;
-                }
-			}
+                previousNeighbourCount = neighbourCount;
+            }
 		}
 		else
 		{
@@ -387,6 +611,10 @@ void ComputeM3C2DistForPoint(unsigned index)
         {
             s_M3C2Params.searchDepth1SF->setValue(index, cn1.currentHalfLength);
             s_M3C2Params.meanMinusMed1SF->setValue(index, meanMinusMedian(cn1.neighbours, mean1));
+            sector1 = computeSector(cn1, index);
+            s_M3C2Params.sector1SF->setValue(index, sector1);
+            gap1 = computeGap(cn1, index);
+            s_M3C2Params.gap1SF->setValue(index, gap1);
         }
 		size_t n1 = cn1.neighbours.size();
 		if (n1 != 0)
@@ -468,57 +696,32 @@ void ComputeM3C2DistForPoint(unsigned index)
 			cn2.radius = s_M3C2Params.projectionRadius;
 			cn2.onlyPositiveDir = s_M3C2Params.onlyPositiveSearch;
 
-			if (s_M3C2Params.progressiveSearch)
-			{
-				//progressive search
-				size_t previousNeighbourCount = 0;
-				while (cn2.currentHalfLength < cn2.maxHalfLength)
-				{
-                    if (alternativeProgressiveSearch)
+            if (s_M3C2Params.progressiveSearch)
+            {
+                //progressive search
+                size_t previousNeighbourCount = 0;
+                while (cn2.currentHalfLength < cn2.maxHalfLength)
+                {
+
+
+                    // use the default step for the search
+                    size_t neighbourCount = s_M3C2Params.cloud2Octree->getPointsInCylindricalNeighbourhoodProgressive(cn2);
+                    if (neighbourCount != previousNeighbourCount)
                     {
-                        // use our step instead of the default step cn2.radius
-                        cn2.currentHalfLength -= cn2.radius;
-                        cn2.currentHalfLength += alternativeProgessiveSearchStep;
-                        size_t neighbourCount = s_M3C2Params.cloud2Octree->getPointsInCylindricalNeighbourhoodProgressive(cn2);
-                        bool noChange = ((neighbourCount == previousNeighbourCount) && (neighbourCount != 0));
-                        // break if the number of points in the neighbourhood is stable
-                        if (noChange)
-                            break;
-                        else
+                        //do we have enough points for computing stats?
+                        if (neighbourCount >= s_M3C2Params.minPoints4Stats)
                         {
-                            //do we have enough points for computing stats?
-                            if (neighbourCount >= s_M3C2Params.minPoints4Stats)
-                            {
-                                qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
-                                validStats2 = true;
-                                bool sharp = std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength);
-                                if (sharp)
-                                    break;
-                            }
+                            qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
+                            validStats2 = true;
+                            //do we have a sharp enough 'mean' to stop?
+                            bool sharp = std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength);
+                            if (sharp)
+                                break;
                         }
-                        previousNeighbourCount = neighbourCount;
                     }
-                    else
-                    {
-                        // use the default step for the search
-                        size_t neighbourCount = s_M3C2Params.cloud2Octree->getPointsInCylindricalNeighbourhoodProgressive(cn2);
-                        if (neighbourCount != previousNeighbourCount)
-                        {
-                            //do we have enough points for computing stats?
-                            if (neighbourCount >= s_M3C2Params.minPoints4Stats)
-                            {
-                                qM3C2Tools::ComputeStatistics(cn2.neighbours, s_M3C2Params.distAndUncerMethod, mean2, stdDev2);
-                                validStats2 = true;
-                                //do we have a sharp enough 'mean' to stop?
-                                bool sharp = std::abs(mean2) + 2 * stdDev2 < static_cast<double>(cn2.currentHalfLength);
-                                if (sharp)
-                                    break;
-                            }
-                        }
-                        previousNeighbourCount = neighbourCount;
-                    }
-				}
-			}
+                    previousNeighbourCount = neighbourCount;
+                }
+            }
 			else
 			{
 				s_M3C2Params.cloud2Octree->getPointsInCylindricalNeighbourhood(cn2);
@@ -528,6 +731,19 @@ void ComputeM3C2DistForPoint(unsigned index)
             {
                 s_M3C2Params.searchDepth2SF->setValue(index, cn2.currentHalfLength);
                 s_M3C2Params.meanMinusMed2SF->setValue(index, meanMinusMedian(cn2.neighbours, mean2));
+                // compute the angle between the normal of the neighbour set and the current normal
+                CCVector3 N2 = computeNormal(cn2.neighbours, s_M3C2Params.cloud2Octree->associatedCloud());
+                // the case N2 = (0, 0, 0) is handle by angle_rad
+                auto angle = acos(N2.angle_rad(cn2.dir)) * 180 / M_PI;
+                s_M3C2Params.normalsAngleSF->setValue(index, angle);
+                sector2 = computeSector(cn2, index);
+                s_M3C2Params.sector2SF->setValue(index, sector2);
+                gap2 = computeGap(cn2, index);
+                s_M3C2Params.gap2SF->setValue(index, gap2);
+                sectorGap = (sector1 > 180) && (gap1 < s_M3C2Params.projectionRadius)
+                        && (sector2 > 180) && (gap2 < s_M3C2Params.projectionRadius);
+                if (sectorGap)
+                    s_M3C2Params.sectorGapSF->setValue(index, true);
             }
 			size_t n2 = cn2.neighbours.size();
 			if (n2 != 0)
@@ -783,6 +999,18 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.meanMinusMed1SF->link(); //will be released anyway at the end of the process
         s_M3C2Params.meanMinusMed2SF = new ccScalarField(MEAN_MINUS_MEDIAN_2_SF);
         s_M3C2Params.meanMinusMed2SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.normalsAngleSF = new ccScalarField(NORMALS_ANGLE_SF);
+        s_M3C2Params.normalsAngleSF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.sector1SF = new ccScalarField(SECTOR_SF);
+        s_M3C2Params.sector1SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.gap1SF = new ccScalarField(GAP_SF);
+        s_M3C2Params.gap1SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.sector2SF = new ccScalarField(SECTOR2_SF);
+        s_M3C2Params.sector2SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.gap2SF = new ccScalarField(GAP2_SF);
+        s_M3C2Params.gap2SF->link(); //will be released anyway at the end of the process
+        s_M3C2Params.sectorGapSF = new ccScalarField(SECTOR_GAP_SF);
+        s_M3C2Params.sectorGapSF->link(); //will be released anyway at the end of the process
     }
     // COMPUTE WELCH
     computeWelch = dlg.computeWelch();
@@ -808,9 +1036,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
     }
     // SHARP MEAN
     sharpMean = dlg.getSharpMean(); // use sharp mean diagnostic to reject projected points
-    // ALTERNATIVE PROGRESSIVE SEARCH
-    alternativeProgressiveSearch = dlg.getAlternativeProgressiveSearch();
-    alternativeProgessiveSearchStep = dlg.getAlternativeProgressiveSearchStep();
 
     //ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
 
@@ -938,15 +1163,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			error = true;
 		}
 	}
-
-    ccPointCloud *shuffled;
-    if (storeProjectionInfo)
-    {
-        shuffled = ShuffleCloud(s_M3C2Params.corePoints);
-        shuffled->setName("shuffledCorePoints");
-        s_M3C2Params.corePoints = shuffled;
-//        app->addToDB(s_M3C2Params.corePoints);
-    }
 
 	//output
 	QString outputName(s_M3C2Params.usePrecisionMaps ? "M3C2-PM output" : "M3C2 output");
@@ -1345,6 +1561,42 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
                 error = true;
                 break;
             }
+            if (!s_M3C2Params.normalsAngleSF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.sector1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.gap1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.sector2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.gap2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
+            if (!s_M3C2Params.sectorGapSF->resizeSafe(corePointCount, true, false))
+            {
+                errorMessage = "Failed to allocate memory for distance values!";
+                error = true;
+                break;
+            }
         }
         if (computeWelch)
         {
@@ -1684,6 +1936,42 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
             RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.meanMinusMed2SF->getName());
             sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.meanMinusMed2SF);
         }
+        if (s_M3C2Params.normalsAngleSF)
+        {
+            s_M3C2Params.normalsAngleSF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.normalsAngleSF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.normalsAngleSF);
+        }
+        if (s_M3C2Params.sector1SF)
+        {
+            s_M3C2Params.sector1SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.sector1SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.sector1SF);
+        }
+        if (s_M3C2Params.gap1SF)
+        {
+            s_M3C2Params.gap1SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.gap1SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.gap1SF);
+        }
+        if (s_M3C2Params.sector2SF)
+        {
+            s_M3C2Params.sector2SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.sector2SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.sector2SF);
+        }
+        if (s_M3C2Params.gap2SF)
+        {
+            s_M3C2Params.gap2SF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.gap2SF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.gap2SF);
+        }
+        if (s_M3C2Params.sectorGapSF)
+        {
+            s_M3C2Params.sectorGapSF->computeMinAndMax();
+            RemoveScalarField(s_M3C2Params.outputCloud, s_M3C2Params.sectorGapSF->getName());
+            sfIdx = s_M3C2Params.outputCloud->addScalarField(s_M3C2Params.sectorGapSF);
+        }
         // WELCH
         if (s_M3C2Params.welch_t_SF)
         {
@@ -1808,6 +2096,18 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         s_M3C2Params.searchDepth1SF->release();
     if (s_M3C2Params.searchDepth2SF)
         s_M3C2Params.searchDepth2SF->release();
+    if (s_M3C2Params.normalsAngleSF)
+        s_M3C2Params.normalsAngleSF->release();
+    if (s_M3C2Params.sector1SF)
+        s_M3C2Params.sector1SF->release();
+    if (s_M3C2Params.gap1SF)
+        s_M3C2Params.gap1SF->release();
+    if (s_M3C2Params.sector2SF)
+        s_M3C2Params.sector2SF->release();
+    if (s_M3C2Params.gap2SF)
+        s_M3C2Params.gap2SF->release();
+    if (s_M3C2Params.sectorGapSF)
+        s_M3C2Params.sectorGapSF->release();
     if (s_M3C2Params.indexSF)
         s_M3C2Params.indexSF->release();
     if (s_M3C2Params.meanMinusMed1SF)

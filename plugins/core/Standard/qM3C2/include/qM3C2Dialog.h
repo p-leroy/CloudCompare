@@ -69,10 +69,6 @@ public:
 
     bool computeWelch() const;
 
-    bool getAlternativeProgressiveSearch() const;
-
-    double getAlternativeProgressiveSearchStep() const;
-
     bool getSharpMean() const;
 
 	//! Exportation options

@@ -494,16 +494,6 @@ bool qM3C2Dialog::computeWelch() const
     return checkBox_computeWelch->isChecked();
 }
 
-bool qM3C2Dialog::getAlternativeProgressiveSearch() const
-{
-    return checkBox_alternativeProggressive->isChecked();
-}
-
-double qM3C2Dialog::getAlternativeProgressiveSearchStep() const
-{
-    return doubleSpinBox_progressiveSearch->value();
-}
-
 bool qM3C2Dialog::getSharpMean() const
 {
     return checkBox_sharpMean->isChecked();

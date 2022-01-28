@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>630</width>
-    <height>574</height>
+    <height>545</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -288,13 +288,26 @@
           <string>Multi-interception diagnostic</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
-          <item row="3" column="0">
-           <widget class="QCheckBox" name="checkBox_alternativeProggressive">
+          <item row="1" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The progressive search is performed step by step, search cylinder length is increased by step at each iteration. When n at step k+1 is equal to n at step k, the search is stopped.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add several scalar fields to the outputs for diagnostic:&lt;/p&gt;&lt;p&gt;half search depth 1 = the search depth used to project the cloud 1 on the core point&lt;/p&gt;&lt;p&gt;half search depth 2 = the search depth used to project the cloud 2 on the core point&lt;/p&gt;&lt;p&gt;sector = the angular sector in a plane perpendicular to the cylinder axis occupied by the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;gap = the maximum gap along the cylinder axis between the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;sectorGap = a composite criteria, true if: sector1 &amp;gt; 180 AND sector2 &amp;gt; 180 AND gap1 &amp;lt; projectionRadius AND gap2 &amp;lt; projectionRadius&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>alternative progressive search step</string>
+             <string>add scalar fields: half search depth 1, half search depth 2, sector1, gap1, sector2, gap2, sectorGap</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_sharpMean">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Do we have a sharp mean during the progressive search of the point projections?&lt;/p&gt;&lt;p&gt;abs(mean) + 2 * stdDev &amp;lt; currentHalfLength&lt;/p&gt;&lt;p&gt;If not, the significant change parameter is set to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>sharp mean</string>
             </property>
            </widget>
           </item>
@@ -308,43 +321,13 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="0">
+          <item row="4" column="0">
            <widget class="QCheckBox" name="checkBox_computeWelch">
             <property name="text">
              <string>compute Welch's test</string>
             </property>
             <property name="checked">
              <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0" colspan="2">
-           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
-            <property name="text">
-             <string>export search depth</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QDoubleSpinBox" name="doubleSpinBox_progressiveSearch">
-            <property name="buttonSymbols">
-             <enum>QAbstractSpinBox::NoButtons</enum>
-            </property>
-            <property name="value">
-             <double>1.000000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0" colspan="2">
-           <widget class="QCheckBox" name="checkBox_sharpMean">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Do we have a sharp mean during the progressive search of the point projections?&lt;/p&gt;&lt;p&gt;abs(mean) + 2 * stdDev &amp;lt; currentHalfLength&lt;/p&gt;&lt;p&gt;If not, the significant change parameter is set to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>sharp mean</string>
             </property>
            </widget>
           </item>
