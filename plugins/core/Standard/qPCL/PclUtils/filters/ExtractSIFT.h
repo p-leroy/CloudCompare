@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                       CLOUDCOMPARE PLUGIN: qPCL                        #
@@ -14,36 +16,27 @@
 //#                         COPYRIGHT: Luca Penasa                         #
 //#                                                                        #
 //##########################################################################
-//
-#ifndef Q_PCL_PLUGIN_EXTRACTSIFT_HEADER
-#define Q_PCL_PLUGIN_EXTRACTSIFT_HEADER
 
 #include "BaseFilter.h"
-
-//Qt
-#include <QString>
-
-class SIFTExtractDlg;
 
 //! SIFT keypoints extraction
 class ExtractSIFT: public BaseFilter
 {
 public:
 	ExtractSIFT();
-	virtual ~ExtractSIFT();
+	~ExtractSIFT() override;
 
-	//inherited from BaseFilter
-	virtual int compute();
 protected:
 
 	//inherited from BaseFilter
-	virtual int checkSelected();
-	virtual int openInputDialog();
-	virtual void getParametersFromDialog();
-	virtual int checkParameters();
-	virtual QString getErrorMessage(int errorCode);
+	int compute() override;
+	bool checkSelected() const override;
+	int getParametersFromDialog() override;
+	QString getErrorMessage(int errorCode) const override;
 
-	SIFTExtractDlg* m_dialog;
+	int checkParameters();
+
+protected:
 	int m_nr_octaves;
 	float m_min_scale;
 	int m_nr_scales_per_octave;
@@ -55,5 +48,3 @@ protected:
 	enum Modes {RGB, SCALAR_FIELD};
 	Modes m_mode;
 };
-
-#endif

@@ -1963,7 +1963,7 @@ void ccGLWindow::fullRenderingPass(CC_DRAW_CONTEXT& CONTEXT, RenderingParams& re
 				CONTEXT.glH = vp.Size.h;
 				modifiedViewport = true;
 
-				bindFBO(0);
+				bindFBO(nullptr);
 			}
 		}
 #endif //CC_OCULUS_SUPPORT
@@ -2247,7 +2247,7 @@ void ccGLWindow::fullRenderingPass(CC_DRAW_CONTEXT& CONTEXT, RenderingParams& re
 
 		if (s_oculus.mirror.texture)
 		{
-			bindFBO(0);
+			bindFBO(nullptr);
 
 			assert(m_glExtFuncSupported);
 			m_glExtFunc.glBindFramebuffer(GL_READ_FRAMEBUFFER, s_oculus.mirror.fbo);
@@ -3119,18 +3119,13 @@ void ccGLWindow::drawScale(const ccColor::Rgbub& color)
 	assert(!m_viewportParams.perspectiveView); //a scale is only valid in ortho. mode!
 
 	float scaleMaxW = m_glViewport.width() / 4.0f; //25% of screen width
-	if (m_captureMode.enabled)
-	{
-		//DGM: we have to fall back to the case 'render zoom = 1' (otherwise we might not get the exact same aspect)
-		scaleMaxW /= m_captureMode.zoomFactor;
-	}
 
 	double pixelSize = computeActualPixelSize();
 
 	//we first compute the width equivalent to 25% of horizontal screen width
 	//(this is why it's only valid in orthographic mode !)
-	double equivalentWidthRaw = scaleMaxW * pixelSize;
-	double equivalentWidth = RoundScale(equivalentWidthRaw);
+	//DGM: in 'capture mode', we have to fall back to the case 'render zoom = 1' (otherwise we might not get the exact same aspect)
+	double equivalentWidth = RoundScale(scaleMaxW * pixelSize / (m_captureMode.enabled ? m_captureMode.zoomFactor : 1.0f));
 
 	QFont font = getTextDisplayFont(); //we take rendering zoom into account!
 	QFontMetrics fm(font);
@@ -3169,7 +3164,9 @@ void ccGLWindow::drawScale(const ccColor::Rgbub& color)
 
 	glFunc->glPopAttrib(); //GL_LINE_BIT
 
-	QString text = QString::number(equivalentWidth);
+	// display label
+	double textEquivalentWidth = RoundScale(scaleMaxW * pixelSize);
+	QString text = QString::number(textEquivalentWidth);
 	glColor3ubv_safe<ccQOpenGLFunctions>(glFunc, color.rgb);
 	renderText(	m_glViewport.width() - static_cast<int>(scaleW_pix / 2 + dW) - fm.width(text) / 2,
 				m_glViewport.height() - static_cast<int>(dH / 2) + fm.height() / 3,
@@ -4455,9 +4452,9 @@ void ccGLWindow::doPicking()
 	int x = m_lastMousePos.x();
 	int y = m_lastMousePos.y();
 
-	if (x < 0 || y < 0)
+	if (x < 0 || y < 0 || x > width() || y > height())
 	{
-		assert(false);
+		// we can ignore clicks outside of the window
 		return;
 	}
 
@@ -5958,7 +5955,7 @@ bool ccGLWindow::renderToFile(	QString filename,
 	}
 	else
 	{
-		ccLog::Print(QString("[Snapshot] Failed to save file '%1'!").arg(filename));
+		ccLog::Warning(QString("[Snapshot] Failed to save file '%1'!").arg(filename));
 	}
 
 	return success;

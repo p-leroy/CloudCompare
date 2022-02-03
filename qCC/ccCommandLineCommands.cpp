@@ -58,6 +58,7 @@ constexpr char COMMAND_DENSITY_TYPE[]					= "TYPE";			//+ density type
 constexpr char COMMAND_APPROX_DENSITY[]					= "APPROX_DENSITY";
 constexpr char COMMAND_SF_GRADIENT[]					= "SF_GRAD";
 constexpr char COMMAND_ROUGHNESS[]						= "ROUGH";
+constexpr char COMMAND_ROUGHNESS_UP_DIR[]				= "UP_DIR";
 constexpr char COMMAND_APPLY_TRANSFORMATION[]			= "APPLY_TRANS";
 constexpr char COMMAND_DROP_GLOBAL_SHIFT[]				= "DROP_GLOBAL_SHIFT";
 constexpr char COMMAND_SF_COLOR_SCALE[]					= "SF_COLOR_SCALE";
@@ -139,6 +140,7 @@ constexpr char COMMAND_POP_MESHES[]						= "POP_MESHES";
 constexpr char COMMAND_NO_TIMESTAMP[]					= "NO_TIMESTAMP";
 constexpr char COMMAND_MOMENT[]							= "MOMENT";
 constexpr char COMMAND_FEATURE[]						= "FEATURE";
+constexpr char COMMAND_RGB_CONVERT_TO_SF[]				= "RGB_CONVERT_TO_SF";
 
 //options / modifiers
 constexpr char COMMAND_MAX_THREAD_COUNT[]				= "MAX_TCOUNT";
@@ -691,9 +693,13 @@ bool CommandOctreeNormal::process(ccCommandLineInterface &cmd)
 				{
 					orientation = ccNormalVectors::Orientation::PREVIOUS;
 				}
-				else if (orient_argument == "SENSOR_ORIGIN")
+				else if (orient_argument == "PLUS_SENSOR_ORIGIN")
 				{
-					orientation = ccNormalVectors::Orientation::SENSOR_ORIGIN;
+					orientation = ccNormalVectors::Orientation::PLUS_SENSOR_ORIGIN;
+				}
+				else if (orient_argument == "MINUS_SENSOR_ORIGIN")
+				{
+					orientation = ccNormalVectors::Orientation::MINUS_SENSOR_ORIGIN;
 				}
 				else
 				{
@@ -761,7 +767,14 @@ bool CommandOctreeNormal::process(ccCommandLineInterface &cmd)
 		float thisCloudRadius = radius;
 		if (std::isnan(thisCloudRadius))
 		{
-			thisCloudRadius = ccNormalVectors::GuessBestRadius(cloud, cloud->getOctree().data());
+			ccOctree::BestRadiusParams params;
+			{
+				params.aimedPopulationPerCell = 16;
+				params.aimedPopulationRange = 4;
+				params.minCellPopulation = 6;
+				params.minAboveMinRatio = 0.97;
+			}
+			thisCloudRadius = ccOctree::GuessBestRadius(cloud, params, cloud->getOctree().data());
 			if (thisCloudRadius == 0)
 			{
 				return cmd.error(QObject::tr("Failed to determine best normal radius for cloud '%1'").arg(cloud->getName()));
@@ -1355,7 +1368,7 @@ bool CommandCurvature::process(ccCommandLineInterface &cmd)
 		entities[i] = cmd.clouds()[i].pc;
 	}
 	
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Curvature, curvType, kernelSize, entities, cmd.widgetParent()))
+	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Curvature, curvType, kernelSize, entities, nullptr, cmd.widgetParent()))
 	{
 		//save output
 		if (cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("%1_CURVATURE_KERNEL_%2").arg(curvTypeStr).arg(kernelSize)))
@@ -1436,7 +1449,7 @@ bool CommandApproxDensity::process(ccCommandLineInterface &cmd)
 		}
 	}
 	
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::ApproxLocalDensity, densityType, 0, entities, cmd.widgetParent()))
+	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::ApproxLocalDensity, densityType, 0, entities, nullptr, cmd.widgetParent()))
 	{
 		//save output
 		if (cmd.autoSaveMode() && !cmd.saveClouds("APPROX_DENSITY"))
@@ -1504,7 +1517,7 @@ bool CommandDensity::process(ccCommandLineInterface &cmd)
 		entities[i] = cmd.clouds()[i].pc;
 	}
 	
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::LocalDensity, densityType, kernelSize, entities, cmd.widgetParent()))
+	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::LocalDensity, densityType, kernelSize, entities, nullptr, cmd.widgetParent()))
 	{
 		//save output
 		if (cmd.autoSaveMode() && !cmd.saveClouds("DENSITY"))
@@ -1608,6 +1621,31 @@ bool CommandRoughness::process(ccCommandLineInterface &cmd)
 		return cmd.error(QObject::tr("Failed to read a numerical parameter: kernel size (after \"-%1\"). Got '%2' instead.").arg(COMMAND_ROUGHNESS, kernelStr));
 	}
 	cmd.print(QObject::tr("\tKernel size: %1").arg(kernelSize));
+
+	// optional argument
+	CCVector3 roughnessUpDir;
+	CCVector3* _roughnessUpDir = nullptr;
+	if (cmd.arguments().size() >= 4)
+	{
+		QString nextArg = cmd.arguments().first();
+		if (nextArg.startsWith('-') && nextArg.mid(1).toUpper() == COMMAND_ROUGHNESS_UP_DIR)
+		{
+			// option confirmed
+			cmd.arguments().takeFirst();
+			QString xStr = cmd.arguments().takeFirst();
+			QString yStr = cmd.arguments().takeFirst();
+			QString zStr = cmd.arguments().takeFirst();
+			bool okX = false, okY = false, okZ = false;
+			roughnessUpDir.x = static_cast<PointCoordinateType>(xStr.toDouble(&okX));
+			roughnessUpDir.y = static_cast<PointCoordinateType>(yStr.toDouble(&okY));
+			roughnessUpDir.z = static_cast<PointCoordinateType>(zStr.toDouble(&okZ));
+			if (!okX || !okY || !okZ)
+			{
+				return cmd.error(QObject::tr("Invalid 'up direction' vector after option -%1 (3 coordinates expected)").arg(COMMAND_ROUGHNESS_UP_DIR));
+			}
+			_roughnessUpDir = &roughnessUpDir;
+		}
+	}
 	
 	if (cmd.clouds().empty())
 	{
@@ -1622,7 +1660,7 @@ bool CommandRoughness::process(ccCommandLineInterface &cmd)
 		entities[i] = cmd.clouds()[i].pc;
 	}
 	
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Roughness, 0, kernelSize, entities, cmd.widgetParent()))
+	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Roughness, 0, kernelSize, entities, _roughnessUpDir, cmd.widgetParent()))
 	{
 		//save output
 		if (cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("ROUGHNESS_KERNEL_%2").arg(kernelSize)))
@@ -1835,6 +1873,49 @@ bool CommandSFConvertToRGB::process(ccCommandLineInterface &cmd)
 		return false;
 	}
 	
+	return true;
+}
+
+CommandRGBConvertToSF::CommandRGBConvertToSF()
+	: ccCommandLineInterface::Command(QObject::tr("RGB convert to SF"), COMMAND_RGB_CONVERT_TO_SF)
+{}
+
+bool CommandRGBConvertToSF::process(ccCommandLineInterface &cmd)
+{
+	cmd.print(QObject::tr("[RGB CONVERT TO SF]"));
+	if (cmd.clouds().empty())
+	{
+		return cmd.error(QObject::tr("No point cloud on which to convert RGB to SF! (be sure to open one with \"-%1 [cloud filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_RGB_CONVERT_TO_SF));
+	}
+
+	for (CLCloudDesc& thisCloudDesc : cmd.clouds())
+	{
+		ccPointCloud* cloud = thisCloudDesc.pc;
+
+		if (!cloud->hasColors())
+		{
+			cmd.warning(QObject::tr("Cloud %1 has no colors").arg(cloud->getName()));
+			continue;
+		}
+
+		ccHObject::Container container;
+		container.push_back(cloud);
+		if (!ccEntityAction::sfFromColor(container, /*exportR=*/true, /*exportG=*/true, /*exportB=*/true, /*exportAlpha=*/true, /*exportC=*/true)) //beta version, only composite
+		{
+			return cmd.error(QObject::tr("Failed to convert RGB to scalar fields"));
+		}
+        
+
+		if (cmd.autoSaveMode())
+		{
+			QString errorStr = cmd.exportEntity(thisCloudDesc, "_RGB_TO_SF");
+			if (!errorStr.isEmpty())
+			{
+				return cmd.error(errorStr);
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -5367,7 +5448,7 @@ bool CommandMoment::process(ccCommandLineInterface &cmd)
 		entities[i] = cmd.clouds()[i].pc;
 	}
 
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::MomentOrder1, 0, kernelSize, entities, cmd.widgetParent()))
+	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::MomentOrder1, 0, kernelSize, entities, nullptr, cmd.widgetParent()))
 	{
 		//save output
 		if (cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("MOMENT_KERNEL_%2").arg(kernelSize)))
@@ -5496,7 +5577,7 @@ bool CommandFeature::process(ccCommandLineInterface &cmd)
 		entities[i] = cmd.clouds()[i].pc;
 	}
 
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Feature, featureType, kernelSize, entities, cmd.widgetParent()))
+	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Feature, featureType, kernelSize, entities, nullptr, cmd.widgetParent()))
 	{
 		//save output
 		if (cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("%1_FEATURE_KERNEL_%2").arg(featureTypeStr).arg(kernelSize)))

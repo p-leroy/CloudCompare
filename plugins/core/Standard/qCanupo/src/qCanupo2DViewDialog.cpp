@@ -92,11 +92,13 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 		params.pointsDefaultCol = ccColor::black;
 		params.drawBackgroundGradient = false;
 		params.displayCross = false;
-		m_glWindow->setDisplayParameters(params,true);
-		m_glWindow->setPerspectiveState(false,true);
-        m_glWindow->setInteractionMode(ccGLWindow::MODE_PAN_ONLY | ccGLWindow::INTERACT_SEND_ALL_SIGNALS);
+		m_glWindow->setDisplayParameters(params, true);
+		m_glWindow->setPerspectiveState(false, true);
+		m_glWindow->setInteractionMode(ccGLWindow::MODE_PAN_ONLY | ccGLWindow::INTERACT_SEND_ALL_SIGNALS);
 		m_glWindow->setPickingMode(ccGLWindow::NO_PICKING);
 		m_glWindow->displayOverlayEntities(false);
+		m_glWindow->setSunLight(true);
+		m_glWindow->setCustomLight(false);
 		//add window to the dedicated layout
 		viewFrame->setLayout(new QHBoxLayout());
 		viewFrame->layout()->addWidget(glWidget);
@@ -115,8 +117,8 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 	connect(savePushButton,			&QAbstractButton::clicked, this, &qCanupo2DViewDialog::saveClassifier);
 	connect(donePushButton,			&QAbstractButton::clicked, this, &qCanupo2DViewDialog::checkBeforeAccept);
 	
-	connect(pointSizeSpinBox,		static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::setPointSize);
-	connect(scalesCountSpinBox,		static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::onScalesCountSpinBoxChanged);
+	connect(pointSizeSpinBox,		qOverload<int>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::setPointSize);
+	connect(scalesCountSpinBox,		qOverload<int>(&QSpinBox::valueChanged), this, &qCanupo2DViewDialog::onScalesCountSpinBoxChanged);
 }
 
 qCanupo2DViewDialog::~qCanupo2DViewDialog()

@@ -8,15 +8,26 @@ v2.12 (???) - (in development)
 		-  'Edit > Cloud > Create single point cloud': to create a cloud with a single point (set by the user)
 		-  'Edit > Cloud > Paste from clipboard' (shortcut: CTRL+P): to create a cloud from ASCII/test data stored in the clipboard
 
+- New plugin:
+	- PCL > Fast Global Registration (see https://github.com/isl-org/FastGlobalRegistration)
+		- Automatic registration of point clouds (with normals) with no initial/rough alignment
+		- Based on: Q.-Y. Zhou, J. Park, and V. Koltun, "Fast Global Registration", ECCV, 2016
+
 - New command line options:
     - Added N_SIGMA_MIN and N_SIGMA_MAX options to the FILTER_SF command.
 		- Specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
 	- NORMALS_TO_HSV
 		- To convert normals to HSV colors
+	- RGB_CONVERT_TO_SF
+	 	- To convert RGB colors to 5 scalar fields (red, green, blue, alpha, composite)
+
+- New file format:
+	- Google DRACO format .DRC (compressed point clouds and meshes - https://github.com/google/draco)
 
 - Improvements
 	- Rasterize
 		- Improved interpolation scheme on the raster borders
+		- New 'max edge length' option when interpolating grid cells, to avoid using large triangles
     - RANSAC plugin
         - Can save all leftover points into a new cloud (leftovers were points not assigned to a shape)
         - Can select whether to use Least Squares fitting on found shapes (some shapes take a very long time to process this step specifically Cones)
@@ -34,6 +45,9 @@ v2.12 (???) - (in development)
 		- former 'contours' renamed 'envelopes' for the sake of clarity
 		- ability to extract the real contours of the points inside each slice (single slice mode or 'repeat' mode)
 			(CC will rasterize the slice and apply the 'contour plot' extraction algorithm)
+	- Graphical Segmentation Tool (scissors):
+		- the tool can now segment polylines (it will only keep segments with both vertices visible)
+		- various improvements (visibility of segmented entities is forced for more clarity, etc.)
 	- qCompass:
 		- planes fitted with the 'Plane tool' should now always have the normal pointing towards the user instead of a random orientation
 	- qAnimation:
@@ -60,13 +74,17 @@ v2.12 (???) - (in development)
 			- -CLASS_THRESHOLD [value]: double value of classification threshold (ex. 0.5)
 			- -EXPORT_GROUND: exports the ground as a .bin file
 			- -EXPORT_OFFGROUND: exports the off-ground as a .bin file
+	- Roughness computation:
+		- new option to set a 'up direction' to compute signed roughness values
 	- Command line:
 		- Command 'Rasterize':
 			- New output option '-OUTPUT_RASTER_Z_AND_SF' to explicitly export altitudes AND scalar fields.
 				The former '-OUTPUT_RASTER_Z' option will only export the altitudes as its name implies.
+			- New option '-MAX_EDGE_LENGTH' to set a maximum edge length when interpolating values
+				(to be used with the '-EMPTY_FILL INTERP')
 		- New sub-option for the RANSAC plugin command line option (-RANSAC)
 			- OUT_RANDOM_COLOR = generate random colors for the output clouds (false by default now)
-        - New sub-option for the FILTER_SF command:
+        - New sub-option for the 'FILTER_SF' command:
 			- N_SIGMA_MIN and N_SIGMA_MAX: specify the option followed by a numeric value to filter by N * standardDeviation around the mean.
 		- new option '-INVERT_NORMALS':
 			- Inverts the normals of the loaded entities (cloud or mesh, and per-triangle or per-vertex for meshes)
@@ -81,9 +99,12 @@ v2.12 (???) - (in development)
 			- RIP: remove isolated poins (optional)
 		- the 'OCTREE_NORMALS' option has been updated:
 			- MINUS_ZERO and PLUS_ZERO can now also be written MINUS_ORIGIN and PLUS_ORIGIN
-			- new sub-option '-ORIENT SENSOR_ORIGIN' (to use the sensor origin to orient the normals - a sensor must be associated to the cloud of course ;)
+			- new sub-options '-ORIENT PLUS_SENSOR_ORIGIN' and '-ORIENT MINUS_SENSOR_ORIGIN' (to use the sensor origin to orient the normals - a sensor must be associated to the cloud of course ;)
+        - New sub-option for the 'ROUGH' command (Roughness):
+			- '-UP_DIR X Y Z' to specify a 'up direction' to compute signed roughness values.
 	- PCD:
 		- CC can now load PCL files with integer xyz coordinates (16 and 32 bits) as well as double coordinates
+		- CC can now load 'scan grids' corresponding to structured clouds (so as to compute robust normals for instance)
 	- STL:
 		- loading speed should be greatly improved (compared to v2.10 and v2.11)
 	- LAS (1.3/1.4):
@@ -102,6 +123,7 @@ v2.12 (???) - (in development)
 	    - the Global Shift, if defined, will now be used as LAS offset if no offset was previously set
 		- the PDAL LAS I/O filter and the libLAS I/O filter should now both handle LAS offset
 		  and scale the same way at export time.
+	- Better management of filenames with non latin characters (for raster files, STL files, PDMS scripts, Point List picking exported files)
 
 - New plugins
 	- MPlane: perform normal distance measurements against a defined plane (see https://www.cloudcompare.org/doc/wiki/index.php?title=MPlane_(plugin) )
@@ -132,7 +154,14 @@ v2.12 (???) - (in development)
 	- When merging two clouds, CC could crash is the LoD structure was currently being built at the same time on one of the clouds
 	- Command line mode: the '-GLOBA_SHIFT FIRST' option was not working properly
 	- the 'Guess parameters' option of the M3C2 plugin was suggesting radii while M3C2 scales are diameters (i.e. ideal values should have been twice as big)
-
+	- ASCII file load dialog: CC would assign an 'Intensity' column to the 'Grey' color role, which is rarely a good idea. It will now assign it to 'Scalar field' by default.
+	- Trying to merge several clouds, some being ancestors of the others, could lead to a crash
+	- Calling the Mesh > Smooth (Laplacian) tool on a mesh with the database tree unfloded could make CC crash
+	- Cloning the 'contour' part of a Facet would result in a locked polyline (that cannot be deleted or moved)
+	- When rendering the screen with a zoom > 1, the scale label was wrongly scaled as well
+	- Graphical segmentation: when using the shortcuts 'i' and 'o' to segment points inside or outside a polyline not yet closed (with a right click),
+		the overlay buttons would become transparent to clicks, and the not yet confirmed vertex of the polyline was not taken into account
+	- CloudCompare was not able to read shapefiles with missing measurements (while this field is generaly optional for polylines, polygons and point clouds)
 
 v2.11.3 (Anoia) - 08/09/2020
 ----------------------

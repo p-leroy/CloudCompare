@@ -25,6 +25,7 @@
 #include "ccShiftedObject.h"
 
 class ccPointCloud;
+class ccGenericPointCloud;
 
 //! Colored polyline
 /** Extends the CCCoreLib::Polyline class
@@ -40,7 +41,7 @@ public:
 	explicit ccPolyline(GenericIndexedCloudPersist* associatedCloud, unsigned uniqueID = ccUniqueIDGenerator::InvalidUniqueID);
 
 	//! Copy constructor
-	/** \param poly polyline to clone
+	/** \param poly polyline to copy/clone
 	**/
 	ccPolyline(const ccPolyline& poly);
 
@@ -61,6 +62,9 @@ public:
 	void setGlobalScale(double scale) override;
 	const CCVector3d& getGlobalShift() const override;
 	double getGlobalScale() const override;
+
+	//! Clones this polyline
+	ccPolyline* clone() const;
 
 	//! Defines if the polyline is considered as 2D or 3D
 	/** \param state if true, the polyline is 2D
@@ -107,8 +111,8 @@ public:
 
 	//! Splits the polyline into several parts based on a maximum edge length
 	/** \warning output polylines set (parts) may be empty if all the vertices are too far from each other!
-		\param maxEdgeLength maximum edge length
-		\param[out] parts output polyline parts
+		\param[in]	maxEdgeLength	maximum edge length
+		\param[out]	parts			output polyline parts
 		\return success
 	**/
 	bool split(	PointCoordinateType maxEdgeLength,
@@ -157,6 +161,16 @@ public:
 	ccPolyline* smoothChaikin(	PointCoordinateType ratio,
 								unsigned iterationCount) const;
 
+
+	//! Creates a polyline mesh with the selected vertices only
+	/** This method is called after a graphical segmentation.
+		It creates one or several new polylines with the segments having their two
+		vertices tagged as "visible" (see ccGenericPointCloud::visibilityArray).
+	**/
+	bool createNewPolylinesFromSelection(std::vector<ccPolyline*>& output);
+
+	//! Helper to determine if the input cloud acts as vertices of a polyline
+	static bool IsCloudVerticesOfPolyline(ccGenericPointCloud* cloud, ccPolyline** polyline = nullptr);
 
 public: //meta-data keys
 	

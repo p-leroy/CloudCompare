@@ -127,7 +127,11 @@ CC_FILE_ERROR PlyFilter::saveToFile(ccHObject* entity, QString filename, e_ply_s
 	if (!vertices)
 		return CC_FERR_BAD_ENTITY_TYPE;
 
+#ifdef _WIN32
+	p_ply ply = ply_create(filename.toStdWString().c_str(), storageType, errorCallback, 0, nullptr);
+#else
 	p_ply ply = ply_create(qPrintable(filename), storageType, errorCallback, 0, nullptr);
+#endif
 	if (!ply)
 		return CC_FERR_THIRD_PARTY_LIB_FAILURE;
 
@@ -371,8 +375,8 @@ CC_FILE_ERROR PlyFilter::saveToFile(ccHObject* entity, QString filename, e_ply_s
 				}
 				else
 				{
-					//save texture filename as a comment!
-					result = ply_add_comment(ply,qPrintable(QString("TEXTUREFILE %1").arg(defaultTextureName)));
+					//save texture filename as a comment! Note MeshLab only supports CamelCase as of writing.
+					result = ply_add_comment(ply,qPrintable(QString("TextureFile %1").arg(defaultTextureName)));
 					//DGM FIXME: is this the right name?
 					result = ply_add_list_property(ply, "texcoord", PLY_UCHAR, PLY_FLOAT); //'texcoord' to mimick Photoscan
 					
@@ -906,7 +910,11 @@ CC_FILE_ERROR PlyFilter::loadFile(const QString& filename, const QString& inputT
 	/****************/
 
 	//open a PLY file for reading
+#ifdef _WIN32
+	p_ply ply = ply_open(filename.toStdWString().c_str(), errorCallback, 0, nullptr);
+#else
 	p_ply ply = ply_open(qPrintable(filename), errorCallback, 0, nullptr);
+#endif
 	if (!ply)
 		return CC_FERR_THIRD_PARTY_LIB_FAILURE;
 	ccLog::PrintDebug(QString("[PLY] Opening file '%1' ...").arg(filename));

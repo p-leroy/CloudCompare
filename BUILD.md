@@ -43,8 +43,12 @@ mkdir build & cd build
 cmake -DCMAKE_PREFIX_PATH=C:\Qt\5.15.2\msvc2019_64 ..
 
 # macOs
-mkdir build & cd build
+mkdir build && cd build
 cmake -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5 ..
+
+# Linux
+mkdir build && cd build
+cmake ..
 ```
 
 You can always take a look at how CloudCompare is being build on [GitHub's CI](.github/workflows/build.yml)
@@ -90,13 +94,21 @@ The following options are **Windows-only**:
 
 The available plugins are
 
+## GL Plugins
+
 |       Plugin Name       |         CMake Option                     | Default Value | Description
 |-------------------------|------------------------------------------|---------------|-------------
 | qEDL                    | PLUGIN_GL_QEDL                           | OFF           |
 | qSSAO                   | PLUGIN_GL_QSSAO                          | OFF           |
-| qAdditionalIO           | PLUGIN_IO_QADDITIONAL                    | OFF           |
+
+## IO Plugins
+
+|       Plugin Name       |         CMake Option                     | Default Value | Description
+|-------------------------|------------------------------------------|---------------|-------------
 | qCoreIO                 | PLUGIN_IO_QCORE                          | ON            |
+| qAdditionalIO           | PLUGIN_IO_QADDITIONAL                    | OFF           |
 | qCSVMatrixIO            | PLUGIN_IO_QCSV_MATRIX                    | OFF           | Add support for CSV matrix files.
+| qDraco                  | PLUGIN_IO_QDRACO                         | OFF           | Add support force draco files
 | qE57IO                  | PLUGIN_IO_QE57                           | OFF           | Add support for e57 files using **libE57**.
 | qFBXIO                  | PLUGIN_IO_QFBX                           | OFF           | Add support for AutoDesk FBX files using the official **FBX SDK**
 | qLASFWIO                | PLUGIN_IO_QLAS_FWF                       | OFF           | Windows only. Support for LAS/LAZ with and without waveform.
@@ -104,6 +116,11 @@ The available plugins are
 | qPhotoscanIO            | PLUGIN_IO_QPHOTOSCAN                     | OFF           | 
 | qRDBIO                  | PLUGIN_IO_QRDB                           | OFF           | Add support for RDB.
 | qStepCADImport          | PLUGIN_IO_QSTEP                          | OFF           | Add support for STEP files.
+
+## Standard Plugins
+
+|       Plugin Name       |         CMake Option                     | Default Value | Description
+|-------------------------|------------------------------------------|---------------|-------------
 | qAnimation              | PLUGIN_STANDARD_QANIMATION               | OFF           | Plugin to create videos.
 | qBroom                  | PLUGIN_STANDARD_QBROOM                   | OFF           |
 | qCanupo                 | PLUGIN_STANDARD_QCANUPO                  | OFF           |
@@ -121,7 +138,7 @@ The available plugins are
 | qPCV                    | PLUGIN_STANDARD_QPCV                     | OFF           |
 | qPoissonRecon           | PLUGIN_STANDARD_QPOISSON_RECON           | OFF           |
 | qRANSAC_SD              | PLUGIN_STANDARD_QRANSAC_SD               | OFF           |
-| qRSA                    | PLUGIN_STANDARD_QSRA                     | OFF           |
+| qSRA                    | PLUGIN_STANDARD_QSRA                     | OFF           |
 | qAutoSeg                | PLUGIN_STANDARD_MASONRY_QAUTO_SEG        | OFF           |
 | qManualSeg              | PLUGIN_STANDARD_MASONRY_QMANUAL_SEG      | OFF           |
 
@@ -234,3 +251,5 @@ See [this post](http://www.danielgm.net/cc/forum/viewtopic.php?t=992) on the for
 ## Debugging plugins
 
 If you want to use or debug plugins in DEBUG mode while using a single configuration compiler/IDE (gcc, etc.) the you'll have to comment the automatic definition of the `QT_NO_DEBUG` macro in '/plugins/CMakePluginTpl.cmake' (see http://www.cloudcompare.org/forum/viewtopic.php?t=2070).
+
+If you wish to specify a custom directory to search for plugins, shaders, or translations, you may set the `CC_PLUGIN_PATH`, `CC_SHADER_PATH`, and `CC_TRANSLATION_PATH` environment variables. The paths may be relative to the current working directory or absolute.

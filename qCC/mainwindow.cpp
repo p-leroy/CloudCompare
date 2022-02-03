@@ -38,6 +38,7 @@
 #include <cc2DViewportObject.h>
 #include <ccCameraSensor.h>
 #include <ccColorScalesManager.h>
+#include <ccCylinder.h>
 #include <ccFacet.h>
 #include <ccFileUtils.h>
 #include <ccGBLSensor.h>
@@ -47,7 +48,6 @@
 #include <ccProgressDialog.h>
 #include <ccQuadric.h>
 #include <ccSphere.h>
-#include <ccCylinder.h>
 #include <ccSubMesh.h>
 
 //qCC_io
@@ -1150,14 +1150,8 @@ void MainWindow::applyTransformation(const ccGLMatrixd& mat)
 							double suggestedScale = ccGlobalShiftManager::BestScale(Dg);
 							index = sasDlg.addShiftInfo(ccGlobalShiftManager::ShiftInfo(tr("Suggested"), suggestedShift, suggestedScale));
 							sasDlg.setCurrentProfile(index);
-							//add "last" entry (if available)
-							std::vector<ccGlobalShiftManager::ShiftInfo> lastInfos;
-							if (ccGlobalShiftManager::GetLast(lastInfos))
-							{
-								sasDlg.addShiftInfo(lastInfos);
-							}
-							//add entries from file (if any)
-							sasDlg.addFileInfo();
+							//add "last" entries (if any)
+							sasDlg.addShiftInfo(ccGlobalShiftManager::GetLast());
 
 							if (sasDlg.exec())
 							{
@@ -1491,14 +1485,8 @@ void MainWindow::doActionEditGlobalShiftAndScale()
 	//add "original" entry
 	int index = sasDlg.addShiftInfo(ccGlobalShiftManager::ShiftInfo(tr("Original"), shift, scale));
 	sasDlg.setCurrentProfile(index);
-	//add "last" entry (if available)
-	std::vector<ccGlobalShiftManager::ShiftInfo> lastInfos;
-	if (ccGlobalShiftManager::GetLast(lastInfos))
-	{
-		sasDlg.addShiftInfo(lastInfos);
-	}
-	//add entries from file (if any)
-	sasDlg.addFileInfo();
+	//add "last" entries (if any)
+	sasDlg.addShiftInfo(ccGlobalShiftManager::GetLast());
 
 	if (!sasDlg.exec())
 		return;
@@ -3352,6 +3340,16 @@ void MainWindow::doActionMerge()
 			{
 				ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(entity);
 				clouds.push_back(cloud);
+
+				// check whether this cloud is an ancestor of the first cloud in the selection
+				if (clouds.size() > 1)
+				{
+					if (clouds.back()->isAncestorOf(clouds.front()))
+					{
+						// this way we are sure that the first cloud is not below any other cloud
+						std::swap(clouds.front(), clouds.back());
+					}
+				}
 			}
 			else if (entity->isKindOf(CC_TYPES::MESH))
 			{
@@ -3458,6 +3456,13 @@ void MainWindow::doActionMerge()
 						toRemove = parent;
 					else
 						toRemove = pc;
+
+					if (toRemove->getParent())
+					{
+						// we detach all the clouds (or group containing clouds) from their parent
+						// to avoid issues when deleting them later
+						toRemove->getParent()->detachChild(toRemove);
+					}
 
 					AddToRemoveList(toRemove, toBeRemoved);
 
@@ -5055,7 +5060,6 @@ void MainWindow::doActionComputeDistToBestFitQuadric3D()
 				ccScalarField* sf = static_cast<ccScalarField*>(newCloud->getScalarField(sfIdx));
 				assert(sf);
 
-				//FILE* fp = fopen("doActionComputeQuadric3D_trace.txt","wt");
 				for (int x = 0; x < steps; ++x)
 				{
 					CCVector3 P;
@@ -5075,11 +5079,9 @@ void MainWindow::doActionComputeDistToBestFitQuadric3D()
 																	+	l*Pc.x + m*Pc.y + n*Pc.z + d);
 
 							sf->addElement(dist);
-							//fprintf(fp,"%f %f %f %f\n",Pc.x,Pc.y,Pc.z,dist);
 						}
 					}
 				}
-				//fclose(fp);
 
 				if (sf)
 				{
@@ -6493,253 +6495,29 @@ void MainWindow::activateSegmentationMode()
 
 void MainWindow::deactivateSegmentationMode(bool state)
 {
+	if (!m_gsTool)
+	{
+		assert(false);
+		return;
+	}
+
 	bool deleteHiddenParts = false;
 
 	//shall we apply segmentation?
 	if (state)
 	{
-		ccHObject* firstResult = nullptr;
+		ccHObject::Container result;
 
-		deleteHiddenParts = m_gsTool->deleteHiddenParts();
+		m_gsTool->applySegmentation(this, result);
 
-		//aditional vertices of which visibility array should be manually reset
-		std::unordered_set<ccGenericPointCloud*> verticesToReset;
-
-		QSet<ccHObject*>& segmentedEntities = m_gsTool->entities();
-		for (QSet<ccHObject*>::iterator p = segmentedEntities.begin(); p != segmentedEntities.end(); )
+		if (m_ccRoot)
 		{
-			ccHObject* entity = (*p);
-
-			if (entity->isKindOf(CC_TYPES::POINT_CLOUD) || entity->isKindOf(CC_TYPES::MESH))
-			{
-				//first, do the things that must absolutely be done BEFORE removing the entity from DB (even temporarily)
-				//bool lockedVertices;
-				ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(entity/*,&lockedVertices*/);
-				assert(cloud);
-				if (cloud)
-				{
-					//assert(!lockedVertices); //in some cases we accept to segment meshes with locked vertices!
-
-					//specific case: labels (do this before temporarily removing 'entity' from DB!)
-					ccHObject::Container labels;
-					if (m_ccRoot)
-					{
-						m_ccRoot->getRootEntity()->filterChildren(labels,true,CC_TYPES::LABEL_2D);
-					}
-					for (ccHObject::Container::iterator it = labels.begin(); it != labels.end(); ++it)
-					{
-						if ((*it)->isA(CC_TYPES::LABEL_2D)) //Warning: cc2DViewportLabel is also a kind of 'CC_TYPES::LABEL_2D'!
-						{
-							//we must search for all dependent labels and remove them!!!
-							//TODO: couldn't we be more clever and update the label instead?
-							cc2DLabel* label = static_cast<cc2DLabel*>(*it);
-							bool removeLabel = false;
-							for (unsigned i = 0; i < label->size(); ++i)
-							{
-								if (label->getPickedPoint(i).entity() == entity)
-								{
-									removeLabel = true;
-									break;
-								}
-							}
-
-							if (removeLabel && label->getParent())
-							{
-								ccLog::Warning(tr("[Segmentation] Label %1 depends on cloud %2 and will be removed").arg(label->getName(), cloud->getName()));
-								ccHObject* labelParent = label->getParent();
-								ccHObjectContext objContext = removeObjectTemporarilyFromDBTree(labelParent);
-								labelParent->removeChild(label);
-								label = nullptr;
-								putObjectBackIntoDBTree(labelParent,objContext);
-							}
-						}
-					} //for each label
-				} // if (cloud)
-
-				//we temporarily detach the entity, as it may undergo
-				//'severe' modifications (octree deletion, etc.) --> see ccPointCloud::createNewCloudFromVisibilitySelection
-				ccHObjectContext objContext = removeObjectTemporarilyFromDBTree(entity);
-
-				//apply segmentation
-				ccHObject* segmentationResult = nullptr;
-				bool deleteOriginalEntity = deleteHiddenParts;
-				if (entity->isKindOf(CC_TYPES::POINT_CLOUD))
-				{
-					ccGenericPointCloud* genCloud = ccHObjectCaster::ToGenericPointCloud(entity);
-					ccGenericPointCloud* segmentedCloud = genCloud->createNewCloudFromVisibilitySelection(!deleteHiddenParts);
-					if (segmentedCloud && segmentedCloud->size() == 0)
-					{
-						delete segmentationResult;
-						segmentationResult = nullptr;
-					}
-					else
-					{
-						segmentationResult = segmentedCloud;
-					}
-
-					deleteOriginalEntity |= (genCloud->size() == 0);
-				}
-				else if (entity->isKindOf(CC_TYPES::MESH)/*|| entity->isA(CC_TYPES::PRIMITIVE)*/) //TODO
-				{
-					if (entity->isA(CC_TYPES::MESH))
-					{
-						segmentationResult = ccHObjectCaster::ToMesh(entity)->createNewMeshFromSelection(!deleteHiddenParts);
-					}
-					else if (entity->isA(CC_TYPES::SUB_MESH))
-					{
-						segmentationResult = ccHObjectCaster::ToSubMesh(entity)->createNewSubMeshFromSelection(!deleteHiddenParts);
-					}
-
-					deleteOriginalEntity |=  (ccHObjectCaster::ToGenericMesh(entity)->size() == 0);
-				}
-
-				if (segmentationResult)
-				{
-					assert(cloud);
-					if (cloud)
-					{
-						//another specific case: sensors (on clouds)
-						for (unsigned i = 0; i < entity->getChildrenNumber(); ++i)
-						{
-							ccHObject* child = entity->getChild(i);
-							assert(child);
-							if (child && child->isKindOf(CC_TYPES::SENSOR))
-							{
-								if (child->isA(CC_TYPES::GBL_SENSOR))
-								{
-									ccGBLSensor* sensor = ccHObjectCaster::ToGBLSensor(entity->getChild(i));
-									//remove the associated depth buffer of the original sensor (derpecated)
-									sensor->clearDepthBuffer();
-									if (deleteOriginalEntity)
-									{
-										//either transfer
-										entity->transferChild(sensor,*segmentationResult);
-									}
-									else
-									{
-										//or copy
-										segmentationResult->addChild(new ccGBLSensor(*sensor));
-									}
-								}
-								else if (child->isA(CC_TYPES::CAMERA_SENSOR))
-								{
-									ccCameraSensor* sensor = ccHObjectCaster::ToCameraSensor(entity->getChild(i));
-									if (deleteOriginalEntity)
-									{
-										//either transfer
-										entity->transferChild(sensor,*segmentationResult);
-									}
-									else
-									{
-										//or copy
-										segmentationResult->addChild(new ccCameraSensor(*sensor));
-									}
-								}
-								else
-								{
-									//unhandled sensor?!
-									assert(false);
-								}
-							}
-						} //for each child
-					}
-
-					//we must take care of the remaining part
-					if (!deleteHiddenParts)
-					{
-						//no need to put back the entity in DB if we delete it afterwards!
-						if (!deleteOriginalEntity)
-						{
-							entity->setName(entity->getName() + QString(".remaining"));
-							putObjectBackIntoDBTree(entity, objContext);
-						}
-					}
-					else
-					{
-						//keep original name(s)
-						segmentationResult->setName(entity->getName());
-						if (entity->isKindOf(CC_TYPES::MESH) && segmentationResult->isKindOf(CC_TYPES::MESH))
-						{
-							ccGenericMesh* meshEntity = ccHObjectCaster::ToGenericMesh(entity);
-							ccHObjectCaster::ToGenericMesh(segmentationResult)->getAssociatedCloud()->setName(meshEntity->getAssociatedCloud()->getName());
-
-							//specific case: if the sub mesh is deleted afterwards (see below)
-							//then its associated vertices won't be 'reset' by the segmentation tool!
-							if (deleteHiddenParts && meshEntity->isA(CC_TYPES::SUB_MESH))
-							{
-								verticesToReset.insert(meshEntity->getAssociatedCloud());
-							}
-						}
-						assert(deleteOriginalEntity);
-						//deleteOriginalEntity = true;
-					}
-
-					if (segmentationResult->isA(CC_TYPES::SUB_MESH))
-					{
-						//for sub-meshes, we have no choice but to use its parent mesh!
-						objContext.parent = static_cast<ccSubMesh*>(segmentationResult)->getAssociatedMesh();
-					}
-					else
-					{
-						//otherwise we look for first non-mesh or non-cloud parent
-						while (objContext.parent && (objContext.parent->isKindOf(CC_TYPES::MESH) || objContext.parent->isKindOf(CC_TYPES::POINT_CLOUD)))
-						{
-							objContext.parent = objContext.parent->getParent();
-						}
-					}
-
-					if (objContext.parent)
-					{
-						objContext.parent->addChild(segmentationResult); //FiXME: objContext.parentFlags?
-					}
-
-					segmentationResult->setDisplay_recursive(entity->getDisplay());
-					segmentationResult->prepareDisplayForRefresh_recursive();
-
-					addToDB(segmentationResult);
-
-					if (!firstResult)
-					{
-						firstResult = segmentationResult;
-					}
-				}
-				else if (!deleteOriginalEntity)
-				{
-					//ccConsole::Error(tr("An error occurred! (not enough memory?)"));
-					putObjectBackIntoDBTree(entity,objContext);
-				}
-
-				if (deleteOriginalEntity)
-				{
-					p = segmentedEntities.erase(p);
-
-					delete entity;
-					entity = nullptr;
-				}
-				else
-				{
-					++p;
-				}
-			}
-		}
-
-		//specific actions
-		{
-			for ( ccGenericPointCloud *cloud : verticesToReset )
-			{
-				cloud->resetVisibilityArray();
-			}
-		}
-
-		if (firstResult && m_ccRoot)
-		{
-			m_ccRoot->selectEntity(firstResult);
+			m_ccRoot->selectEntities(result);
 		}
 	}
-
-	if (m_gsTool)
+	else
 	{
-		m_gsTool->removeAllEntities(!deleteHiddenParts);
+		m_gsTool->removeAllEntities(true);
 	}
 
 	//we enable all GL windows
@@ -6905,7 +6683,7 @@ void MainWindow::activatePointPickingMode()
 void MainWindow::deactivatePointPickingMode(bool state)
 {
 	//if (m_ppDlg)
-	//	m_ppDlg->linkWith(0);
+	//	m_ppDlg->linkWith(nullptr);
 
 	//we enable all GL windows
 	enableAll();
@@ -7101,7 +6879,7 @@ void MainWindow::doActionEditCamera()
 		//m_cpeDlg->makeFrameless(); //does not work on linux
 
 		connect(m_mdiArea, &QMdiArea::subWindowActivated,
-				m_cpeDlg, static_cast<void (ccCameraParamEditDlg::*)(QMdiSubWindow *)>(&ccCameraParamEditDlg::linkWith));
+				m_cpeDlg, qOverload<QMdiSubWindow*>(&ccCameraParamEditDlg::linkWith));
 
 		registerOverlayDialog(m_cpeDlg, Qt::BottomLeftCorner);
 	}
@@ -7827,8 +7605,7 @@ void MainWindow::doActionClone()
 		}
 		else if (entity->isA(CC_TYPES::POLY_LINE))
 		{
-			ccPolyline* poly = ccHObjectCaster::ToPolyline(entity);
-			clone = (poly ? new ccPolyline(*poly) : nullptr);
+			clone = ccHObjectCaster::ToPolyline(entity)->clone();
 			if (!clone)
 			{
 				ccConsole::Error(tr("An error occurred while cloning polyline %1").arg(entity->getName()));
@@ -8214,12 +7991,20 @@ void MainWindow::doShowPrimitiveFactory()
 void MainWindow::doComputeGeometricFeature()
 {
 	static ccLibAlgorithms::GeomCharacteristicSet s_selectedCharacteristics;
+	static CCVector3 s_upDir(0, 0, 1);
+	static bool s_upDirDefined = false;
 
 	ccGeomFeaturesDlg gfDlg(this);
 	double radius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
 	gfDlg.setRadius(radius);
+
+	// restore semi-persistent parameters
 	gfDlg.setSelectedFeatures(s_selectedCharacteristics);
-	
+	if (s_upDirDefined)
+	{
+		gfDlg.setUpDirection(s_upDir);
+	}
+
 	if (!gfDlg.exec())
 		return;
 
@@ -8230,7 +8015,16 @@ void MainWindow::doComputeGeometricFeature()
 		return;
 	}
 
-	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics, static_cast<PointCoordinateType>(radius), m_selectedEntities, this);
+	CCVector3* upDir = gfDlg.getUpDirection();
+
+	// remember semi-persistent parameters
+	s_upDirDefined = (upDir != nullptr);
+	if (s_upDirDefined)
+	{
+		s_upDir = *upDir;
+	}
+
+	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics, static_cast<PointCoordinateType>(radius), m_selectedEntities, upDir, this);
 
 	refreshAll();
 	updateUI();
@@ -9971,8 +9765,8 @@ void MainWindow::addToDB(	const QStringList& filenames,
 	{
 		parameters.alwaysDisplayLoadDialog = true;
 		parameters.shiftHandlingMode = ccGlobalShiftManager::DIALOG_IF_NECESSARY;
-		parameters.coordinatesShift = &loadCoordinatesShift;
-		parameters.coordinatesShiftEnabled = &loadCoordinatesTransEnabled;
+		parameters._coordinatesShift = &loadCoordinatesShift;
+		parameters._coordinatesShiftEnabled = &loadCoordinatesTransEnabled;
 		parameters.parentWidget = this;
 	}
 
@@ -11112,7 +10906,7 @@ void MainWindow::destroyGLWindow(ccGLWindow* view3D) const
 	}
 }
 
-MainWindow::ccHObjectContext MainWindow::removeObjectTemporarilyFromDBTree(ccHObject* obj)
+ccMainAppInterface::ccHObjectContext MainWindow::removeObjectTemporarilyFromDBTree(ccHObject* obj)
 {
 	ccHObjectContext context;
 
