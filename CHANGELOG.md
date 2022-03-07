@@ -8,10 +8,13 @@ v2.12 (???) - (in development)
 		-  'Edit > Cloud > Create single point cloud': to create a cloud with a single point (set by the user)
 		-  'Edit > Cloud > Paste from clipboard' (shortcut: CTRL+P): to create a cloud from ASCII/test data stored in the clipboard
 
-- New plugin:
+- New plugins:
 	- PCL > Fast Global Registration (see https://github.com/isl-org/FastGlobalRegistration)
 		- Automatic registration of point clouds (with normals) with no initial/rough alignment
 		- Based on: Q.-Y. Zhou, J. Park, and V. Koltun, "Fast Global Registration", ECCV, 2016
+	- qMeshBoolean
+		- Boolean operations on meshes, based on libigl (https://libigl.github.io/)
+		- Slower, but supposedly more robust than Cork
 
 - New command line options:
     - Added N_SIGMA_MIN and N_SIGMA_MAX options to the FILTER_SF command.
@@ -28,6 +31,12 @@ v2.12 (???) - (in development)
 	- Rasterize
 		- Improved interpolation scheme on the raster borders
 		- New 'max edge length' option when interpolating grid cells, to avoid using large triangles
+		- The rasterize tool grid is 'centered' on the raster (image) boundary pixels (the grid min corner coordinates
+			correspond to the lower left raster cell center, and the grid max corner coordinates correspond to the upper
+			right raster cell center). This has been made more explicit in the 'Edit grid' sub-dialog.
+	- Section extraction tool
+		- polylines (imported or drawn) can now be unselected when not in 'edition' mode. Just click anywhere else.
+		- the 'unfold' option can now be used on all the polylines at once if no polyline is selected.
     - RANSAC plugin
         - Can save all leftover points into a new cloud (leftovers were points not assigned to a shape)
         - Can select whether to use Least Squares fitting on found shapes (some shapes take a very long time to process this step specifically Cones)
@@ -105,6 +114,7 @@ v2.12 (???) - (in development)
 	- PCD:
 		- CC can now load PCL files with integer xyz coordinates (16 and 32 bits) as well as double coordinates
 		- CC can now load 'scan grids' corresponding to structured clouds (so as to compute robust normals for instance)
+		- the (standard ?) 16bytes alignment for the various fields has been removed, so as to drastically reduce the memory consumption and the output file size!
 	- STL:
 		- loading speed should be greatly improved (compared to v2.10 and v2.11)
 	- LAS (1.3/1.4):
@@ -124,6 +134,9 @@ v2.12 (???) - (in development)
 		- the PDAL LAS I/O filter and the libLAS I/O filter should now both handle LAS offset
 		  and scale the same way at export time.
 	- Better management of filenames with non latin characters (for raster files, STL files, PDMS scripts, Point List picking exported files)
+	- Rasterize tool:
+		- RGB and scalar field based layers can now be exported to standard image formats
+	- 'X', 'Y' and 'Z' labels are now displayed next to the trihedron axes (in the bottom right corner)
 
 - New plugins
 	- MPlane: perform normal distance measurements against a defined plane (see https://www.cloudcompare.org/doc/wiki/index.php?title=MPlane_(plugin) )
@@ -162,6 +175,7 @@ v2.12 (???) - (in development)
 	- Graphical segmentation: when using the shortcuts 'i' and 'o' to segment points inside or outside a polyline not yet closed (with a right click),
 		the overlay buttons would become transparent to clicks, and the not yet confirmed vertex of the polyline was not taken into account
 	- CloudCompare was not able to read shapefiles with missing measurements (while this field is generaly optional for polylines, polygons and point clouds)
+	- Rasterize tool: the exported geotiff files were (once again?!) shifted of half the cell size
 
 v2.11.3 (Anoia) - 08/09/2020
 ----------------------

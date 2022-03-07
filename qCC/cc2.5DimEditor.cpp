@@ -65,6 +65,7 @@ bool cc2Point5DimEditor::showGridBoxEditor()
 		unsigned char projDim = getProjectionDimension();
 		assert(projDim < 3);
 		m_bbEditorDlg->set2DMode(true, projDim);
+		
 		if (m_bbEditorDlg->exec())
 		{
 			gridIsUpToDate(false);
@@ -79,7 +80,7 @@ void cc2Point5DimEditor::createBoundingBoxEditor(const ccBBox& gridBBox, QWidget
 {
 	if (!m_bbEditorDlg)
 	{
-		m_bbEditorDlg = new ccBoundingBoxEditorDlg(parent);
+		m_bbEditorDlg = new ccBoundingBoxEditorDlg(false, true, parent);
 		m_bbEditorDlg->setBaseBBox(gridBBox, false);
 	}
 }
@@ -100,11 +101,11 @@ void cc2Point5DimEditor::create2DView(QFrame* parentFrame)
 		params.decimateMeshOnMove = false;
 		params.displayCross = false;
 		params.colorScaleUseShader = false;
-		m_glWindow->setDisplayParameters(params,true);
-		m_glWindow->setPerspectiveState(false,true);
+		m_glWindow->setDisplayParameters(params, true);
+		m_glWindow->setPerspectiveState(false, true);
 		m_glWindow->setInteractionMode(ccGLWindow::INTERACT_PAN | ccGLWindow::INTERACT_ZOOM_CAMERA | ccGLWindow::INTERACT_CLICKABLE_ITEMS);
 		m_glWindow->setPickingMode(ccGLWindow::NO_PICKING);
-		m_glWindow->displayOverlayEntities(true);
+		m_glWindow->displayOverlayEntities(true, false);
 		m_glWindow->setSunLight(true);
 		m_glWindow->setCustomLight(false);
 

@@ -99,7 +99,7 @@ static double ConvertAngleToRad(double angle, DistanceMapGenerationDlg::ANGULAR_
 	return 0.0;
 }
 
-DistanceMapGenerationDlg::DistanceMapGenerationDlg(ccPointCloud* cloud, ccScalarField* sf, ccPolyline* polyline, ccMainAppInterface* app/*=0*/)
+DistanceMapGenerationDlg::DistanceMapGenerationDlg(ccPointCloud* cloud, ccScalarField* sf, ccPolyline* polyline, ccMainAppInterface* app/*=nullptr*/)
 	: QDialog(app ? app->getMainWindow() : nullptr)
 	, m_app(app)
 	, m_cloud(cloud)
@@ -225,7 +225,7 @@ DistanceMapGenerationDlg::DistanceMapGenerationDlg(ccPointCloud* cloud, ccScalar
 		m_window->setDisplayParameters(params,true);
 		m_window->setPerspectiveState(false,true);
 		m_window->setInteractionMode(ccGLWindow::INTERACT_PAN | ccGLWindow::INTERACT_CLICKABLE_ITEMS | ccGLWindow::INTERACT_ZOOM_CAMERA);
-		m_window->displayOverlayEntities(false);
+		m_window->displayOverlayEntities(false, false);
 		m_window->showSF(displayColorScaleCheckBox->isChecked());
 		m_window->setSunLight(true);
 		m_window->setCustomLight(false);

@@ -31,7 +31,7 @@ using namespace CCCoreLib;
 //! Default number of classes for associated histogram
 const unsigned MAX_HISTOGRAM_SIZE = 512;
 
-ccScalarField::ccScalarField(const char* name/*=0*/)
+ccScalarField::ccScalarField(const char* name/*=nullptr*/)
 	: ScalarField(name)
 	, m_showNaNValuesInGrey(true)
 	, m_symmetricalScale(false)
@@ -203,8 +203,11 @@ void ccScalarField::computeMinAndMax()
 					{
 						const ScalarType& val = getValue(i);
 
-						unsigned bin = static_cast<unsigned>(floor((val - m_displayRange.min())*step));
-						++m_histogram[std::min(bin, numberOfClasses - 1)];
+						if (ValidValue(val))
+						{
+							unsigned bin = static_cast<unsigned>(floor((val - m_displayRange.min())*step));
+							++m_histogram[std::min(bin, numberOfClasses - 1)];
+						}
 					}
 				}
 

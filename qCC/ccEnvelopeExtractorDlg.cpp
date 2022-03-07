@@ -35,7 +35,7 @@
 #include <unistd.h>
 #endif
 
-ccEnvelopeExtractorDlg::ccEnvelopeExtractorDlg(QWidget* parent/*=0*/)
+ccEnvelopeExtractorDlg::ccEnvelopeExtractorDlg(QWidget* parent/*=nullptr*/)
 	: QDialog(parent, Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint)
 	, Ui::EnvelopeExtractorDlg()
 	, m_skipped(false)
@@ -76,7 +76,7 @@ void ccEnvelopeExtractorDlg::init()
 		m_glWindow->setPerspectiveState(false, true);
 		m_glWindow->setInteractionMode(ccGLWindow::INTERACT_PAN | ccGLWindow::INTERACT_ZOOM_CAMERA | ccGLWindow::INTERACT_CLICKABLE_ITEMS);
 		m_glWindow->setPickingMode(ccGLWindow::NO_PICKING);
-		m_glWindow->displayOverlayEntities(true);
+		m_glWindow->displayOverlayEntities(true, false);
 		m_glWindow->setSunLight(true);
 		m_glWindow->setCustomLight(false);
 		viewFrame->setLayout(new QHBoxLayout);

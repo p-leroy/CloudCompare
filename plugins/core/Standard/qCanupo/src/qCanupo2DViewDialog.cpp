@@ -52,8 +52,8 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 											QString cloud2Name,
 											int class1/*=1*/,
 											int class2/*=2*/,
-											const CorePointDescSet* evaluationDescriptors/*=0*/,
-											ccMainAppInterface* app/*=0*/)
+											const CorePointDescSet* evaluationDescriptors/*=nullptr*/,
+											ccMainAppInterface* app/*=nullptr*/)
 	: QDialog(app ? app->getMainWindow() : nullptr)
 	, Ui::Canupo2DViewDialog()
 	, m_app(app)
@@ -96,7 +96,7 @@ qCanupo2DViewDialog::qCanupo2DViewDialog(	const CorePointDescSet* descriptors1,
 		m_glWindow->setPerspectiveState(false, true);
 		m_glWindow->setInteractionMode(ccGLWindow::MODE_PAN_ONLY | ccGLWindow::INTERACT_SEND_ALL_SIGNALS);
 		m_glWindow->setPickingMode(ccGLWindow::NO_PICKING);
-		m_glWindow->displayOverlayEntities(false);
+		m_glWindow->displayOverlayEntities(false, false);
 		m_glWindow->setSunLight(true);
 		m_glWindow->setCustomLight(false);
 		//add window to the dedicated layout
