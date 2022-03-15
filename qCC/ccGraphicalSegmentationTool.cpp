@@ -48,6 +48,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QInputDialog>
 
 //System
 #include <assert.h>
@@ -74,6 +75,7 @@ ccGraphicalSegmentationTool::ccGraphicalSegmentationTool(QWidget* parent)
 	connect(validAndDeleteButton,				&QToolButton::clicked,		this,	&ccGraphicalSegmentationTool::applyAndDelete);
 	connect(cancelButton,						&QToolButton::clicked,		this,	&ccGraphicalSegmentationTool::cancel);
 	connect(pauseButton,						&QToolButton::toggled,		this,	&ccGraphicalSegmentationTool::pauseSegmentationMode);
+    connect(addClassToolButton,                 &QToolButton::clicked,      this,   &ccGraphicalSegmentationTool::setClassificationValue);
 
 	//selection modes
 	connect(actionSetPolylineSelection,			&QAction::triggered,	this,	&ccGraphicalSegmentationTool::doSetPolylineSelection);
@@ -90,6 +92,7 @@ ccGraphicalSegmentationTool::ccGraphicalSegmentationTool(QWidget* parent)
 	addOverriddenShortcut(Qt::Key_Tab);    //tab key to switch between rectangular and polygonal selection modes
 	addOverriddenShortcut(Qt::Key_I);      //'I' key for the "segment in" button
 	addOverriddenShortcut(Qt::Key_O);      //'O' key for the "segment out" button
+	addOverriddenShortcut(Qt::Key_C);      //'C' key for the "classify" button
 	connect(this, &ccOverlayDialog::shortcutTriggered, this, &ccGraphicalSegmentationTool::onShortcutTriggered);
 
 	QMenu* selectionModeMenu = new QMenu(this);
@@ -150,6 +153,10 @@ void ccGraphicalSegmentationTool::onShortcutTriggered(int key)
 
 	case Qt::Key_O:
 		outButton->click();
+		return;
+
+	case Qt::Key_C:
+		addClassToolButton->click();
 		return;
 
 	case Qt::Key_Return:
@@ -778,10 +785,13 @@ void ccGraphicalSegmentationTool::segmentOut()
 	segment(false);
 }
 
-void ccGraphicalSegmentationTool::segment(bool keepPointsInside)
+void ccGraphicalSegmentationTool::segment(bool keepPointsInside, ScalarType classificationValue/*=CCCoreLib::NAN_VALUE*/)
 {
 	if (!m_associatedWin)
+	{
+		assert(false);
 		return;
+	}
 
 	if (!m_segmentationPoly)
 	{
@@ -830,6 +840,8 @@ void ccGraphicalSegmentationTool::segment(bool keepPointsInside)
 	}
 	ccLog::PrintDebug("Polyline is fully inside frustrum: " + QString(polyInsideFrustum ? "Yes" : "No"));
 
+	bool classificationMode = CCCoreLib::ScalarField::ValidValue(classificationValue);
+
 	//for each selected entity
 	for (QSet<ccHObject*>::const_iterator p = m_toSegment.constBegin(); p != m_toSegment.constEnd(); ++p)
 	{
@@ -840,6 +852,35 @@ void ccGraphicalSegmentationTool::segment(bool keepPointsInside)
 		assert(!visibilityArray.empty());
 
 		int cloudSize = static_cast<int>(cloud->size());
+
+		// if a classification value is set as input, this means that we want to label the
+		// set of points, and we don't want to segment it
+		CCCoreLib::ScalarField* classifSF = nullptr;
+		if (classificationMode)
+		{
+			ccPointCloud* pc = ccHObjectCaster::ToPointCloud(*p);
+			if (!pc)
+			{
+				ccLog::Warning("Can't apply classification to cloud " + (*p)->getName());
+				continue;
+			}
+
+			// check that the 'Classification' scalar field exists
+			int sfIdx = pc->getScalarFieldIndexByName("Classification");
+			if (sfIdx < 0)
+			{
+				// create the scalar field Classification if needed
+				sfIdx = pc->addScalarField("Classification");
+				if (sfIdx < 0)
+				{
+					ccLog::Error(tr("Not enough memory"));
+					return;
+				}
+			}
+			classifSF = pc->getScalarField(sfIdx);
+			pc->showSF(true);
+			pc->setCurrentDisplayedScalarField(sfIdx);
+		}
 
 		//we project each point and we check if it falls inside the segmentation polyline
 #if defined(_OPENMP)
@@ -864,16 +905,40 @@ void ccGraphicalSegmentationTool::segment(bool keepPointsInside)
 					pointInside = CCCoreLib::ManualSegmentationTools::isPointInsidePoly(P2D, m_segmentationPoly);
 				}
 
-				visibilityArray[i] = (keepPointsInside != pointInside ? CCCoreLib:: POINT_HIDDEN : CCCoreLib::POINT_VISIBLE);
+				if (classifSF)
+				{
+					// classification mode
+					if (pointInside)
+					{
+						classifSF->setValue(i, classificationValue);
+					}
+				}
+				else
+				{
+					// standard segmentation mode
+					visibilityArray[i] = (keepPointsInside != pointInside ? CCCoreLib::POINT_HIDDEN : CCCoreLib::POINT_VISIBLE);
+				}
 			}
+		}
+
+		if (classifSF)
+		{
+			classifSF->computeMinAndMax();
 		}
 	}
 
-	m_somethingHasChanged = true;
-	validButton->setEnabled(true);
-	validAndDeleteButton->setEnabled(true);
-	razButton->setEnabled(true);
-	pauseSegmentationMode(true);
+	if (classificationMode)
+	{
+		m_associatedWin->redraw(false);
+	}
+	else
+	{
+		m_somethingHasChanged = true;
+		validButton->setEnabled(true);
+		validAndDeleteButton->setEnabled(true);
+		razButton->setEnabled(true);
+		pauseSegmentationMode(true);
+	}
 }
 
 void ccGraphicalSegmentationTool::pauseSegmentationMode(bool state)
@@ -918,6 +983,20 @@ void ccGraphicalSegmentationTool::pauseSegmentationMode(bool state)
 	pauseButton->blockSignals(false);
 
 	m_associatedWin->redraw(!state);
+}
+
+void ccGraphicalSegmentationTool::setClassificationValue()
+{
+	static int s_classValue = 0;
+	bool ok = false;
+	int iValue = QInputDialog::getInt(m_associatedWin->asWidget(), QT_TR_NOOP("Classification"), QT_TR_NOOP("value"), s_classValue, -1000000, 1000000, 1, &ok);
+	if (!ok)
+	{
+		return;
+	}
+	s_classValue = iValue;
+
+	segment(true, static_cast<ScalarType>(s_classValue));
 }
 
 void ccGraphicalSegmentationTool::doSetPolylineSelection()

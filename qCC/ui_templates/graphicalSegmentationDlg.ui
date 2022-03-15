@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>251</width>
-    <height>26</height>
+    <width>307</width>
+    <height>27</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -123,6 +123,27 @@
      <property name="icon">
       <iconset resource="../icons.qrc">
        <normaloff>:/CC/images/smallSegmentOut.png</normaloff>:/CC/images/smallSegmentOut.png</iconset>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QToolButton" name="addClassToolButton">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>Set the class of points inside the polyline (C).
+The classification SF will be directly updated (and created if needed).</string>
+     </property>
+     <property name="statusTip">
+      <string>Set the class of points inside the polyline (C)</string>
+     </property>
+     <property name="icon">
+      <iconset resource="../icons.qrc">
+       <normaloff>:/CC/images/hashtag.png</normaloff>:/CC/images/hashtag.png</iconset>
      </property>
     </widget>
    </item>

@@ -39,7 +39,7 @@
      <x>0</x>
      <y>0</y>
      <width>1024</width>
-     <height>20</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -148,6 +148,7 @@
      <addaction name="actionRenameSF"/>
      <addaction name="separator"/>
      <addaction name="actionAddConstantSF"/>
+     <addaction name="actionAddClassificationSF"/>
      <addaction name="actionAddIdField"/>
      <addaction name="actionExportCoordToSF"/>
      <addaction name="actionExportNormalToSF"/>
@@ -3117,10 +3118,23 @@ QTreeView::branch:open:has-children:has-siblings  {
   </action>
   <action name="actionSplitCloudUsingSF">
    <property name="text">
-    <string>Split cloud using SF</string>
+    <string>Split cloud (integer values)</string>
    </property>
    <property name="toolTip">
-    <string>Split the selected cloud using the current scalar field. The field should be a positive integer.</string>
+    <string>Split the selected cloud using the current scalar field.
+The active scalar field should have integer values.</string>
+   </property>
+  </action>
+  <action name="actionAddClassificationSF">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/ccAddConstSF.png</normaloff>:/CC/images/ccAddConstSF.png</iconset>
+   </property>
+   <property name="text">
+    <string>Add classification SF</string>
+   </property>
+   <property name="toolTip">
+    <string>Add classification SF (shorcut to 'Add constant SF')</string>
    </property>
   </action>
  </widget>
