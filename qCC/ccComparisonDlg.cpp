@@ -136,6 +136,7 @@ ccComparisonDlg::ccComparisonDlg(	ccHObject* compEntity,
 	connect(maxDistCheckBox,		&QCheckBox::toggled,					this,	&ccComparisonDlg::maxDistUpdated);
 	connect(localModelComboBox, qOverload<int> (&QComboBox::currentIndexChanged),		this,	&ccComparisonDlg::locaModelChanged);
 	connect(maxSearchDistSpinBox, qOverload<double> (&QDoubleSpinBox::valueChanged),this,	&ccComparisonDlg::maxDistUpdated);
+    connect(split3DCheckBox,        &QCheckBox::toggled,                    this,   &ccComparisonDlg::enableCompute2D);
 }
 
 ccComparisonDlg::~ccComparisonDlg()
@@ -216,6 +217,11 @@ void ccComparisonDlg::maxDistUpdated()
 {
 	//the current 'best octree level' is depreacted
 	m_bestOctreeLevel = 0;
+}
+
+void ccComparisonDlg::enableCompute2D(bool state)
+{
+    compute2DCheckBox->setEnabled(state);
 }
 
 int ccComparisonDlg::getBestOctreeLevel()
@@ -940,6 +946,21 @@ bool ccComparisonDlg::computeDistances()
 				}
 			}
 			ccLog::Warning("[ComputeDistances] Result has been split along each dimension (check the 3 other scalar fields with '_X', '_Y' and '_Z' suffix!)");
+            if (compute2DCheckBox->isChecked())
+            {
+                ccLog::Warning("[ComputeDistances] compute 2D distance (xy plane)");
+                int sf2D = m_compCloud->getScalarFieldIndexByName(qPrintable(m_sfName + QString(" (XY)")));
+                if (sf2D >= 0)
+                    m_compCloud->deleteScalarField(sf2D);
+                sf2D = m_compCloud->addScalarField(qPrintable(m_sfName + QString(" (XY)")));
+                CCCoreLib::ScalarField* sf = m_compCloud->getScalarField(sf2D);
+                for (int idx = 0; idx < m_compCloud->size(); idx++)
+                {
+                    float d2D = pow(pow(c2cParams.splitDistances[0]->getValue(idx), 2) +  pow(c2cParams.splitDistances[1]->getValue(idx), 2), 0.5);
+                    sf->setValue(idx, d2D);
+                }
+                sf->computeMinAndMax();
+            }
 		}
 	}
 	else
