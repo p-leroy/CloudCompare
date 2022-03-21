@@ -691,6 +691,7 @@ bool ccComparisonDlg::computeDistances()
 	bool signedDistances = signedDistCheckBox->isEnabled() && signedDistCheckBox->isChecked();
 	bool flipNormals = (signedDistances ? flipNormalsCheckBox->isChecked() : false);
 	bool split3D = split3DCheckBox->isEnabled() && split3DCheckBox->isChecked();
+    bool split2DZ = compute2DCheckBox->isChecked();
 
 	//does the cloud has already a temporary scalar field that we can use?
 	int sfIdx = m_compCloud->getScalarFieldIndexByName(CC_TEMP_DISTANCES_DEFAULT_SF_NAME);
@@ -946,7 +947,7 @@ bool ccComparisonDlg::computeDistances()
 				}
 			}
 			ccLog::Warning("[ComputeDistances] Result has been split along each dimension (check the 3 other scalar fields with '_X', '_Y' and '_Z' suffix!)");
-            if (compute2DCheckBox->isChecked())
+            if (split2DZ)
             {
                 ccLog::Warning("[ComputeDistances] compute 2D distance (xy plane)");
                 int sf2D = m_compCloud->getScalarFieldIndexByName(qPrintable(m_sfName + QString(" (XY)")));
@@ -960,6 +961,13 @@ bool ccComparisonDlg::computeDistances()
                     sf->setValue(idx, d2D);
                 }
                 sf->computeMinAndMax();
+                // remove X and Y SF
+                int sfX = m_compCloud->getScalarFieldIndexByName(qPrintable(m_sfName + QString(" (X)")));
+                if (sfX >= 0)
+                    m_compCloud->deleteScalarField(sfX);
+                int sfY = m_compCloud->getScalarFieldIndexByName(qPrintable(m_sfName + QString(" (Y)")));
+                if (sfY >= 0)
+                    m_compCloud->deleteScalarField(sfY);
             }
 		}
 	}
