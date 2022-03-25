@@ -94,7 +94,7 @@ constexpr char COMMAND_C2M_DIST_FLIP_NORMALS[]			= "FLIP_NORMS";
 constexpr char COMMAND_C2C_DIST[]						= "C2C_DIST";
 constexpr char COMMAND_CLOSEST_POINT_SET[]              = "CLOSEST_POINT_SET";
 constexpr char COMMAND_C2C_SPLIT_XYZ[]					= "SPLIT_XYZ";
-constexpr char COMMAND_C2C_SPLIT_2D_Z[]					= "SPLIT_2D_Z";
+constexpr char COMMAND_C2C_MERGE_XY[]                   = "MERGE_XY";
 constexpr char COMMAND_C2C_LOCAL_MODEL[]				= "MODEL";
 constexpr char COMMAND_C2X_MAX_DISTANCE[]				= "MAX_DIST";
 constexpr char COMMAND_C2X_OCTREE_LEVEL[]				= "OCTREE_LEVEL";
@@ -3791,7 +3791,7 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 	int maxThreadCount = 0;
 	
 	bool splitXYZ = false;
-    bool split2DZ = false;
+    bool mergeXY = false;
 	int modelIndex = 0;
 	bool useKNN = true;
 	double nSize = 0;
@@ -3855,13 +3855,13 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 				cmd.warning(QObject::tr("Parameter \"-%1\" ignored: only for C2C distance!"));
 			}
 		}
-        else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2C_SPLIT_2D_Z))
+        else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2C_MERGE_XY))
         {
             //local option confirmed, we can move on
             cmd.arguments().pop_front();
 
             splitXYZ = true;
-            split2DZ = true;
+            mergeXY = true;
 
             if (m_cloud2meshDist)
             {
@@ -4002,7 +4002,7 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 			//	cmd.warning("'Split XYZ' option is ignored if max distance is defined!");
 			compDlg.split3DCheckBox->setChecked(true);
 		}
-        if (split2DZ)
+        if (mergeXY)
             compDlg.compute2DCheckBox->setChecked(true);
 		if (modelIndex != 0)
 		{
