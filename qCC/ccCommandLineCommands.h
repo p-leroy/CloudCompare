@@ -370,6 +370,13 @@ struct CommandSFOperation : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandSFInterpolation : public ccCommandLineInterface::Command
+{
+    CommandSFInterpolation();
+
+    bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandSFRename : public ccCommandLineInterface::Command
 {
 	CommandSFRename();

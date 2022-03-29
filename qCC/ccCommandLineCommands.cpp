@@ -105,6 +105,7 @@ constexpr char COMMAND_DELAUNAY_BF[]					= "BEST_FIT";
 constexpr char COMMAND_DELAUNAY_MAX_EDGE_LENGTH[]		= "MAX_EDGE_LENGTH";
 constexpr char COMMAND_SF_ARITHMETIC[]					= "SF_ARITHMETIC";
 constexpr char COMMAND_SF_OP[]							= "SF_OP";
+constexpr char COMMAND_SF_INTERP[]						= "SF_INTERP";
 constexpr char COMMAND_RENAME_SF[]						= "RENAME_SF";
 constexpr char COMMAND_COORD_TO_SF[]					= "COORD_TO_SF";
 constexpr char COMMAND_EXTRACT_VERTICES[]				= "EXTRACT_VERTICES";
@@ -4622,6 +4623,31 @@ bool CommandSFOperation::process(ccCommandLineInterface &cmd)
 	return true;
 }
 
+CommandSFInterpolation::CommandSFInterpolation()
+    : ccCommandLineInterface::Command(QObject::tr("SF interpolation"), COMMAND_SF_INTERP)
+{}
+
+bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
+{
+    cmd.print(QObject::tr("[SF INTERPOLATION]"));
+
+    if (cmd.arguments().size() < 1)
+        return cmd.error(QObject::tr("Missing parameter(s): SF index after '%1' (1 value expected)").arg(COMMAND_SF_INTERP));
+
+    if (cmd.clouds().size() < 2)
+        return cmd.error(QObject::tr("Unexpected number of clouds for '%1' (2 clouds expected: first = source, second = dest)").arg(COMMAND_SF_INTERP));
+
+    //read sf index
+    int sfIndex = -1;
+    bool ok = true;
+    QString sfIndexStr = cmd.arguments().takeFirst();
+    sfIndex = sfIndexStr.toInt(&ok);
+
+    if (!ok || sfIndex == -1)
+        return cmd.error(QObject::tr("[CommandSFInterpolation::process] Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
+    else
+        return ccEntityAction::interpolateSFs(cmd.clouds()[0].pc, cmd.clouds()[1].pc, sfIndex, cmd.widgetParent());
+}
 
 CommandSFRename::CommandSFRename()
 	: ccCommandLineInterface::Command(QObject::tr("Rename SF"), COMMAND_RENAME_SF)
