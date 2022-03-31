@@ -94,7 +94,7 @@ constexpr char COMMAND_C2M_DIST_FLIP_NORMALS[]			= "FLIP_NORMS";
 constexpr char COMMAND_C2C_DIST[]						= "C2C_DIST";
 constexpr char COMMAND_CLOSEST_POINT_SET[]              = "CLOSEST_POINT_SET";
 constexpr char COMMAND_C2C_SPLIT_XYZ[]					= "SPLIT_XYZ";
-constexpr char COMMAND_C2C_MERGE_XY[]                   = "MERGE_XY";
+constexpr char COMMAND_C2C_SPLIT_XY_Z[]                 = "SPLIT_XY_Z";
 constexpr char COMMAND_C2C_LOCAL_MODEL[]				= "MODEL";
 constexpr char COMMAND_C2X_MAX_DISTANCE[]				= "MAX_DIST";
 constexpr char COMMAND_C2X_OCTREE_LEVEL[]				= "OCTREE_LEVEL";
@@ -105,6 +105,7 @@ constexpr char COMMAND_DELAUNAY_BF[]					= "BEST_FIT";
 constexpr char COMMAND_DELAUNAY_MAX_EDGE_LENGTH[]		= "MAX_EDGE_LENGTH";
 constexpr char COMMAND_SF_ARITHMETIC[]					= "SF_ARITHMETIC";
 constexpr char COMMAND_SF_OP[]							= "SF_OP";
+constexpr char COMMAND_SF_OP_SF[]						= "SF_OP_SF";
 constexpr char COMMAND_SF_INTERP[]						= "SF_INTERP";
 constexpr char COMMAND_RENAME_SF[]						= "RENAME_SF";
 constexpr char COMMAND_COORD_TO_SF[]					= "COORD_TO_SF";
@@ -3856,7 +3857,7 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 				cmd.warning(QObject::tr("Parameter \"-%1\" ignored: only for C2C distance!"));
 			}
 		}
-        else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2C_MERGE_XY))
+        else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2C_SPLIT_XY_Z))
         {
             //local option confirmed, we can move on
             cmd.arguments().pop_front();
@@ -4621,6 +4622,98 @@ bool CommandSFOperation::process(ccCommandLineInterface &cmd)
 	}
 	
 	return true;
+}
+
+CommandSFOperationSF::CommandSFOperationSF()
+    : ccCommandLineInterface::Command(QObject::tr("SF (add, sub, mult, div) SF"), COMMAND_SF_OP_SF)
+{}
+
+bool CommandSFOperationSF::process(ccCommandLineInterface &cmd)
+{
+    cmd.print(QObject::tr("[SF OP [ADD | SUB | MULT | DIV] SF]"));
+
+    if (cmd.arguments().size() < 3)
+    {
+        return cmd.error(QObject::tr("Missing parameter(s): SF index and operation and SF index '%1' (3 values expected)").arg(COMMAND_SF_OP));
+    }
+
+    //read sf index 1
+    int sfIndex = -1;
+    bool ok = true;
+    QString sfIndexStr = cmd.arguments().takeFirst();
+    if (sfIndexStr.toUpper() == OPTION_LAST)
+    {
+        sfIndex = -2;
+    }
+    else
+    {
+        sfIndex = sfIndexStr.toInt(&ok);
+    }
+    if (!ok || sfIndex == -1)
+    {
+        return cmd.error(QObject::tr("Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
+    }
+
+    //read operation type
+    ccScalarFieldArithmeticsDlg::Operation operation = ccScalarFieldArithmeticsDlg::INVALID;
+    {
+        QString opName = cmd.arguments().takeFirst();
+        operation = ccScalarFieldArithmeticsDlg::GetOperationByName(opName);
+        if (operation == ccScalarFieldArithmeticsDlg::INVALID)
+        {
+            return cmd.error(QObject::tr("Unknown operation! (%1)").arg(opName));
+        }
+        else if (operation > ccScalarFieldArithmeticsDlg::DIVIDE)
+        {
+            return cmd.error(QObject::tr("Operation %1 can't be applied with %2").arg(opName, COMMAND_SF_OP));
+        }
+    }
+
+    //read sf index 2
+    int sfIndex2 = -1;
+    ok = true;
+    sfIndexStr = cmd.arguments().takeFirst();
+    if (sfIndexStr.toUpper() == OPTION_LAST)
+    {
+        sfIndex2 = -2;
+    }
+    else
+    {
+        sfIndex2 = sfIndexStr.toInt(&ok);
+    }
+    if (!ok || sfIndex2 == -1)
+    {
+        return cmd.error(QObject::tr("Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
+    }
+
+    ccScalarFieldArithmeticsDlg::SF2 sf2;
+    {
+        sf2.isConstantValue = false;
+        sf2.sfIndex = sfIndex2;
+    }
+
+    //apply operation on clouds
+    for (size_t i = 0; i < cmd.clouds().size(); ++i)
+    {
+        ccPointCloud* cloud = cmd.clouds()[i].pc;
+        if (cloud && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
+        {
+            if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, true, &sf2))
+            {
+                return cmd.error(QObject::tr("Failed to apply operation on cloud '%1'").arg(cloud->getName()));
+            }
+            else if (cmd.autoSaveMode())
+            {
+                QString errorStr = cmd.exportEntity(cmd.clouds()[i], "SF_OP");
+                if (!errorStr.isEmpty())
+                {
+                    return cmd.error(errorStr);
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 CommandSFInterpolation::CommandSFInterpolation()
