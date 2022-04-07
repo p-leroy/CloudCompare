@@ -540,7 +540,7 @@ namespace ccEntityAction
             sfIndexes.push_back(sfIndex);
 
         //semi-persistent parameters
-        static ccPointCloudInterpolator::Parameters::Method s_interpMethod = ccPointCloudInterpolator::Parameters::RADIUS;
+        static ccPointCloudInterpolator::Parameters::Method s_interpMethod = ccPointCloudInterpolator::Parameters::NEAREST_NEIGHBOR;
         static ccPointCloudInterpolator::Parameters::Algo s_interpAlgo = ccPointCloudInterpolator::Parameters::NORMAL_DIST;
         static int s_interpKNN = 6;
 
@@ -549,12 +549,6 @@ namespace ccEntityAction
         iDlg.setInterpolationAlgorithm(s_interpAlgo);
         iDlg.knnSpinBox->setValue(s_interpKNN);
         iDlg.radiusDoubleSpinBox->setValue(dest->getOwnBB().getDiagNormd() / 100);
-
-        if (!iDlg.exec())
-        {
-            //process cancelled by the user
-            return false;
-        }
 
         //setup parameters
         ccPointCloudInterpolator::Parameters params;

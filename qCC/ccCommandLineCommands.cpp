@@ -107,6 +107,7 @@ constexpr char COMMAND_SF_ARITHMETIC[]					= "SF_ARITHMETIC";
 constexpr char COMMAND_SF_OP[]							= "SF_OP";
 constexpr char COMMAND_SF_OP_SF[]						= "SF_OP_SF";
 constexpr char COMMAND_SF_INTERP[]						= "SF_INTERP";
+constexpr char COMMAND_SF_INTERP_DEST_IS_FIRST[]		= "DEST_IS_FIRST";
 constexpr char COMMAND_RENAME_SF[]						= "RENAME_SF";
 constexpr char COMMAND_COORD_TO_SF[]					= "COORD_TO_SF";
 constexpr char COMMAND_EXTRACT_VERTICES[]				= "EXTRACT_VERTICES";
@@ -3820,7 +3821,7 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 			
 			if (cmd.arguments().empty())
 			{
-				return cmd.error(QObject::tr("Missing parameter: value after \"-%1\"").arg(COMMAND_C2X_MAX_DISTANCE));
+                return cmd.error(QObject::tr("Missing parameter: value after \"-%1\"").arg(COMMAND_C2X_MAX_DISTANCE));
 			}
 			bool conversionOk = false;
 			maxDist = cmd.arguments().takeFirst().toDouble(&conversionOk);
@@ -4723,6 +4724,7 @@ CommandSFInterpolation::CommandSFInterpolation()
 bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
 {
     cmd.print(QObject::tr("[SF INTERPOLATION]"));
+    cmd.print("arguments: " + QString::number(cmd.arguments().size()) + ", clouds: " + QString::number(cmd.clouds().size()) );
 
     if (cmd.arguments().size() < 1)
         return cmd.error(QObject::tr("Missing parameter(s): SF index after '%1' (1 value expected)").arg(COMMAND_SF_INTERP));
@@ -4734,12 +4736,50 @@ bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
     int sfIndex = -1;
     bool ok = true;
     QString sfIndexStr = cmd.arguments().takeFirst();
-    sfIndex = sfIndexStr.toInt(&ok);
+    if (sfIndexStr.toUpper() == OPTION_LAST)
+    {
+        cmd.print(QObject::tr("[OPTION_LAST]"));
+        sfIndex = -2;
+    }
+    else
+    {
+        sfIndex = sfIndexStr.toInt(&ok);
+    }
+
+    bool destIsFirst = false;
+    while (!cmd.arguments().empty())
+    {
+        QString argument = cmd.arguments().front();
+        if (ccCommandLineInterface::IsCommand(argument, COMMAND_SF_INTERP_DEST_IS_FIRST))
+        {
+            cmd.print(QObject::tr("[DEST_IS_FIRST]"));
+            //local option confirmed, we can move on
+            cmd.arguments().pop_front();
+            destIsFirst = true;
+        }
+        else
+        {
+            break; //as soon as we encounter an unrecognized argument, we break the local loop to go back to the main one!
+        }
+    }
+
+    ccPointCloud *source = cmd.clouds()[0].pc;
+    ccPointCloud *dst = cmd.clouds()[1].pc;
+    if (destIsFirst) // swap source and destination
+    {
+        source = cmd.clouds()[1].pc;
+        dst = cmd.clouds()[0].pc;
+    }
 
     if (!ok || sfIndex == -1)
         return cmd.error(QObject::tr("[CommandSFInterpolation::process] Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
     else
-        return ccEntityAction::interpolateSFs(cmd.clouds()[0].pc, cmd.clouds()[1].pc, sfIndex, cmd.widgetParent());
+    {
+        cmd.print("sfIndex = " + QString::number(sfIndex));
+        sfIndex = sfIndex < 0 ? source->getNumberOfScalarFields() - 1 : sfIndex;
+        cmd.print("sfIndex = " + QString::number(sfIndex));
+        return ccEntityAction::interpolateSFs(source, dst, sfIndex, cmd.widgetParent());
+    }
 }
 
 CommandSFRename::CommandSFRename()
