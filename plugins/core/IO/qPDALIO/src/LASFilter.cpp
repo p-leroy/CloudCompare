@@ -49,6 +49,7 @@
 #include <pdal/io/LasWriter.hpp>
 #include <pdal/io/LasVLR.hpp>
 #include <pdal/io/BufferReader.hpp>
+#include <pdal/io/private/las/Utils.hpp>
 #include <pdal/Filter.hpp>
 #include <pdal/filters/StreamCallbackFilter.hpp>
 
@@ -981,6 +982,8 @@ const Dimension::Type lastypes[] = {
 };
 
 
+using namespace pdal::las;
+
 void ExtraBytesIf::setType(uint8_t lastype)
 {
 	m_fieldCnt = 1;
@@ -1036,31 +1039,43 @@ void ExtraBytesIf::readFrom(const char *buf)
 }
 
 
-std::vector<ExtraDim> ExtraBytesIf::toExtraDims()
+// NOTE: You must make sure that bufsize is a multiple of ExtraBytesSpecSize before calling.
+std::vector<ExtraDim> ExtraBytesIf::toExtraDims(const char *buf, size_t bufsize, int baseSize)
 {
-	std::vector<ExtraDim> eds;
+    std::vector<ExtraDim> eds;
 
-	if (m_type == Dimension::Type::None)
-	{
-		ExtraDim ed(m_name, Dimension::Type::None);
-		ed.m_size = m_size;
-		eds.push_back(ed);
-	}
-	else if (m_fieldCnt == 1)
-	{
-		ExtraDim ed(m_name, m_type, m_scale[0], m_offset[0]);
-		eds.push_back(ed);
-	}
-	else
-	{
-		for (size_t i = 0; i < m_fieldCnt; ++i)
-		{
-			ExtraDim ed(m_name + std::to_string(i), m_type,
-			    m_scale[i], m_offset[i]);
-			eds.push_back(ed);
-		}
-	}
-	return eds;
+    int byteOffset = baseSize;
+    while (bufsize)
+    {
+        ExtraBytesIf spec;
+        spec.readFrom(buf);
+
+        if (spec.m_type == Dimension::Type::None)
+        {
+            ExtraDim ed(spec.m_name, spec.m_size, byteOffset);
+            eds.push_back(ed);
+            byteOffset += ed.m_size;
+        }
+        else if (spec.m_fieldCnt == 1)
+        {
+            ExtraDim ed(spec.m_name, spec.m_type, byteOffset, spec.m_scale[0], spec.m_offset[0]);
+            eds.push_back(ed);
+            byteOffset += ed.m_size;
+        }
+        else
+        {
+            for (size_t i = 0; i < spec.m_fieldCnt; ++i)
+            {
+                ExtraDim ed(spec.m_name + std::to_string(i), spec.m_type, byteOffset,
+                    spec.m_scale[i], spec.m_offset[i]);
+                eds.push_back(ed);
+                byteOffset += ed.m_size;
+            }
+        }
+        bufsize -= ExtraBytesSpecSize;
+        buf += ExtraBytesSpecSize;
+    }
+    return eds;
 }
 
 static bool ReadExtraBytesVlr(LasHeader &header, std::vector<ExtraDim>& extraDims)
@@ -1080,23 +1095,20 @@ static bool ReadExtraBytesVlr(LasHeader &header, std::vector<ExtraDim>& extraDim
 	size_t count = size / sizeof(ExtraBytesSpec);
 	ccLog::PrintDebug("[LAS] VLR count: " + QString::number(count));
 
-	try
-	{
-		const char* pos = vlr->data();
-		for (size_t i = 0; i < count; ++i)
-		{
-			ExtraBytesIf eb;
-			eb.readFrom(pos);
-			pos += sizeof(ExtraBytesSpec);
+    try
+    {
+        const char* pos = vlr->data();
 
-			std::vector<ExtraDim> eds = eb.toExtraDims();
-			for (const ExtraDim& ed : eds)
-			{
-				ccLog::PrintDebug(QString("[LAS] VLR #%1: %2").arg(i + 1).arg(QString::fromStdString(ed.m_name)));
-				extraDims.push_back(ed);
-			}
-		}
-	}
+        std::vector<ExtraDim> eds = ExtraBytesIf::toExtraDims(pos, count, sizeof(ExtraBytesSpec));
+        int i = 0;
+        for (const ExtraDim& ed : eds)
+        {
+            ccLog::PrintDebug(QString("[LAS] VLR #%1: %2").arg(i + 1).arg(QString::fromStdString(ed.m_name)));
+            extraDims.push_back(ed);
+            i++;
+        }
+
+    }
 	catch (const std::bad_alloc&)
 	{
 		ccLog::Warning("[LAS] Not enough memory to retrieve the extra bytes fields.");
