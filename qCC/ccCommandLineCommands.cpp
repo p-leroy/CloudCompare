@@ -4724,7 +4724,6 @@ CommandSFInterpolation::CommandSFInterpolation()
 bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
 {
     cmd.print(QObject::tr("[SF INTERPOLATION]"));
-    cmd.print("arguments: " + QString::number(cmd.arguments().size()) + ", clouds: " + QString::number(cmd.clouds().size()) );
 
     if (cmd.arguments().size() < 1)
         return cmd.error(QObject::tr("Missing parameter(s): SF index after '%1' (1 value expected)").arg(COMMAND_SF_INTERP));
@@ -4775,9 +4774,8 @@ bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
         return cmd.error(QObject::tr("[CommandSFInterpolation::process] Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
     else
     {
-        cmd.print("sfIndex = " + QString::number(sfIndex));
         sfIndex = sfIndex < 0 ? source->getNumberOfScalarFields() - 1 : sfIndex;
-        cmd.print("sfIndex = " + QString::number(sfIndex));
+        cmd.print("SF to interpolate: index " + QString::number(sfIndex) + ", name " + source->getScalarField(sfIndex)->getName());
         return ccEntityAction::interpolateSFs(source, dst, sfIndex, cmd.widgetParent());
     }
 }
