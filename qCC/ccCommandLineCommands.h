@@ -391,6 +391,13 @@ struct CommandSFRename : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandSFAddConst : public ccCommandLineInterface::Command
+{
+    CommandSFAddConst();
+
+    bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandICP : public ccCommandLineInterface::Command
 {
 	CommandICP();

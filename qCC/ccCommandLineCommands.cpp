@@ -108,6 +108,7 @@ constexpr char COMMAND_SF_OP[]							= "SF_OP";
 constexpr char COMMAND_SF_OP_SF[]						= "SF_OP_SF";
 constexpr char COMMAND_SF_INTERP[]						= "SF_INTERP";
 constexpr char COMMAND_SF_INTERP_DEST_IS_FIRST[]		= "DEST_IS_FIRST";
+constexpr char COMMAND_SF_ADD_CONST[]                   = "SF_ADD_CONST";
 constexpr char COMMAND_RENAME_SF[]						= "RENAME_SF";
 constexpr char COMMAND_COORD_TO_SF[]					= "COORD_TO_SF";
 constexpr char COMMAND_EXTRACT_VERTICES[]				= "EXTRACT_VERTICES";
@@ -4879,6 +4880,69 @@ bool CommandSFRename::process(ccCommandLineInterface &cmd)
 	}
 
 	return true;
+}
+
+CommandSFAddConst::CommandSFAddConst()
+    : ccCommandLineInterface::Command(QObject::tr("SF add constant scalar field"), COMMAND_SF_ADD_CONST)
+{}
+
+bool CommandSFAddConst::process(ccCommandLineInterface &cmd)
+{
+    cmd.print(QObject::tr("[ADD CONST SF] Note: this operation is only done on clouds"));
+
+    if (cmd.arguments().size() < 2)
+    {
+        return cmd.error(QObject::tr("Missing parameter(s): SF name and value after '%1' (2 values expected)").arg(COMMAND_SF_ADD_CONST));
+    }
+
+    //read the SF name
+    QString sfName = cmd.arguments().takeFirst();
+
+    //read constant value
+    ScalarType value = 0.;
+    bool ok = true;
+    QString valueStr = cmd.arguments().takeFirst();
+    value = valueStr.toFloat(&ok);
+
+    if (!ok)
+    {
+        return cmd.error(QObject::tr("Invalid constant value! (after %1)").arg(COMMAND_SF_ADD_CONST));
+    }
+
+    //apply operation on clouds
+    for (CLCloudDesc& cloudDesc : cmd.clouds())
+    {
+        ccPointCloud* cloud = cloudDesc.pc;
+        if (cloud)
+        {
+            // check that there is no existing scalar field
+            int indexOfSFWithSameName = cloud->getScalarFieldIndexByName(qPrintable(sfName));
+            if (indexOfSFWithSameName >= 0)
+                return cmd.error("A SF with the same name is already defined on cloud " + cloud->getName());
+
+            // add the new scalar field
+            int sfIndex = cloud->addScalarField(qPrintable(sfName));
+            if (sfIndex == -1)
+            {
+                assert(false);
+                return cmd.error("Internal error: addScalarField failed");
+            }
+            CCCoreLib::ScalarField* sf = cloud->getScalarField(sfIndex);
+            for (int index = 0; index < cloud->size(); index++)
+                sf->setValue(index, value);
+
+            if (cmd.autoSaveMode())
+            {
+                QString errorStr = cmd.exportEntity(cloudDesc, "SF_ADDED");
+                if (!errorStr.isEmpty())
+                {
+                    return cmd.error(errorStr);
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 CommandICP::CommandICP()
