@@ -11,52 +11,30 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#          COPYRIGHT: CloudCompare project                               #
+//#                   COPYRIGHT: CloudCompare project                      #
 //#                                                                        #
 //##########################################################################
 
-#include <QtGlobal>
+#ifndef CC_GRAPHICAL_SEGMENTATION_OPTIONS_DLG_HEADER
+#define CC_GRAPHICAL_SEGMENTATION_OPTIONS_DLG_HEADER
 
-#ifdef Q_OS_MAC
-#include <QFileOpenEvent>
-#endif
+//Qt
+#include <QString>
 
-// qCC_io
-#include "FileIO.h"
+//GUI
+#include <ui_graphicalSegmentationOptionsDlg.h>
 
-#include "ccApplication.h"
-#include "mainwindow.h"
-
-ccApplication::ccApplication( int &argc, char **argv, bool isCommandLine )
-	: ccApplicationBase( argc, argv, isCommandLine, QStringLiteral( "2.13.alpha" ) )
+class ccGraphicalSegmentationOptionsDlg : public QDialog, public Ui::GraphicalSegmentationOptionsDlg
 {
-	setApplicationName( "CloudCompare" );
-	
-	FileIO::setWriterInfo( applicationName(), versionStr() );
-}
+	Q_OBJECT
 
-bool ccApplication::event(QEvent *inEvent)
-{
-#ifdef Q_OS_MAC
-	switch ( inEvent->type() )
-	{
-		case QEvent::FileOpen:
-		{
-			MainWindow* mainWindow = MainWindow::TheInstance();
-			
-			if ( mainWindow == nullptr )
-			{
-				return false;
-			}
-			
-			mainWindow->addToDB( QStringList(static_cast<QFileOpenEvent *>(inEvent)->file()) );
-			return true;
-		}
-			
-		default:
-			break;
-	}
-#endif
-	
-	return ccApplicationBase::event( inEvent );
-}
+public:
+
+	//! Default constructor
+	ccGraphicalSegmentationOptionsDlg(const QString windowTitle = QString(),
+		QWidget* parent = nullptr);
+
+	void accept();
+};
+
+#endif // CC_GRAPHICAL_SEGMENTATION_OPTIONS_DLG_HEADER

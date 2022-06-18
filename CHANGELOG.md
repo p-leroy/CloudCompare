@@ -1,7 +1,65 @@
 CloudCompare Version History
 ============================
 
-v2.13 (?) - (??/??/????)
+v2.13.alpha (???) - (??/??/????)
+----------------------
+- New command line option:
+	- FLIP_TRI (to flip the order of the triangle vertices of all opened meshes)
+	- SPLIT_XY_Z 
+		- for commands C2C_DIST and C2M_DIST, to split the distance between the z component and the xy plane component
+	- SF_OP_SF
+		- to compute an arithmetic operation between two scalar fields (add, sub, mult, div)
+	- SF_INTERP with option DEST_IS_FIRST
+		- to interpolate a scalar field from one cloud to another cloud (use DEST_IS_FIRST if destination is first)
+	- SF_ADD_CONST
+		- to add a constant scalar field to a cloud
+
+- Improvements:
+	- Rasterize:
+		- new option to compute the median height
+		- new option to compute the median scalar field value(s)
+		- new option to export the median height as a scalar field (attached to the exported cloud)
+		- new command line sub-option -MED (to be used with -PROJ or -SF_PROJ)
+
+	- Edit > Color > Set unique & Edit > Color > Colorize
+		- CC will now remember the last input color
+
+	- Global Shift:
+		- the suggested global shift will now be rounded to the nearest thousand (so as to suggest values in kilometers, easier to manage)
+
+	- PoissonRecon plugin:
+		- the user can now choose the number of threads
+
+	- Edit > Cloud > Paste from clipboard:
+		- the shortcut has been changed to ALT+P (so as to not conflict with the already existing CTRL+P shortcut for the 'Trace polyline' tool)
+		
+	- Graphical Segmentation Tool:
+		- the user can now configure the name suffix for the remaining and segmented cloud 
+
+v2.12.3 (Kyiv) - (13/06/2022)
+----------------------
+
+- Bug fixes:
+	- CloudCompare would still apply the Global Shift even though it was rejected by the user (which is a bad idea ;). But the entity
+		Global Shift would then be (0, 0, 0), resulting in the loss of the original coordinate system.
+	- the scale in the lower-right part of the 3D view could have the wrong length (if the height of the window is larger than its width)
+
+v2.12.2 (Kyiv) - (23/05/2022)
+----------------------
+- Improvements:
+	- CSF plugin:
+		- 'Cloth resolution' and 'Classification threshold' input precision has been increased from 0.1 to 0.001
+
+- Bug fixes:
+	- The LAS PDAL filter could fail to save additional fields with space characters in their name on some architectures (Linux mostly).
+		The filter will now automatically replace space characters (and equal characters) by specific sub-strings to be able to restore
+		the original name when loading the LAS file later.
+	- The LAS 1.3 or 1.4 filter was applying the Global Shift to the points even if the original 'LAS offset' was different. But it was declaring in the LAS file header that it has used the original LAS offset.
+		This would lead to a shifted LAS file with the wrong global coordinates.
+	- When double-clicking on a file with local characters in the Windows explorer, CC was not able to interpret the filename or file path correctly
+	- Computing per-triangle normals (or methods requiring to update per-triangle normals such as Laplacian smoothing) could lead to a crash on some OBJ meshes
+
+v2.12.1 (Kyiv) - (07/05/2022)
 ----------------------
 - Improvements
 	- ICP registration:
@@ -11,10 +69,19 @@ v2.13 (?) - (??/??/????)
 		- the number of grid cells is now displayed (next to the grid size)
 		- the number of non-empty cells is now displayed (next to the cloud name and size)
 
+	- Most of the progress dialogs of CloudCompare should not steal the focus anymore (when loading multiple files in the background for instance)
+
+	- Segmentation tool:
+		- the icons are now visually disabled (grayed out) while drawing a polyline. Keyboard shortcuts are still working.
+
 - Bug fixes:
 	- The '-ICP -ROT NONE' command line option was not working as expected
+	- When saving in a Shapefile the polyline exported from the Interactive Segmentation tool, an invalid global bounding-box was computed and saved by CC.
+	- Label markers were preventing the user from picking the points below (in the Point picking tool as well as other tools)
+	- LAS filters will now automatically convert NaN values to a default value when saving fields
+		(as NaN is not valid according to specifications and not accepted by most third party libaries and tools)
 
-v2.12 (Kyiv) - (30/03/2022)
+v2.12.0 (Kyiv) - (30/03/2022)
 ----------------------
 - New tools:
 	- Menu 'Edit > Cloud'

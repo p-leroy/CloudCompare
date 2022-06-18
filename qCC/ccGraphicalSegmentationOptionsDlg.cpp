@@ -11,52 +11,45 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#          COPYRIGHT: CloudCompare project                               #
+//#                   COPYRIGHT: CloudCompare project                      #
 //#                                                                        #
 //##########################################################################
 
-#include <QtGlobal>
+// Local
+#include "ccGraphicalSegmentationOptionsDlg.h"
 
-#ifdef Q_OS_MAC
-#include <QFileOpenEvent>
-#endif
+//Qt
+#include <QSettings>
 
-// qCC_io
-#include "FileIO.h"
-
-#include "ccApplication.h"
-#include "mainwindow.h"
-
-ccApplication::ccApplication( int &argc, char **argv, bool isCommandLine )
-	: ccApplicationBase( argc, argv, isCommandLine, QStringLiteral( "2.13.alpha" ) )
+ccGraphicalSegmentationOptionsDlg::ccGraphicalSegmentationOptionsDlg(const QString windowTitle/*=QString()*/,
+	QWidget* parent/*=nullptr*/)
+	: QDialog(parent, Qt::Tool)
+	, Ui::GraphicalSegmentationOptionsDlg()
 {
-	setApplicationName( "CloudCompare" );
-	
-	FileIO::setWriterInfo( applicationName(), versionStr() );
+	setupUi(this);
+
+	QSettings settings;
+	settings.beginGroup("SegmentationToolOptions");
+	QString remainingSuffix = settings.value("Remaining", ".remaining").toString();
+	QString segmentedSuffix = settings.value("Segmented", ".segmented").toString();
+	settings.endGroup();
+
+	remainingTextLineEdit->setText(remainingSuffix);
+	segmentedTextLineEdit->setText(segmentedSuffix);
+
+	if (!windowTitle.isEmpty())
+	{
+		setWindowTitle(windowTitle);
+	}
 }
 
-bool ccApplication::event(QEvent *inEvent)
+void ccGraphicalSegmentationOptionsDlg::accept()
 {
-#ifdef Q_OS_MAC
-	switch ( inEvent->type() )
-	{
-		case QEvent::FileOpen:
-		{
-			MainWindow* mainWindow = MainWindow::TheInstance();
-			
-			if ( mainWindow == nullptr )
-			{
-				return false;
-			}
-			
-			mainWindow->addToDB( QStringList(static_cast<QFileOpenEvent *>(inEvent)->file()) );
-			return true;
-		}
-			
-		default:
-			break;
-	}
-#endif
-	
-	return ccApplicationBase::event( inEvent );
+	QSettings settings;
+	settings.beginGroup("SegmentationToolOptions");
+	settings.setValue("Remaining", remainingTextLineEdit->text());
+	settings.setValue("Segmented", segmentedTextLineEdit->text());
+	settings.endGroup();
+
+	QDialog::accept();
 }

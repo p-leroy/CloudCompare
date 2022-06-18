@@ -154,11 +154,31 @@ bool ccGlobalShiftManager::Handle(	const CCVector3d& P,
 			// we can apply the input shift only if it 'works'
 			if (!needShift && !needRescale)
 			{
-				return !IsDefaultShift(coordinatesShift, scale); // if it's the default shift, we don't need to apply anything (= false)
+				bool isDefault = IsDefaultShift(coordinatesShift, scale);
+				if (isDefault)
+				{
+					// if it's the default shift, we don't need to apply anything (= false)
+					coordinatesShift = CCVector3d(0, 0, 0);
+					if (nullptr != _coordinatesScale)
+					{
+						*_coordinatesScale = 1.0;
+					}
+					return false;
+				}
+				else
+				{
+					return true;
+				}
 			}
 			else
 			{
-				return false; // we can't apply the input shift
+				// we can't apply the input shift
+				coordinatesShift = CCVector3d(0, 0, 0);
+				if (nullptr != _coordinatesScale)
+				{
+					*_coordinatesScale = 1.0;
+				}
+				return false;
 			}
 		}
 	}
@@ -293,6 +313,11 @@ bool ccGlobalShiftManager::Handle(	const CCVector3d& P,
 		if (!sasDlg.exec())
 		{
 			// process cancelled by the user
+			coordinatesShift = CCVector3d(0, 0, 0);
+			if (nullptr != _coordinatesScale)
+			{
+				*_coordinatesScale = 1.0;
+			}
 			return false;
 		}
 
@@ -332,16 +357,28 @@ CCVector3d ccGlobalShiftManager::BestShift(const CCVector3d& P)
 	{
 		return CCVector3d(0, 0, 0);
 	}
-
+	
 	CCVector3d shift(	std::abs(P[0]) >= MAX_COORDINATE_ABS_VALUE ? -P[0] : 0,
 						std::abs(P[1]) >= MAX_COORDINATE_ABS_VALUE ? -P[1] : 0,
 						std::abs(P[2]) >= MAX_COORDINATE_ABS_VALUE ? -P[2] : 0 );
 
-	//round-off to the nearest hundred
-	shift.x = static_cast<int>(shift.x / 100) * 100.0;
-	shift.y = static_cast<int>(shift.y / 100) * 100.0;
-	shift.z = static_cast<int>(shift.z / 100) * 100.0;
+	//round-off the shift value
+	{
+		//make sure the round off scale is not larger than the max coordinate value ;)
+		int roundOffScalePower = 3;
+		assert(MAX_COORDINATE_ABS_VALUE >= 1.0);
+		while (pow(10.0, roundOffScalePower) > MAX_COORDINATE_ABS_VALUE)
+		{
+			if (--roundOffScalePower == 0)
+				break;
+		}
 
+		double roundOffScale = pow(10.0, 1.0 * roundOffScalePower);
+		shift.x = static_cast<int>(shift.x / roundOffScale) * roundOffScale;
+		shift.y = static_cast<int>(shift.y / roundOffScale) * roundOffScale;
+		shift.z = static_cast<int>(shift.z / roundOffScale) * roundOffScale;
+	}
+	
 	return shift;
 }
 

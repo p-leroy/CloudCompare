@@ -99,10 +99,13 @@ namespace ccEntityAction
 	// Colours
 	bool setColor(ccHObject::Container selectedEntities, bool colorize, QWidget* parent)
 	{
-		QColor colour = QColorDialog::getColor(Qt::white, parent, QString(), QColorDialog::ShowAlphaChannel);
+		static QColor s_lastColor = Qt::white;
+		QColor colour = QColorDialog::getColor(s_lastColor, parent, QString(), QColorDialog::ShowAlphaChannel);
 		
 		if (!colour.isValid())
 			return false;
+
+		s_lastColor = colour;
 		
 		while (!selectedEntities.empty())
 		{
@@ -379,7 +382,7 @@ namespace ccEntityAction
 		return true;
 	}
 
-	//! Interpolate scalar fields from on entity and transfer them to another one
+    //! Interpolate scalar fields from one entity and transfer them to another one
 	bool	interpolateSFs(const ccHObject::Container &selectedEntities, ccMainAppInterface* app)
 	{
 		if (selectedEntities.size() != 2)
@@ -513,6 +516,58 @@ namespace ccEntityAction
 		return true;
 	}
 	
+    //! Interpolate scalar fields from one entity and transfer them to another one without the dialog
+    bool	interpolateSFs(ccPointCloud *source, ccPointCloud *dest, int sfIndex, QWidget* parent)
+    {
+        if (!source || !dest)
+        {
+            ccConsole::Error(QObject::tr("Unexpected null cloud pointers!"));
+            return false;
+        }
+
+        if (!source->hasScalarFields())
+        {
+            ccConsole::Error(QObject::tr("[ccEntityAction::interpolateSFs] The source cloud has no scalar field!"));
+            return false;
+        }
+
+        unsigned sfCount = source->getNumberOfScalarFields();
+        if (sfIndex > sfCount)
+        {
+            ccConsole::Error(QObject::tr("[ccEntityAction::interpolateSFs] Invalid scalar field index!"));
+            return false;
+        }
+
+        std::vector<int> sfIndexes(1);
+        sfIndexes.back() = sfIndex;
+
+        //semi-persistent parameters
+        static ccPointCloudInterpolator::Parameters::Method s_interpMethod = ccPointCloudInterpolator::Parameters::NEAREST_NEIGHBOR;
+        static ccPointCloudInterpolator::Parameters::Algo s_interpAlgo = ccPointCloudInterpolator::Parameters::NORMAL_DIST;
+        static int s_interpKNN = 6;
+
+        ccInterpolationDlg iDlg(parent);
+        iDlg.setInterpolationMethod(s_interpMethod);
+        iDlg.setInterpolationAlgorithm(s_interpAlgo);
+        iDlg.knnSpinBox->setValue(s_interpKNN);
+        iDlg.radiusDoubleSpinBox->setValue(dest->getOwnBB().getDiagNormd() / 100);
+
+        //setup parameters
+        ccPointCloudInterpolator::Parameters params;
+        params.method = s_interpMethod = iDlg.getInterpolationMethod();
+        params.algo = s_interpAlgo = iDlg.getInterpolationAlgorithm();
+        params.knn = s_interpKNN = iDlg.knnSpinBox->value();
+        params.radius = iDlg.radiusDoubleSpinBox->value();
+        params.sigma = iDlg.kernelDoubleSpinBox->value();
+
+        ccProgressDialog pDlg(true, parent);
+
+        if (!ccPointCloudInterpolator::InterpolateScalarFieldsFrom(dest, source, sfIndexes, params, &pDlg))
+            ccConsole::Error(QObject::tr("[ccEntityAction::interpolateSFs] An error occurred! (see console)"));
+
+        return true;
+    }
+
 	bool	convertTextureToColor(const ccHObject::Container& selectedEntities, QWidget* parent)
 	{	
 		for (ccHObject* ent : selectedEntities)
@@ -2272,9 +2327,11 @@ namespace ccEntityAction
 				{
 					double cellSize = coDlg.getMinCellSize();
 					PointCoordinateType halfBoxWidth = static_cast<PointCoordinateType>(cellSize * (1 << ccOctree::MAX_OCTREE_LEVEL) / 2.0);
-					CCVector3 C = cloud->getOwnBB().getCenter();
+					ccBBox bbBox = cloud->getOwnBB();
+					CCVector3 C = bbBox.getCenter();
 					bbox = ccBBox(	C - CCVector3(halfBoxWidth, halfBoxWidth, halfBoxWidth),
-									C + CCVector3(halfBoxWidth, halfBoxWidth, halfBoxWidth));
+									C + CCVector3(halfBoxWidth, halfBoxWidth, halfBoxWidth),
+									bbBox.isValid() );
 				}
 				cloud->deleteOctree();
 				octree = ccOctree::Shared(new ccOctree(cloud));

@@ -281,6 +281,13 @@ struct CommandExtractVertices : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandFlipTriangles : public ccCommandLineInterface::Command
+{
+	CommandFlipTriangles();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandSampleMesh : public ccCommandLineInterface::Command
 {
 	CommandSampleMesh();
@@ -370,11 +377,32 @@ struct CommandSFOperation : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandSFOperationSF : public ccCommandLineInterface::Command
+{
+    CommandSFOperationSF();
+
+    bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSFInterpolation : public ccCommandLineInterface::Command
+{
+    CommandSFInterpolation();
+
+    bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandSFRename : public ccCommandLineInterface::Command
 {
 	CommandSFRename();
 
 	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandSFAddConst : public ccCommandLineInterface::Command
+{
+    CommandSFAddConst();
+
+    bool process(ccCommandLineInterface& cmd) override;
 };
 
 struct CommandICP : public ccCommandLineInterface::Command
