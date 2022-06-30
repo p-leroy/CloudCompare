@@ -8,7 +8,7 @@ if( PLUGIN_STANDARD_QM3C2 )
         AddPlugin( NAME ${PROJECT_NAME} )
 
         target_include_directories( ${PROJECT_NAME} PRIVATE
-            C:/Users/PaulLeroy/Documents/DEV/boost_1_77_0
+            C:/dev/boost_1_77_0
             )
 
 	add_subdirectory( include )
