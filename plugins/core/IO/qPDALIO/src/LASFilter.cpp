@@ -247,7 +247,7 @@ CC_FILE_ERROR LASFilter::saveToFile(ccHObject* entity, const QString& filename, 
 	{
 		ccPointCloud* pc = static_cast<ccPointCloud*>(theCloud);
 
-		LasField::GetLASFields(pc, fieldsToSave, minPointFormat);
+        LasField::GetLASFields(pc, fieldsToSave, minPointFormat);
 
 		for (unsigned i = 0; i < pc->getNumberOfScalarFields(); ++i)
 		{
@@ -512,10 +512,11 @@ CC_FILE_ERROR LASFilter::saveToFile(ccHObject* entity, const QString& filename, 
 		if (ok && previousPointFormat < 256)
 		{
 			minPointFormat = std::max(static_cast<uint8_t>(previousPointFormat), minPointFormat);
+            ccLog::Print("[LAS] Write using point format " + QString::number(minPointFormat));
 		}
 		else
 		{
-			ccLog::Warning("Invalid point_format metadata");
+            ccLog::Warning("[LAS] Invalid point_format metadata");
 		}
 	}
 
@@ -1028,8 +1029,10 @@ CC_FILE_ERROR LASFilter::loadFile(const QString& filename, ccHObject& container,
 		CCVector3d lasScale(lasHeader.scaleX(), lasHeader.scaleY(), lasHeader.scaleZ());
 		CCVector3d lasOffset(lasHeader.offsetX(), lasHeader.offsetY(), lasHeader.offsetZ());
 
-		const uint8_t pointFormat = lasHeader.pointFormat();
-		ccLog::Print("[LAS] Point format: " + QString::number(pointFormat));
+        // sometimes the pointFormat is badely read, resulting in values > 10, the bit 7 of the uint8_t is
+        // strangely set to 1. Could be good to find why...
+        const uint8_t pointFormat = lasHeader.pointFormat() & 0xf;
+        ccLog::Print("[LAS] Point format " + QString::number(pointFormat));
 
 		if (!s_lasOpenDlg)
 		{
