@@ -234,6 +234,7 @@ struct M3C2Params
 	//progress notification
 	CCCoreLib::NormalizedProgress* nProgress = nullptr;
 	bool processCanceled = false;
+	bool processFailed = false;
 
     // distance and uncertainty computation method
     qM3C2Tools::DistAndUncerMethod distAndUncerMethod;
@@ -561,6 +562,7 @@ void ComputeM3C2DistForPoint(unsigned index)
     bool sectorGap {false};
 
 	//compute M3C2 distance
+	try
 	{
 		double mean1 = 0;
 		double stdDev1 = 0;
@@ -910,6 +912,12 @@ void ComputeM3C2DistForPoint(unsigned index)
 				s_M3C2Params.densityCloud2SF->setValue(index, val);
 			}
 		}
+	}
+	catch (std::bad_alloc&)
+	{
+		//Not enough memory
+		s_M3C2Params.processFailed = true;
+		return;
 	}
 
 	//output point
@@ -1805,6 +1813,11 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		if (s_M3C2Params.processCanceled)
 		{
 			errorMessage = "Process canceled by user!";
+			error = true;
+		}
+		else if (s_M3C2Params.processFailed)
+		{
+			errorMessage = "Process failed (not enough memory?)";
 			error = true;
 		}
 		else
