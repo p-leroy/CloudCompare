@@ -1,6 +1,6 @@
 
 target_sources( ${PROJECT_NAME}
-        PRIVATE
+	PRIVATE
 		${CMAKE_CURRENT_LIST_DIR}/qM3C2.h
 		${CMAKE_CURRENT_LIST_DIR}/qM3C2Commands.h
 		${CMAKE_CURRENT_LIST_DIR}/qM3C2Dialog.h
