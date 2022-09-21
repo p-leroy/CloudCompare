@@ -34,10 +34,11 @@ public:
 	
 	static bool Compute(const qM3C2Dialog& dlg,
 						QString& errorMessage,
-						ccPointCloud*& outputCloud,
+                        ccPointCloud*& outputCloud,
+                        ccPointCloud*& outputCloud2,
 						bool allowDialogs,
 						QWidget* parentWidget = nullptr,
-						ccMainAppInterface* app = nullptr);
+                        ccMainAppInterface* app = nullptr);
 
 };
 

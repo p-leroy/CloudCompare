@@ -95,7 +95,8 @@ void qM3C2Plugin::doAction()
 
 	QString errorMessage;
 	ccPointCloud* outputCloud = nullptr; //only necessary for the command line version in fact
-	if (!qM3C2Process::Compute(dlg, errorMessage, outputCloud, true, m_app->getMainWindow(), m_app))
+	ccPointCloud* outputCloud2 = nullptr; //only necessary for the command line version in fact
+	if (!qM3C2Process::Compute(dlg, errorMessage, outputCloud, outputCloud2, true, m_app->getMainWindow(), m_app))
 	{
 		m_app->dispToConsole(errorMessage, ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 	}

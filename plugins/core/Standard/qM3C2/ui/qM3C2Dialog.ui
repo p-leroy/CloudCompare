@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>755</width>
-    <height>490</height>
+    <width>630</width>
+    <height>545</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -181,23 +181,6 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
-           <widget class="QRadioButton" name="cpUseOtherCloudRadioButton">
-            <property name="text">
-             <string>use other cloud</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QComboBox" name="cpOtherCloudComboBox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Alternative core points cloud</string>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="0">
            <widget class="QRadioButton" name="cpSubsampleRadioButton">
             <property name="text">
@@ -218,6 +201,23 @@
             </property>
             <property name="maximum">
              <double>1000000000.000000000000000</double>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QRadioButton" name="cpUseOtherCloudRadioButton">
+            <property name="text">
+             <string>use other cloud</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="cpOtherCloudComboBox">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="toolTip">
+             <string>Alternative core points cloud</string>
             </property>
            </widget>
           </item>
@@ -616,10 +616,49 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="useMedianCheckBox">
-         <property name="text">
-          <string>Use median and interquatile range (instead of mean and std. dev.)</string>
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Distance and uncertainty estimation methods</string>
          </property>
+         <layout class="QGridLayout" name="gridLayout_3">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="useMeanRadioButton">
+            <property name="text">
+             <string>mean | standard deviation</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QRadioButton" name="useMedianRadioButton">
+            <property name="text">
+             <string>median | interquartile range (IQR)</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QRadioButton" name="useMinRadioButton">
+            <property name="text">
+             <string>min | max - min</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QRadioButton" name="usePrctileRadioButton">
+            <property name="text">
+             <string>prctile5% | prctile95% - prctile5%</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
        <item>
@@ -757,11 +796,12 @@
          </property>
          <property name="html">
           <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:10pt; font-weight:600;&quot;&gt;3D uncertainty-based topographic change detection with SfM photogrammetry: precision maps for ground control and directly georeferenced surveys&lt;/span&gt;&lt;/p&gt;
-&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;Mike R. James, Stuart Robson and Mark W. Smith (&lt;/span&gt;&lt;a href=&quot;http://onlinelibrary.wiley.com/doi/10.1002/esp.4125/abstract&quot;&gt;&lt;span style=&quot; font-size:8pt; text-decoration: underline; color:#0000ff;&quot;&gt;DOI: 10.1002/esp.4125&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+hr { height: 1px; border-width: 0; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'MS Shell Dlg 2'; font-size:10pt; font-weight:600;&quot;&gt;3D uncertainty-based topographic change detection with SfM photogrammetry: precision maps for ground control and directly georeferenced surveys&lt;/span&gt;&lt;/p&gt;
+&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-family:'MS Shell Dlg 2'; font-size:8pt;&quot;&gt;Mike R. James, Stuart Robson and Mark W. Smith (&lt;/span&gt;&lt;a href=&quot;http://onlinelibrary.wiley.com/doi/10.1002/esp.4125/abstract&quot;&gt;&lt;span style=&quot; font-family:'MS Shell Dlg 2'; font-size:8pt; text-decoration: underline; color:#0000ff;&quot;&gt;DOI: 10.1002/esp.4125&lt;/span&gt;&lt;/a&gt;&lt;span style=&quot; font-family:'MS Shell Dlg 2'; font-size:8pt;&quot;&gt;)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
@@ -912,13 +952,13 @@ p, li { white-space: pre-wrap; }
          <item>
           <widget class="QComboBox" name="projDestComboBox">
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="maxVisibleItems">
-            <number>3</number>
+            <number>5</number>
            </property>
            <property name="maxCount">
-            <number>3</number>
+            <number>5</number>
            </property>
            <item>
             <property name="text">
@@ -933,6 +973,16 @@ p, li { white-space: pre-wrap; }
            <item>
             <property name="text">
              <string>Keep original positions</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cloud #1 and #2</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cloud #2 with normals of cloud #2</string>
             </property>
            </item>
           </widget>
@@ -988,6 +1038,97 @@ p, li { white-space: pre-wrap; }
           <size>
            <width>20</width>
            <height>177</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_2">
+      <attribute name="title">
+       <string>Experimental</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_4">
+       <item row="0" column="0">
+        <widget class="QGroupBox" name="groupBox_2">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The following fields are used for the diagnostic of limit cases of M3C2.&lt;/p&gt;&lt;p&gt;For instance the cases where you have multi-interceptions when calculating the projection of clouds using the core points and the normals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="title">
+          <string>Diagnostic tools</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="1" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add several scalar fields to the outputs for diagnostic:&lt;/p&gt;&lt;p&gt;half search depth 1 = the search depth used to project the cloud 1 on the core point (the search in done in the directinon of the normal and in the opposite direction so the total depth is 2 x half search depth)&lt;/p&gt;&lt;p&gt;half search depth 2 = the search depth used to project the cloud 2 on the core point (the search in done in the directinon of the normal and in the opposite direction so the total depth is 2 x half search depth)&lt;/p&gt;&lt;p&gt;sector = the angular sector in a plane perpendicular to the cylinder axis occupied by the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;gap = the maximum gap along the cylinder axis between the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;sectorGap = a composite criteria, true if: sector1 &amp;gt; 180 AND sector2 &amp;gt; 180 AND gap1 &amp;lt; projectionRadius AND gap2 &amp;lt; projectionRadius&lt;/p&gt;&lt;p&gt;Normals angle = the angle between the normal computed with the points used to compute the projection of cloud 2 and the current normal (being the core point normal or the normal of cloud 1 depending of the selected option in the Main parameters tab)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Points distribution information</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_sharpMean">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Do we have a sharp mean during the progressive search of the point projections?&lt;/p&gt;&lt;p&gt;abs(mean) + 2 * stdDev &amp;lt; currentHalfLength&lt;/p&gt;&lt;p&gt;If not, the significant change parameter is set to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Sharp means</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_projectionDetails">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this option, all points used to compute the projections are stored in a new cloud, jointly with their projections on the normal.&lt;/p&gt;&lt;p&gt;Use it carefully:&lt;/p&gt;&lt;p&gt;=&amp;gt; the number of points can increase dramatically&lt;/p&gt;&lt;p&gt;=&amp;gt; the computation is not done using the parallel strategy&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Visualize the points used for the projection on core points</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="checkBox_computeWelch">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Another experimantal way to compute the &amp;quot;significant change&amp;quot; parameter, using Welch's statistics.&lt;/p&gt;&lt;p&gt;Will add the following scalar fields:&lt;/p&gt;&lt;p&gt;v (degrees of freedom)&lt;/p&gt;&lt;p&gt;q (probability)&lt;/p&gt;&lt;p&gt;p (critical value)&lt;/p&gt;&lt;p&gt;level of detection&lt;/p&gt;&lt;p&gt;significant change&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Welch's t-test</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <spacer name="verticalSpacer_5">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="1">
+        <spacer name="horizontalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
           </size>
          </property>
         </spacer>
@@ -1064,7 +1205,6 @@ p, li { white-space: pre-wrap; }
   <tabstop>normOriUseCloudRadioButton</tabstop>
   <tabstop>normOriCloudComboBox</tabstop>
   <tabstop>useSinglePass4DepthCheckBox</tabstop>
-  <tabstop>useMedianCheckBox</tabstop>
   <tabstop>useMinPoints4StatCheckBox</tabstop>
   <tabstop>minPoints4StatSpinBox</tabstop>
   <tabstop>projDestComboBox</tabstop>
@@ -1203,22 +1343,6 @@ p, li { white-space: pre-wrap; }
     <hint type="destinationlabel">
      <x>263</x>
      <y>308</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>precisionMapsGroupBox</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>useMedianCheckBox</receiver>
-   <slot>setDisabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>282</x>
-     <y>248</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>282</x>
-     <y>150</y>
     </hint>
    </hints>
   </connection>

@@ -63,14 +63,30 @@ public:
 	//! Returns the minimum number of points to compute stats (confidence mainly)
 	unsigned getMinPointsForStats(unsigned defaultValue = 5) const;
 
+	bool getProjectionDetails() const;
+
+	bool exportSearchDepth() const;
+
+	bool computeWelch() const;
+
+	bool getSharpMean() const;
+
 	//! Exportation options
 	enum ExportOptions {	PROJECT_ON_CLOUD1,
 							PROJECT_ON_CLOUD2,
 							PROJECT_ON_CORE_POINTS,
+							PROJECT_ON_CLOUD1_AND_CLOUD2,
+							PROJECT_ON_CLOUD2_WITH_NORM2,
 	};
 
 	//! Returns selected export option
 	ExportOptions getExportOption() const;
+	qM3C2Tools::DistAndUncerMethod getDistAndUncerMethod() const;
+
+	//! Set export option
+	void setProjDestIndex(ExportOptions);
+	//! Set normal computation mode
+	void setNormalMode(qM3C2Normals::ComputationMode);
 
 	//! Returns whether the original cloud should be kept instead of creating a new output one
 	/** Only valid if the export option is PROJECT_ON_CORE_POINTS.
@@ -86,6 +102,10 @@ public:
 	void loadParamsFromPersistentSettings();
 	//! Saves parameters to persistent settings
 	void saveParamsToPersistentSettings();
+	//! Load parameters from a specified QSettings
+	bool loadParamsFromQSettings(const QSettings &settings);
+
+	int getRequestedNormMode(void) const;
 
 protected:
 
@@ -111,6 +131,9 @@ protected: //methods
 
 	//! Load parameters from QSettings
 	void loadParamsFrom(const QSettings& settings);
+    //! Apply normal mode
+    void applyNormalModeParameter(int normModeInt);
+
 	//! Saves parameters to QSettings
 	void saveParamsTo(QSettings& settings);
 
@@ -126,6 +149,8 @@ protected: //members
 	ccPointCloud* m_cloud1;
 	ccPointCloud* m_cloud2;
 	ccPointCloud* m_corePointsCloud;
+
+    int requestedNormMode;
 };
 
 #endif //Q_M3C2_DIALOG_HEADER

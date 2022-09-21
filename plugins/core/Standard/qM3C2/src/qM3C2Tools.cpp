@@ -489,7 +489,7 @@ void qM3C2Normals::MakeNormalsHorizontal(NormsIndexesTableType& normsCodes)
 /** Uses the common definition using mid-point average in the even case
 	just as the original m3c2 code by N. Brodu.
 **/
-static double Median(const CCCoreLib::DgmOctree::NeighboursSet& set, size_t begin = 0, size_t count = 0)
+double qM3C2Tools::Median(const CCCoreLib::DgmOctree::NeighboursSet& set, size_t begin, size_t count)
 {
 	if (count == 0)
 	{
@@ -522,39 +522,56 @@ double Interquartile(const CCCoreLib::DgmOctree::NeighboursSet& set)
 	size_t num_pts_each_half = (num + 1) / 2;
 	size_t offset_second_half = num / 2;
 
-	double q1 = Median(set, 0, num_pts_each_half);
-	double q3 = Median(set, offset_second_half, num_pts_each_half);
+	double q1 = qM3C2Tools::Median(set, 0, num_pts_each_half);
+	double q3 = qM3C2Tools::Median(set, offset_second_half, num_pts_each_half);
 
 	return q3 - q1;
 }
 
-void qM3C2Tools::ComputeStatistics(CCCoreLib::DgmOctree::NeighboursSet& set, bool useMedian, double& meanOrMedian, double& stdDevOrIQR)
+double Percentile(const CCCoreLib::DgmOctree::NeighboursSet &set, double q)
+{
+	size_t N = set.size();
+	double r;
+	double idx;
+	double val;
+
+	if (set.empty())
+		return CCCoreLib::NAN_VALUE;
+
+	// these instructions give the same results as the numpy percentile function, interpolation method being the default one, i.e. 'linear'
+	if (q == 100) // this is to prevent an hypothetic acess to set[N] with the general formula
+	{
+		val = set[N-1].squareDistd;
+	}
+	else
+	{
+		idx = floor(q / 100 * (N-1));
+		r = (q / 100 * (N-1)) - idx;
+		val = set[idx].squareDistd + (set[idx+1].squareDistd - set[idx].squareDistd) * r;
+	}
+
+	return val;
+}
+
+void qM3C2Tools::ComputeStatistics(CCCoreLib::DgmOctree::NeighboursSet& set, DistAndUncerMethod method, double& dist, double& uncer)
 {
 	size_t count = set.size();
 	if (count == 0)
 	{
-		meanOrMedian = CCCoreLib::NAN_VALUE;
-		stdDevOrIQR = 0;
+		dist = CCCoreLib::NAN_VALUE;
+		uncer = 0;
 		return;
 	}
 	else if (count == 1)
 	{
-		meanOrMedian = set.back().squareDistd;
-		stdDevOrIQR = 0;
+		dist = set.back().squareDistd;
+		uncer = 0;
 		return;
 	}
 
-	if (useMedian)
+	switch (method) {
+	case USE_MEAN_AND_STD_DEV:
 	{
-		//sort neighbors by distance
-		std::sort(set.begin(), set.end(), CCCoreLib::DgmOctree::PointDescriptor::distComp);
-
-		meanOrMedian = Median(set);
-		stdDevOrIQR = Interquartile(set);
-	}
-	else
-	{
-		//otherwise we proceed with the 'standard' mean
 		double sum = 0;
 		double sum2 = 0;
 		for (size_t i = 0; i < count; ++i)
@@ -566,11 +583,40 @@ void qM3C2Tools::ComputeStatistics(CCCoreLib::DgmOctree::NeighboursSet& set, boo
 
 		assert(count > 1);
 		sum /= count;
-		sum2 = sqrt(std::abs(sum2 / count - sum*sum));
+		sum2 = sqrt(fabs(sum2 / count - sum*sum));
 
-		meanOrMedian = static_cast<ScalarType>(sum);
-		stdDevOrIQR = static_cast<ScalarType>(sum2);
+		dist = static_cast<ScalarType>(sum);
+		uncer = static_cast<ScalarType>(sum2);
+		break;
 	}
+	case USE_MEDIAN_AND_IQR: // proceed with mean and standard deviation
+		//sort neighbors by distance
+		std::sort(set.begin(), set.end(), CCCoreLib::DgmOctree::PointDescriptor::distComp);
+		dist = Median(set);
+		uncer = Interquartile(set);
+		break;
+	case USE_MIN_AND_MAX_MINUS_MIN:
+		//sort neighbors by distance
+		std::sort(set.begin(), set.end(), CCCoreLib::DgmOctree::PointDescriptor::distComp);
+		dist = set.begin()->squareDistd; // min
+		uncer = set.back().squareDistd - set.begin()->squareDistd; // max - min
+		break;
+	case USE_PERCENTILES:
+	{
+		//sort neighbors by distance
+		std::sort(set.begin(), set.end(), CCCoreLib::DgmOctree::PointDescriptor::distComp);
+		double prctile5 = Percentile(set, 5.);
+		double prctile95 = Percentile(set, 95.);
+		dist = prctile5;
+		uncer = prctile95 - prctile5;
+		break;
+	}
+	default:
+		dist = CCCoreLib::NAN_VALUE;
+		uncer = 0;
+	}
+
+	return;
 }
 
 bool qM3C2Tools::GuessBestParams(	ccPointCloud* cloud1,
