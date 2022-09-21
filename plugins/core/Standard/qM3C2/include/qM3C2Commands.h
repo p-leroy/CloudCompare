@@ -36,7 +36,7 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 
 	virtual bool process(ccCommandLineInterface& cmd) override
 	{
-        cmd.print("[M3C2]");
+		cmd.print("[M3C2]");
 		if (cmd.arguments().empty())
 		{
 			return cmd.error(QString("Missing parameter: parameters filename after \"-%1\"").arg(COMMAND_M3C2));
@@ -81,62 +81,59 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 
 		if (outputCloud)
 		{
-            if (cmd.cloudExportFormat().contains("*.sbf"))
-            {
-                Np = outputCloud->size();
-                cmd.print("Save outputCloud in Simple Binary File, convert normals to scalar fields");
-                if (outputCloud->hasNormals())
-                {
-                    sfIdx = outputCloud->addScalarField(NX);
-                    Nx = outputCloud->getScalarField(sfIdx);
-                    if (!Nx->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Nx scalar field
-                    {
-                        cmd.print("Failed to allocate memory for outputCloud Nx!");
-                        Nx->release();
-                        Nx = nullptr;
-                        ok = false;
-                    }
-                    if (ok) // Nx allocated, try to allocate Ny
-                    {
-                        sfIdx = outputCloud->addScalarField(NY);
-                        Ny = outputCloud->getScalarField(sfIdx);
-                        if (!Ny->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Ny scalar field
-                        {
-                            cmd.print("Failed to allocate memory for outputCloud Ny!");
-                            Ny->release();
-                            Ny = nullptr;
-                            ok = false;
-                        }
-                    }
-                    if (ok) // Nx and Ny allocated, try to allocate Nz
-                    {
-                        sfIdx = outputCloud->addScalarField(NZ);
-                        Nz = outputCloud->getScalarField(sfIdx);
-                        if (!Nx->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Nz scalar field
-                        {
-                            cmd.print("Failed to allocate memory for outputCloud Nz!");
-                            Nz->release();
-                            Nz = nullptr;
-                            ok = false;
-                        }
-                    }
-                    if (ok) // Nx, Ny and Nz allocated
-                    {
-                        cmd.print("Nx, Ny and Nz scalar fields allocated successfully (outputCoud)");
-                        for (unsigned int index=0; index<Np; index++)
-                        {
-                            normal = outputCloud->getPointNormal(index);
-                            Nx->setValue(index, normal[0]);
-                            Ny->setValue(index, normal[1]);
-                            Nz->setValue(index, normal[2]);
-                        }
-                    }
-                    else
-                    {
-                        cmd.print("Nx, Ny and Nz scalar fields not added, normals not exported!");
-                    }
-                }
-            }
+			if (cmd.cloudExportFormat().contains("*.sbf"))
+			{
+				Np = outputCloud->size();
+				cmd.print("Save outputCloud in Simple Binary File, convert normals to scalar fields");
+				if (outputCloud->hasNormals())
+				{
+					sfIdx = outputCloud->addScalarField(NX);
+					Nx = outputCloud->getScalarField(sfIdx);
+					if (!Nx->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to resize the Nx scalar field
+					{
+						cmd.print("Failed to allocate memory for outputCloud Nx!");
+						ok = false;
+					}
+					if (ok) // Nx allocated, try to allocate Ny
+					{
+						sfIdx = outputCloud->addScalarField(NY);
+						Ny = outputCloud->getScalarField(sfIdx);
+						if (!Ny->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to resize the Ny scalar field
+						{
+							cmd.print("Failed to allocate memory for outputCloud Ny!");
+							ok = false;
+							Nx->release();
+						}
+					}
+					if (ok) // Nx and Ny allocated, try to allocate Nz
+					{
+						sfIdx = outputCloud->addScalarField(NZ);
+						Nz = outputCloud->getScalarField(sfIdx);
+						if (!Nx->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to resize the Nz scalar field
+						{
+							cmd.print("Failed to allocate memory for outputCloud Nz!");
+							ok = false;
+							Nx->release();
+							Ny->release();
+						}
+					}
+					if (ok) // Nx, Ny and Nz allocated
+					{
+						cmd.print("Nx, Ny and Nz scalar fields allocated successfully (outputCoud)");
+						for (unsigned int index=0; index<Np; index++)
+						{
+							normal = outputCloud->getPointNormal(index);
+							Nx->setValue(index, normal[0]);
+							Ny->setValue(index, normal[1]);
+							Nz->setValue(index, normal[2]);
+						}
+					}
+					else
+					{
+						cmd.print("Nx, Ny and Nz scalar fields not added, normals not exported!");
+					}
+				}
+			}
 			CLCloudDesc cloudDesc(outputCloud, cmd.clouds()[0].basename + QObject::tr("_M3C2"), cmd.clouds()[0].path);
 			if (cmd.autoSaveMode())
 			{
@@ -150,76 +147,73 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 			cmd.clouds().push_back(cloudDesc);
 		}
 
-        if (outputCloud2)
-        {
-            if (cmd.cloudExportFormat().contains("*.sbf"))
-            {
-                Np = outputCloud2->size();
-                cmd.print("Save outputCloud2 in Simple Binary File, convert normals to scalar fields");
-                if (outputCloud2->hasNormals())
-                {
-                    sfIdx = outputCloud2->addScalarField(NX);
-                    Nx = outputCloud2->getScalarField(sfIdx);
-                    if (!Nx->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Nx scalar field
-                    {
-                        cmd.print("Failed to allocate memory for outputCloud Nx!");
-                        Nx->release();
-                        Nx = nullptr;
-                        ok = false;
-                    }
-                    if (ok) // Nx allocated, try to allocate Ny
-                    {
-                        sfIdx = outputCloud2->addScalarField(NY);
-                        Ny = outputCloud2->getScalarField(sfIdx);
-                        if (!Ny->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Ny scalar field
-                        {
-                            cmd.print("Failed to allocate memory for outputCloud Ny!");
-                            Ny->release();
-                            Ny = nullptr;
-                            ok = false;
-                        }
-                    }
-                    if (ok) // Nx and Ny allocated, try to allocate Nz
-                    {
-                        sfIdx = outputCloud2->addScalarField(NZ);
-                        Nz = outputCloud2->getScalarField(sfIdx);
-                        if (!Nz->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Nz scalar field
-                        {
-                            cmd.print("Failed to allocate memory for outputCloud Nz!");
-                            Nz->release();
-                            Nz = nullptr;
-                            ok = false;
-                        }
-                    }
-                    if (ok) // Nx, Ny and Nz allocated
-                    {
-                        cmd.print("Nx, Ny and Nz scalar fields allocated successfully (outputCloud2)");
-                        for (unsigned int index=0; index<Np; index++)
-                        {
-                            normal = outputCloud2->getPointNormal(index);
-                            Nx->setValue(index, normal[0]);
-                            Ny->setValue(index, normal[1]);
-                            Nz->setValue(index, normal[2]);
-                        }
-                    }
-                    else
-                    {
-                        cmd.print("Nx, Ny and Nz scalar fields not added, normals not exported!");
-                    }
-                }
-            }
-            CLCloudDesc cloudDesc2(outputCloud2, cmd.clouds()[0].basename + QObject::tr("_M3C2_2"), cmd.clouds()[0].path);
-            if (cmd.autoSaveMode())
-            {
-                QString errorStr = cmd.exportEntity(cloudDesc2, QString(), 0, ccCommandLineInterface::ExportOption::ForceNoTimestamp);
-                if (!errorStr.isEmpty())
-                {
-                    cmd.error(errorStr);
-                }
-            }
-            // add cloud to the current pool
-            cmd.clouds().push_back(cloudDesc2);
-        }
+		if (outputCloud2)
+		{
+			if (cmd.cloudExportFormat().contains("*.sbf"))
+			{
+				Np = outputCloud2->size();
+				cmd.print("Save outputCloud2 in Simple Binary File, convert normals to scalar fields");
+				if (outputCloud2->hasNormals())
+				{
+					sfIdx = outputCloud2->addScalarField(NX);
+					Nx = outputCloud2->getScalarField(sfIdx);
+					if (!Nx->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Nx scalar field
+					{
+						cmd.print("Failed to allocate memory for outputCloud2 Nx!");
+						ok = false;
+					}
+					if (ok) // Nx allocated, try to allocate Ny
+					{
+						sfIdx = outputCloud2->addScalarField(NY);
+						Ny = outputCloud2->getScalarField(sfIdx);
+						if (!Ny->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Ny scalar field
+						{
+							cmd.print("Failed to allocate memory for outputCloud2 Ny!");
+							ok = false;
+							Nx->release();
+						}
+					}
+					if (ok) // Nx and Ny allocated, try to allocate Nz
+					{
+						sfIdx = outputCloud2->addScalarField(NZ);
+						Nz = outputCloud2->getScalarField(sfIdx);
+						if (!Nz->resizeSafe(Np, true, CCCoreLib::NAN_VALUE)) // try to add the Nz scalar field
+						{
+							cmd.print("Failed to allocate memory for outputCloud 2Nz!");
+							ok = false;
+							Nx->release();
+							Ny->release();
+						}
+					}
+					if (ok) // Nx, Ny and Nz allocated
+					{
+						cmd.print("Nx, Ny and Nz scalar fields allocated successfully (outputCloud2)");
+						for (unsigned int index=0; index<Np; index++)
+						{
+							normal = outputCloud2->getPointNormal(index);
+							Nx->setValue(index, normal[0]);
+							Ny->setValue(index, normal[1]);
+							Nz->setValue(index, normal[2]);
+						}
+					}
+					else
+					{
+						cmd.print("Nx, Ny and Nz scalar fields not added, normals not exported!");
+					}
+				}
+			}
+			CLCloudDesc cloudDesc2(outputCloud2, cmd.clouds()[0].basename + QObject::tr("_M3C2_2"), cmd.clouds()[0].path);
+			if (cmd.autoSaveMode())
+			{
+				QString errorStr = cmd.exportEntity(cloudDesc2, QString(), 0, ccCommandLineInterface::ExportOption::ForceNoTimestamp);
+				if (!errorStr.isEmpty())
+				{
+					cmd.error(errorStr);
+				}
+			}
+			// add cloud to the current pool
+			cmd.clouds().push_back(cloudDesc2);
+		}
 
 		return true;
 	}

@@ -63,7 +63,7 @@
    <item>
     <widget class="QTabWidget" name="m3c2PMTabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>5</number>
      </property>
      <widget class="QWidget" name="mainParams">
       <attribute name="title">
@@ -276,58 +276,6 @@
             </property>
             <property name="text">
              <string>Guess params</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <widget class="QGroupBox" name="groupBox_2">
-         <property name="title">
-          <string>Multi-interception diagnostic</string>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_4">
-          <item row="1" column="0" colspan="2">
-           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add several scalar fields to the outputs for diagnostic:&lt;/p&gt;&lt;p&gt;half search depth 1 = the search depth used to project the cloud 1 on the core point&lt;/p&gt;&lt;p&gt;half search depth 2 = the search depth used to project the cloud 2 on the core point&lt;/p&gt;&lt;p&gt;sector = the angular sector in a plane perpendicular to the cylinder axis occupied by the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;gap = the maximum gap along the cylinder axis between the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;sectorGap = a composite criteria, true if: sector1 &amp;gt; 180 AND sector2 &amp;gt; 180 AND gap1 &amp;lt; projectionRadius AND gap2 &amp;lt; projectionRadius&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>add scalar fields: half search depth 1, half search depth 2, sector1, gap1, sector2, gap2, sectorGap</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0" colspan="2">
-           <widget class="QCheckBox" name="checkBox_sharpMean">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Do we have a sharp mean during the progressive search of the point projections?&lt;/p&gt;&lt;p&gt;abs(mean) + 2 * stdDev &amp;lt; currentHalfLength&lt;/p&gt;&lt;p&gt;If not, the significant change parameter is set to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>sharp mean</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0" colspan="2">
-           <widget class="QCheckBox" name="checkBox_projectionDetails">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this option, all points used to compute the projections are stored in a new cloud, jointly with their projection on the normal.&lt;/p&gt;&lt;p&gt;Use it carefully:&lt;/p&gt;&lt;p&gt;=&amp;gt; the number of points can increase rapidly&lt;/p&gt;&lt;p&gt;=&amp;gt; the computation is not done using the parallel strategy!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>visualize the points used for the projection on core points</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QCheckBox" name="checkBox_computeWelch">
-            <property name="text">
-             <string>compute Welch's test</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
             </property>
            </widget>
           </item>
@@ -1089,6 +1037,100 @@ p, li { white-space: pre-wrap; }
           <size>
            <width>20</width>
            <height>177</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_2">
+      <attribute name="title">
+       <string>Expert</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_4">
+       <item row="0" column="0">
+        <widget class="QGroupBox" name="groupBox_2">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The following fields are used for the diagnostic of limit cases of M3C2.&lt;/p&gt;&lt;p&gt;For instance the cases where you have multi-interceptions when calculating the projection of one cloud using the core point and the normal.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="title">
+          <string>Diagnostic tools</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="1" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_exportSearchDepth">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add several scalar fields to the outputs for diagnostic:&lt;/p&gt;&lt;p&gt;half search depth 1 = the search depth used to project the cloud 1 on the core point (the search in done in the directinon of the normal and in the opposite direction so the total depth is 2 x half search depth)&lt;/p&gt;&lt;p&gt;half search depth 2 = the search depth used to project the cloud 2 on the core point (the search in done in the directinon of the normal and in the opposite direction so the total depth is 2 x half search depth)&lt;/p&gt;&lt;p&gt;sector = the angular sector in a plane perpendicular to the cylinder axis occupied by the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;gap = the maximum gap along the cylinder axis between the points used to project the considered cloud on the core point&lt;/p&gt;&lt;p&gt;sectorGap = a composite criteria, true if: sector1 &amp;gt; 180 AND sector2 &amp;gt; 180 AND gap1 &amp;lt; projectionRadius AND gap2 &amp;lt; projectionRadius&lt;/p&gt;&lt;p&gt;Normals angle = the angle between the normal computed with the points used to compute the projection of cloud 2 and the current normal (being the core point normal or the normal of cloud 1 depending of the selected option in the Main parameters tab)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>add scalar fields for diagnostic:
+half search depth 1, half search depth 2
+sector1, gap1, sector2, gap2, sectorGap
+Normals angle</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_sharpMean">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Do we have a sharp mean during the progressive search of the point projections?&lt;/p&gt;&lt;p&gt;abs(mean) + 2 * stdDev &amp;lt; currentHalfLength&lt;/p&gt;&lt;p&gt;If not, the significant change parameter is set to 0.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>sharp mean</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="checkBox_projectionDetails">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this option, all points used to compute the projections are stored in a new cloud, jointly with their projection on the normal.&lt;/p&gt;&lt;p&gt;Use it carefully:&lt;/p&gt;&lt;p&gt;=&amp;gt; the number of points can increase dramatically&lt;/p&gt;&lt;p&gt;=&amp;gt; the computation is not done using the parallel strategy!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>visualize the points used for the projection on core points</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="checkBox_computeWelch">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Another experimantal way to compute the &amp;quot;significant change&amp;quot; parameter, using Welch's statistics.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>compute Welch's test</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <spacer name="verticalSpacer_5">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="1">
+        <spacer name="horizontalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
           </size>
          </property>
         </spacer>

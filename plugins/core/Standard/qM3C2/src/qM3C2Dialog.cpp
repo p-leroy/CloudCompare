@@ -90,7 +90,7 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 {
 	setupUi(this);
 
-    requestedNormMode = -1;
+	requestedNormMode = -1;
 
 	int maxThreadCount = QThread::idealThreadCount();
 	maxThreadCountSpinBox->setRange(1, maxThreadCount);
@@ -295,11 +295,11 @@ void qM3C2Dialog::updateNormalComboBox()
 	if (cpUseOtherCloudRadioButton->isChecked())
 	{
 		//return the cloud currently selected in the combox box
-        ccPointCloud* otherCloud = nullptr;
-        if (m_app)
-            otherCloud = GetCloudFromCombo(cpOtherCloudComboBox, m_app->dbRootObject());
-        else // PLE command line
-            otherCloud = m_corePointsCloud;
+		ccPointCloud* otherCloud = nullptr;
+		if (m_app)
+			otherCloud = GetCloudFromCombo(cpOtherCloudComboBox, m_app->dbRootObject());
+		else // PLE command line
+			otherCloud = m_corePointsCloud;
 		if (otherCloud && otherCloud->hasNormals())
 		{
 			normalSourceComboBox->addItem("Use core points normals", QVariant(qM3C2Normals::USE_CORE_POINTS_NORMALS));
@@ -419,12 +419,12 @@ qM3C2Dialog::ExportOptions qM3C2Dialog::getExportOption() const
 		return PROJECT_ON_CLOUD1;
 	case 1:
 		return PROJECT_ON_CLOUD2;
-    case 2:
+	case 2:
 		return PROJECT_ON_CORE_POINTS;
-    case 3:
-        return PROJECT_ON_CLOUD1_AND_CLOUD2;
-    case 4:
-        return PROJECT_ON_CLOUD2_WITH_NORM2;
+	case 3:
+		return PROJECT_ON_CLOUD1_AND_CLOUD2;
+	case 4:
+		return PROJECT_ON_CLOUD2_WITH_NORM2;
 	default:
 		assert(false);
 		break;
@@ -435,28 +435,28 @@ qM3C2Dialog::ExportOptions qM3C2Dialog::getExportOption() const
 
 qM3C2Tools::DistAndUncerMethod qM3C2Dialog::getDistAndUncerMethod() const
 {
-    qM3C2Tools::DistAndUncerMethod method = qM3C2Tools::USE_MEAN_AND_STD_DEV;
+	qM3C2Tools::DistAndUncerMethod method = qM3C2Tools::USE_MEAN_AND_STD_DEV;
 
-    if (useMeanRadioButton->isChecked())
-        method = qM3C2Tools::USE_MEAN_AND_STD_DEV;
-    else if (useMedianRadioButton->isChecked())
-        method = qM3C2Tools::USE_MEDIAN_AND_IQR;
-    else if (useMinRadioButton->isChecked())
-        method = qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN;
-    else if (usePrctileRadioButton->isChecked())
-        method = qM3C2Tools::USE_PERCENTILES;
+	if (useMeanRadioButton->isChecked())
+		method = qM3C2Tools::USE_MEAN_AND_STD_DEV;
+	else if (useMedianRadioButton->isChecked())
+		method = qM3C2Tools::USE_MEDIAN_AND_IQR;
+	else if (useMinRadioButton->isChecked())
+		method = qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN;
+	else if (usePrctileRadioButton->isChecked())
+		method = qM3C2Tools::USE_PERCENTILES;
 
-    return method;
+	return method;
 }
 
 void qM3C2Dialog::setProjDestIndex(ExportOptions val)
 {
-    projDestComboBox->setCurrentIndex(val);
+	projDestComboBox->setCurrentIndex(val);
 }
 
 void qM3C2Dialog::setNormalMode(qM3C2Normals::ComputationMode val)
 {
-    applyNormalModeParameter(val);
+	applyNormalModeParameter(val);
 }
 
 void qM3C2Dialog::projDestIndexChanged(int index)
