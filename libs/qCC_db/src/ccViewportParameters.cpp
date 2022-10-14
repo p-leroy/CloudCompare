@@ -29,6 +29,8 @@ ccViewportParameters::ccViewportParameters()
 	, perspectiveView(false)
 	, objectCenteredView(true)
 	, zNearCoef(0.005)
+	, nearClippingDepth(std::numeric_limits<double>::quiet_NaN())
+	, farClippingDepth(std::numeric_limits<double>::quiet_NaN())
 	, zNear(0)
 	, zFar(0)
 	, fov_deg(50.0f)
@@ -47,6 +49,8 @@ ccViewportParameters::ccViewportParameters(const ccViewportParameters& params)
 	, perspectiveView(params.perspectiveView)
 	, objectCenteredView(params.objectCenteredView)
 	, zNearCoef(params.zNearCoef)
+	, nearClippingDepth(params.nearClippingDepth)
+	, farClippingDepth(params.farClippingDepth)
 	, zNear(params.zNear)
 	, zFar(params.zFar)
 	, fov_deg(params.fov_deg)
@@ -78,6 +82,8 @@ bool ccViewportParameters::toFile(QFile& out) const
 	outStream << cameraCenter.z;
 	outStream << fov_deg;
 	outStream << cameraAspectRatio;
+	outStream << nearClippingDepth;
+	outStream << farClippingDepth;
 
 	return true;
 }
@@ -182,27 +188,18 @@ bool ccViewportParameters::fromFile(QFile& in, short dataVersion, int flags, Loa
 		ccLog::Warning("[ccViewportParameters] Approximate focal distance (sorry, the parameters of viewport objects have changed!)");
 	}
 
-	return true;
-}
-
-double ccViewportParameters::IncrementToZNearCoef(int i, int iMax)
-{
-	assert(i >= 0 && i <= iMax);
-	return pow(10, -static_cast<double>((iMax - i) * 3) / iMax); //between 10^-3 and 1
-}
-
-int ccViewportParameters::ZNearCoefToIncrement(double coef, int iMax)
-{
-	assert(coef >= 0 && coef <= 1.0);
-	double id = -(iMax / 3.0) * log10(coef);
-	int i = static_cast<int>(id);
-	//cope with numerical inaccuracies
-	if (std::abs(id - i) > std::abs(id - (i + 1)))
+	// clipping depths
+	if (dataVersion < 53)
 	{
-		++i;
+		nearClippingDepth = farClippingDepth = std::numeric_limits<double>::quiet_NaN();
 	}
-	assert(i >= 0 && i <= iMax);
-	return iMax - i;
+	else
+	{
+		inStream >> nearClippingDepth;
+		inStream >> farClippingDepth;
+	}
+
+	return true;
 }
 
 const CCVector3d& ccViewportParameters::getRotationCenter() const
@@ -328,6 +325,8 @@ void ccViewportParameters::log() const
 	ccLog::Print(QString("Perspective view: %1").arg(perspectiveView ? "yes" : "no"));
 	ccLog::Print(QString("Object-centered view: %1").arg(objectCenteredView ? "yes" : "no"));
 	ccLog::Print(QString("zNearCoef: %1").arg(zNearCoef));
+	ccLog::Print(QString("nearClippingDepth: %1").arg(nearClippingDepth));
+	ccLog::Print(QString("farClippingDepth: %1").arg(farClippingDepth));
 	ccLog::Print(QString("zNear: %1").arg(zNear));
 	ccLog::Print(QString("zFar: %1").arg(zFar));
 	ccLog::Print(QString("fov: %1 deg").arg(fov_deg));
@@ -335,5 +334,4 @@ void ccViewportParameters::log() const
 	ccLog::Print(QString("focal distance: %1").arg(getFocalDistance()));
 	ccLog::Print(QString("pivot point:(%1 ; %2; %3)").arg(pivotPoint.x).arg(pivotPoint.y).arg(pivotPoint.z));
 	ccLog::Print(QString("camera center:(%1 ; %2; %3)").arg(cameraCenter.x).arg(cameraCenter.y).arg(cameraCenter.z));
-
 }

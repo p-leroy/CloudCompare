@@ -3,16 +3,39 @@ CloudCompare Version History
 
 v2.13.alpha (???) - (??/??/????)
 ----------------------
-- New command line option:
-	- FLIP_TRI (to flip the order of the triangle vertices of all opened meshes)
-	- SPLIT_XY_Z 
-		- for commands C2C_DIST and C2M_DIST, to split the distance between the z component and the xy plane component
-	- SF_OP_SF
-		- to compute an arithmetic operation between two scalar fields (add, sub, mult, div)
-	- SF_INTERP with option DEST_IS_FIRST
-		- to interpolate a scalar field from one cloud to another cloud (use DEST_IS_FIRST if destination is first)
-	- SF_ADD_CONST
-		- to add a constant scalar field to a cloud
+- - New features:
+	- New command line option:
+		- FLIP_TRI (to flip the order of the triangle vertices of all opened meshes)
+		- SPLIT_XY_Z 
+			- for commands C2C_DIST and C2M_DIST, to split the distance between the z component and the xy plane component
+		- SF_OP_SF
+			- to compute an arithmetic operation between two scalar fields (add, sub, mult, div)
+		- SF_INTERP with option DEST_IS_FIRST
+			- to interpolate a scalar field from one cloud to another cloud (use DEST_IS_FIRST if destination is first)
+		- SF_ADD_CONST
+			- to add a constant scalar field to a cloud
+		- CLEVELS
+			- to edit the color bands histogram of a cloud or a mesh (https://www.cloudcompare.org/doc/wiki/index.php/Colors%5CLevels)
+			- syntax: -CLEVELS BANDS INPUT_RANGE_MIN INPUT_RANGE_MAX OUTPUT_RANGE_MIN OUTPUT_RANGE_MAX
+				- band can be any mix of 'R', 'G' and 'B' (ex: 'G' or 'RB' or 'RGB')
+				- selected color component values will be scaled so that
+					[INPUT_RANGE_MIN INPUT_RANGE_MAX] becomes [OUTPUT_RANGE_MIN OUTPUT_RANGE_MAX]
+					(values ouside of the input range will also be scaled)
+
+	- New display feature: near and far clipping planes in 3D views
+		- extension of the previously existing feature to set a near clipping plane
+		- can be enabled and modifed in the Camera Parameters dialog or via
+			CTRL + mouse wheel (near) or CTRL + SHIFT + mouse wheel (far)
+		- the user shall now input actual distances and not percentages
+		- works for all projection modes (orthographic and perspective)
+		- does not modify the rendering quality of the EDL or SSAO shaders
+		- taken into account when using interactive segmentation or point picking
+		- not compatible with the Cross Section tool
+
+	- ASCII files:
+		- ability to load quaternion coordinates (qw, qx, qy and qz) that will be loaded as individual 'Coordinate System' objects
+		- once 4 columns are assigned to one of the 4 quaternion components (w,x,y,z), the user can elect the display scale of the
+			'Coordinate System' objects
 
 - Improvements:
 	- Rasterize:
@@ -45,9 +68,22 @@ v2.13.alpha (???) - (??/??/????)
 		- It is now possible to pass a SF name after -SET_ACTIVE_SF  instead of the field index
 			(use simple quotes if the scalar field name has spaces in it)
 		- The -SF_COLOR_SCALE option now works on meshes (vertices) as well
+		- The -FILTER_SF option now works on meshes as well
+		- New sub-option for the -C2M_DIST command: -UNSIGNED, to compute unsigned distances
+		- New sub-option for the -SF_ARITHMETIC command: -IN_PLACE, to update the scalar field in place, without creating a new SF
 
 	- New entity picking mechanism (to not rely on the deprecated OpenGL 'names' pushing mechanism)
 		- Should hopefully solve most of the random issues with picking
+
+	- New shortcut:
+		- use 'ALT + SHIFT + mouse wheel' to change the zFar value (perspective mode)
+		  (reminder: use 'ALT + mouse wheel' to change the zNear value)
+
+	- EDL shader:
+		- contrast and rendering quality improved
+
+	- ICP:
+		- the computed registration transformation will now be applied to the aligned entity and all its children (if any)
 
 - Bug fix:
 	- PCD: when transforming a cloud with a sensor (either manually, or via a registration tool, or via Edit > Apply Tranformation) and then exporting
@@ -57,6 +93,10 @@ v2.13.alpha (???) - (??/??/????)
 	- When creating a new 3D view, it was not possible to pick an entity displayed in it by clicking on it.
 	- When clicking on an entity in a 3D view while holding CTRL, it was only possible to select it, not to deselect it if it was already selected.
 	- When using the Align tool on an aligned entity with labels, the initial view point could be invalid
+	- Zooming in and out or changing the FOV in bubble view mode was not working anymore
+	- When pausing the graphical segmentation tool while a contour / polyline was started but not closed, the tool icons would not be clickable anymore
+		(forcing the user to exit the tool with ESC)
+	- The 'Point List Picking' tool was not transferring the Global Shift information when exporting the list of points as a polyline
 
 v2.12.4 (Kyiv) - (14/07/2022)
 ----------------------

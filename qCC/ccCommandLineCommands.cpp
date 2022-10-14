@@ -16,6 +16,7 @@
 #include <ccProgressDialog.h>
 #include <ccScalarField.h>
 #include <ccVolumeCalcTool.h>
+#include <ccSubMesh.h>
 
 //qCC_io
 #include <AsciiFilter.h>
@@ -29,6 +30,7 @@
 #include "ccLibAlgorithms.h"
 #include "ccRegistrationTools.h"
 #include "ccScalarFieldArithmeticsDlg.h"
+#include "ccColorLevelsDlg.h"
 
 //Qt
 #include "ccCommandLineCommands.h"
@@ -89,8 +91,10 @@ constexpr char COMMAND_CROP[]							= "CROP";
 constexpr char COMMAND_CROP_OUTSIDE[]					= "OUTSIDE";
 constexpr char COMMAND_CROP_2D[]						= "CROP2D";
 constexpr char COMMAND_COLOR_BANDING[]					= "CBANDING";
+constexpr char COMMAND_COLOR_LEVELS[]					= "CLEVELS";
 constexpr char COMMAND_C2M_DIST[]						= "C2M_DIST";
 constexpr char COMMAND_C2M_DIST_FLIP_NORMALS[]			= "FLIP_NORMS";
+constexpr char COMMAND_C2M_DIST_UNSIGNED[]				= "UNSIGNED";
 constexpr char COMMAND_C2C_DIST[]						= "C2C_DIST";
 constexpr char COMMAND_CLOSEST_POINT_SET[]              = "CLOSEST_POINT_SET";
 constexpr char COMMAND_C2C_SPLIT_XYZ[]					= "SPLIT_XYZ";
@@ -104,6 +108,7 @@ constexpr char COMMAND_DELAUNAY_AA[]					= "AA";
 constexpr char COMMAND_DELAUNAY_BF[]					= "BEST_FIT";
 constexpr char COMMAND_DELAUNAY_MAX_EDGE_LENGTH[]		= "MAX_EDGE_LENGTH";
 constexpr char COMMAND_SF_ARITHMETIC[]					= "SF_ARITHMETIC";
+constexpr char COMMAND_SF_ARITHMETIC_IN_PLACE[]			= "IN_PLACE";
 constexpr char COMMAND_SF_OP[]							= "SF_OP";
 constexpr char COMMAND_SF_OP_SF[]						= "SF_OP_SF";
 constexpr char COMMAND_SF_INTERP[]						= "SF_INTERP";
@@ -1973,6 +1978,65 @@ enum USE_SPECIAL_SF_VALUE
 	USE_N_SIGMA_MAX
 };
 
+static std::pair<ScalarType, ScalarType> GetSFRange(const CCCoreLib::ScalarField& sf,
+													ScalarType minVal,
+													USE_SPECIAL_SF_VALUE useValForMin,
+													ScalarType maxVal,
+													USE_SPECIAL_SF_VALUE useValForMax)
+{
+	ScalarType thisMinVal = minVal;
+	{
+		switch (useValForMin)
+		{
+		case USE_MIN:
+			thisMinVal = sf.getMin();
+			break;
+		case USE_DISP_MIN:
+			thisMinVal = static_cast<const ccScalarField&>(sf).displayRange().start();
+			break;
+		case USE_SAT_MIN:
+			thisMinVal = static_cast<const ccScalarField&>(sf).saturationRange().start();
+			break;
+		case USE_N_SIGMA_MIN:
+			ScalarType mean;
+			ScalarType variance;
+			sf.computeMeanAndVariance(mean, &variance);
+			thisMinVal = mean - (sqrt(variance) * minVal);
+			break;
+		default:
+			//nothing to do
+			break;
+		}
+	}
+
+	ScalarType thisMaxVal = maxVal;
+	{
+		switch (useValForMax)
+		{
+		case USE_MAX:
+			thisMaxVal = sf.getMax();
+			break;
+		case USE_DISP_MAX:
+			thisMaxVal = static_cast<const ccScalarField&>(sf).displayRange().stop();
+			break;
+		case USE_SAT_MAX:
+			thisMaxVal = static_cast<const ccScalarField&>(sf).saturationRange().stop();
+			break;
+		case USE_N_SIGMA_MAX:
+			ScalarType mean;
+			ScalarType variance;
+			sf.computeMeanAndVariance(mean, &variance);
+			thisMaxVal = mean + (sqrt(variance) * maxVal);
+			break;
+		default:
+			//nothing to do
+			break;
+		}
+	}
+
+	return { thisMinVal, thisMaxVal };
+}
+
 bool CommandFilterBySFValue::process(ccCommandLineInterface &cmd)
 {
 	cmd.print(QObject::tr("[FILTER BY VALUE]"));
@@ -2073,82 +2137,33 @@ bool CommandFilterBySFValue::process(ccCommandLineInterface &cmd)
 	
 	cmd.print(QObject::tr("\tInterval: [%1 - %2]").arg(minValStr, maxValStr));
 	
-	if (cmd.clouds().empty())
+	if (cmd.clouds().empty() && cmd.meshes().empty())
 	{
-		return cmd.error(QObject::tr("No point cloud on which to filter SF! (be sure to open one or generate one with \"-%1 [cloud filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_FILTER_SF_BY_VALUE));
+		return cmd.error(QObject::tr("No point cloud nor mesh on which to filter SF! (be sure to open one or generate one with \"-%1 [cloud filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_FILTER_SF_BY_VALUE));
 	}
-	
+
+	// for each cloud
 	for (size_t i = 0; i < cmd.clouds().size(); ++i)
 	{
 		CCCoreLib::ScalarField* sf = cmd.clouds()[i].pc->getCurrentOutScalarField();
 		if (sf)
 		{
-			ScalarType thisMinVal = minVal;
-			{
-				switch (useValForMin)
-				{
-					case USE_MIN:
-						thisMinVal = sf->getMin();
-						break;
-					case USE_DISP_MIN:
-						thisMinVal = static_cast<ccScalarField*>(sf)->displayRange().start();
-						break;
-					case USE_SAT_MIN:
-						thisMinVal = static_cast<ccScalarField*>(sf)->saturationRange().start();
-						break;
-					case USE_N_SIGMA_MIN:
-						ScalarType mean;
-						ScalarType variance;
-						sf->computeMeanAndVariance(mean, &variance);
-						thisMinVal = mean - (sqrt(variance) * minVal);
-						break;
-					default:
-						//nothing to do
-						break;
-				}
-			}
+			std::pair<ScalarType, ScalarType> range = GetSFRange(*sf, minVal, useValForMin, maxVal, useValForMax);
 			
-			ScalarType thisMaxVal = maxVal;
-			{
-				switch (useValForMax)
-				{
-					case USE_MAX:
-						thisMaxVal = sf->getMax();
-						break;
-					case USE_DISP_MAX:
-						thisMaxVal = static_cast<ccScalarField*>(sf)->displayRange().stop();
-						break;
-					case USE_SAT_MAX:
-						thisMaxVal = static_cast<ccScalarField*>(sf)->saturationRange().stop();
-						break;
-					case USE_N_SIGMA_MAX:
-						ScalarType mean;
-						ScalarType variance;
-						sf->computeMeanAndVariance(mean, &variance);
-						thisMaxVal = mean + (sqrt(variance) * maxVal);
-						break;
-					default:
-						//nothing to do
-						break;
-				}
-			}
-			
-			ccPointCloud* fitleredCloud = cmd.clouds()[i].pc->filterPointsByScalarValue(thisMinVal, thisMaxVal);
+			ccPointCloud* fitleredCloud = cmd.clouds()[i].pc->filterPointsByScalarValue(range.first, range.second);
 			if (fitleredCloud)
 			{
 				cmd.print(QObject::tr("\t\tCloud '%1' --> %2/%3 points remaining").arg(cmd.clouds()[i].pc->getName()).arg(fitleredCloud->size()).arg(cmd.clouds()[i].pc->size()));
 				
-				CLCloudDesc resultDesc(fitleredCloud, cmd.clouds()[i].basename, cmd.clouds()[i].path, cmd.clouds()[i].indexInFile);
 				//replace current cloud by this one
 				delete cmd.clouds()[i].pc;
 				cmd.clouds()[i].pc = fitleredCloud;
-				cmd.clouds()[i].basename += QObject::tr("_FILTERED_[%1_%2]").arg(thisMinVal).arg(thisMaxVal);
+				cmd.clouds()[i].basename += QObject::tr("_FILTERED_[%1_%2]").arg(range.first).arg(range.second);
 				if (cmd.autoSaveMode())
 				{
-					QString errorStr = cmd.exportEntity(resultDesc);
+					QString errorStr = cmd.exportEntity(cmd.clouds()[i]);
 					if (!errorStr.isEmpty())
 					{
-						delete fitleredCloud;
 						return cmd.error(errorStr);
 					}
 				}
@@ -2156,6 +2171,55 @@ bool CommandFilterBySFValue::process(ccCommandLineInterface &cmd)
 		}
 	}
 	
+	// for each mesh
+	for (size_t i = 0; i < cmd.meshes().size(); ++i)
+	{
+		ccGenericMesh* mesh = cmd.meshes()[i].mesh;
+		ccPointCloud* pc = ccHObjectCaster::ToPointCloud(mesh);
+		if (!pc)
+		{
+			// strange mesh
+			continue;
+		}
+		
+		CCCoreLib::ScalarField* sf = pc->getCurrentOutScalarField();
+		if (sf)
+		{
+			std::pair<ScalarType, ScalarType> range = GetSFRange(*sf, minVal, useValForMin, maxVal, useValForMax);
+
+			pc->hidePointsByScalarValue(range.first, range.second);
+			ccGenericMesh* filteredMesh = nullptr;
+			if (mesh->isA(CC_TYPES::MESH)/*|| ent->isKindOf(CC_TYPES::PRIMITIVE)*/) //TODO
+				filteredMesh = ccHObjectCaster::ToMesh(mesh)->createNewMeshFromSelection(false);
+			else if (mesh->isA(CC_TYPES::SUB_MESH))
+				filteredMesh = ccHObjectCaster::ToSubMesh(mesh)->createNewSubMeshFromSelection(false);
+			else
+			{
+				cmd.warning("Unhandled mesh type for entitiy " + mesh->getName());
+				continue;
+			}
+
+			if (filteredMesh)
+			{
+				cmd.print(QObject::tr("\t\tMesh '%1' --> %2/%3 triangles remaining").arg(mesh->getName()).arg(filteredMesh->size()).arg(mesh->size()));
+
+				//replace current mesh by this one
+				delete mesh;
+				mesh = nullptr;
+				cmd.meshes()[i].mesh = filteredMesh;
+				cmd.meshes()[i].basename += QObject::tr("_FILTERED_[%1_%2]").arg(range.first).arg(range.second);
+				if (cmd.autoSaveMode())
+				{
+					QString errorStr = cmd.exportEntity(cmd.meshes()[i]);
+					if (!errorStr.isEmpty())
+					{
+						return cmd.error(errorStr);
+					}
+				}
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -3782,6 +3846,7 @@ bool CommandColorBanding::process(ccCommandLineInterface &cmd)
 	//process clouds
 	if (!cmd.clouds().empty())
 	{
+		bool hasclouds = false;
 		for (size_t i = 0; i < cmd.clouds().size(); ++i)
 		{
 			if (cmd.clouds()[i].pc)
@@ -3790,11 +3855,15 @@ bool CommandColorBanding::process(ccCommandLineInterface &cmd)
 				{
 					return cmd.error(QObject::tr("Not enough memory"));
 				}
+				else
+				{
+					hasclouds = true;
+				}
 			}
 		}
 		
 		//save output
-		if (cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("COLOR_BANDING_%1_%2").arg(dimStr).arg(freq)))
+		if (hasclouds && cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("COLOR_BANDING_%1_%2").arg(dimStr).arg(freq)))
 		{
 			return false;
 		}
@@ -3812,8 +3881,11 @@ bool CommandColorBanding::process(ccCommandLineInterface &cmd)
 				{
 					return cmd.error(QObject::tr("Not enough memory"));
 				}
-				cmd.meshes()[i].mesh->showColors(true);
-				hasMeshes = true;
+				else
+				{
+					cmd.meshes()[i].mesh->showColors(true);
+					hasMeshes = true;
+				}
 			}
 			else
 			{
@@ -3828,6 +3900,109 @@ bool CommandColorBanding::process(ccCommandLineInterface &cmd)
 		}
 	}
 	
+	return true;
+}
+
+CommandColorLevels::CommandColorLevels()
+	: ccCommandLineInterface::Command(QObject::tr("Color levels"), COMMAND_COLOR_LEVELS)
+{}
+
+bool CommandColorLevels::process(ccCommandLineInterface &cmd)
+{
+	cmd.print(QObject::tr("[COLOR LEVELS]"));
+
+	if (cmd.arguments().size() < 5)
+	{
+		return cmd.error(QObject::tr("Missing parameter(s) after \"-%1\" (COLOR-BANDS MIN-INPUT-LEVEL MAX-INPUT-LEVEL MIN-OUTPUT-LEVEL MAX-OUTPUT-LEVEL)").arg(COMMAND_COLOR_LEVELS));
+	}
+	if (cmd.clouds().empty() && cmd.meshes().empty())
+	{
+		return cmd.error(QObject::tr("No entity available. Be sure to open or generate one first!"));
+	}
+
+	//color bands
+	QString band = cmd.arguments().takeFirst().toUpper();
+	bool rgb[3] { band.contains('R'), band.contains('G'), band.contains('B') };
+	{
+		QString testBand = band;
+		testBand.remove('R');
+		testBand.remove('G');
+		testBand.remove('B');
+		if (!testBand.isEmpty())
+		{
+			return cmd.error(QObject::tr("Invalid parameter: bands after \"-%1\" (expected: any combination of R, G or B)").arg(COMMAND_COLOR_LEVELS));
+		}
+	}
+
+	//min level
+	int levels[4] = { 0 };
+	for (int i = 0; i < 4; ++i)
+	{
+		bool ok = true;
+		QString levelStr = cmd.arguments().takeFirst();
+		levels[i] = levelStr.toInt(&ok);
+		if (!ok || levels[i] < 0 || levels[i] > 255)
+		{
+			return cmd.error(QObject::tr("Invalid parameter: color level after \"-%1 COLOR-BANDS\" (integer value between 0 and 255 expected)").arg(COMMAND_COLOR_LEVELS));
+		}
+	}
+
+	//process clouds
+	if (!cmd.clouds().empty())
+	{
+		bool hasClouds = false;
+		for (size_t i = 0; i < cmd.clouds().size(); ++i)
+		{
+			if (cmd.clouds()[i].pc && cmd.clouds()[i].pc->hasColors())
+			{
+				if (!ccColorLevelsDlg::ScaleColorFields(cmd.clouds()[i].pc, levels[0], levels[1], levels[2], levels[3], rgb))
+				{
+					cmd.warning(QObject::tr("Failed to scale the color band(s) of cloud '%1'").arg(cmd.clouds()[i].pc->getName()));
+				}
+				else
+				{
+					hasClouds = true;
+				}
+			}
+		}
+
+		//save output
+		if (hasClouds && cmd.autoSaveMode() && !cmd.saveClouds(QObject::tr("COLOR_LEVELS_%1_%2_%3").arg(band).arg(levels[2]).arg(levels[3])))
+		{
+			return false;
+		}
+	}
+
+	if (!cmd.meshes().empty())
+	{
+		bool hasMeshes = false;
+		for (size_t i = 0; i < cmd.meshes().size(); ++i)
+		{
+			ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(cmd.meshes()[i].mesh);
+			if (cloud && cloud->hasColors())
+			{
+				if (!ccColorLevelsDlg::ScaleColorFields(cloud, levels[0], levels[1], levels[2], levels[3], rgb))
+				{
+					cmd.warning(QObject::tr("Failed to scale the color band(s) of mesh '%1'").arg(cmd.meshes()[i].mesh->getName()));
+				}
+				else
+				{
+					hasMeshes = true;
+				}
+			}
+			else if (cmd.meshes()[i].mesh->hasColors())
+			{
+				cmd.warning(QObject::tr("Vertices of mesh '%1' are locked (they may be shared by multiple entities for instance). Can't apply the current command on them.").arg(cmd.meshes()[i].mesh->getName()));
+			}
+		}
+
+		//save output
+		if (hasMeshes && cmd.autoSaveMode() && !cmd.saveMeshes(QObject::tr("COLOR_LEVELS_%1_%2_%3").arg(band).arg(levels[2]).arg(levels[3])))
+		{
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -3903,6 +4078,7 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 	
 	//inner loop for Distance computation options
 	bool flipNormals = false;
+	bool unsignedDistances = false;
 	double maxDist = 0.0;
 	unsigned octreeLevel = 0;
 	int maxThreadCount = 0;
@@ -3925,7 +4101,19 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 			
 			if (!m_cloud2meshDist)
 			{
-				cmd.warning(QObject::tr("Parameter \"-%1\" ignored: only for C2M distance!"));
+				cmd.warning(QObject::tr("Parameter \"-%1\" ignored: only for C2M distance!").arg(COMMAND_C2M_DIST_FLIP_NORMALS));
+			}
+		}
+		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2M_DIST_UNSIGNED))
+		{
+			//local option confirmed, we can move on
+			cmd.arguments().pop_front();
+
+			unsignedDistances = true;
+
+			if (!m_cloud2meshDist)
+			{
+				cmd.warning(QObject::tr("Parameter \"-%1\" ignored: only for C2M distance!").arg(COMMAND_C2M_DIST_UNSIGNED));
 			}
 		}
 		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2X_MAX_DISTANCE))
@@ -4104,10 +4292,8 @@ bool CommandDist::process(ccCommandLineInterface &cmd)
 	//C2M-only parameters
 	if (m_cloud2meshDist)
 	{
-		if (flipNormals)
-		{
-			compDlg.flipNormalsCheckBox->setChecked(true);
-		}
+		compDlg.flipNormalsCheckBox->setChecked(flipNormals);
+		compDlg.signedDistCheckBox->setChecked(!unsignedDistances);
 	}
 	//C2C-only parameters
 	else
@@ -4581,6 +4767,25 @@ bool CommandSFArithmetic::process(ccCommandLineInterface &cmd)
 			return cmd.error(QObject::tr("Operation %1 can't be applied with %2").arg(opName, COMMAND_SF_ARITHMETIC));
 		}
 	}
+
+	bool inPlace = false;
+
+	//read the optional arguments
+	while (!cmd.arguments().empty())
+	{
+		QString argument = cmd.arguments().front();
+		if (ccCommandLineInterface::IsCommand(argument, COMMAND_SF_ARITHMETIC_IN_PLACE))
+		{
+			//local option confirmed, we can move on
+			cmd.arguments().pop_front();
+
+			inPlace = true;
+		}
+		else
+		{
+			break; //as soon as we encounter an unrecognized argument, we break the local loop to go back to the main one!
+		}
+	}
 	
 	//apply operation on clouds
 	for (size_t i = 0; i < cmd.clouds().size(); ++i)
@@ -4588,7 +4793,7 @@ bool CommandSFArithmetic::process(ccCommandLineInterface &cmd)
 		ccPointCloud* cloud = cmd.clouds()[i].pc;
 		if (cloud && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
 		{
-			if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, false))
+			if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, inPlace))
 			{
 				return cmd.error(QObject::tr("Failed top apply operation on cloud '%1'").arg(cloud->getName()));
 			}
@@ -4611,7 +4816,7 @@ bool CommandSFArithmetic::process(ccCommandLineInterface &cmd)
 		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(mesh, &isLocked);
 		if (cloud && !isLocked && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
 		{
-			if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, false))
+			if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, inPlace))
 			{
 				return cmd.error(QObject::tr("Failed top apply operation on mesh '%1'").arg(mesh->getName()));
 			}
