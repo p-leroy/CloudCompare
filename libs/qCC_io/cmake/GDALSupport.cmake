@@ -80,6 +80,14 @@ function( target_link_GDAL ) # ARGV0 = project name
                         ${GDAL_BIN_DIR}/k5sprt64.dll
                         # for pdal
                         ${GDAL_BIN_DIR}/laszip3.dll
+						${GDAL_BIN_DIR}/aws-cpp-sdk-s3.dll
+						${GDAL_BIN_DIR}/aws-cpp-sdk-core.dll
+						${GDAL_BIN_DIR}/aws-cpp-sdk-identity-management.dll
+						${GDAL_BIN_DIR}/aws-cpp-sdk-cognito-identity.dll
+						${GDAL_BIN_DIR}/aws-cpp-sdk-sts.dll
+						${GDAL_BIN_DIR}/aws-checksums.dll
+						${GDAL_BIN_DIR}/aws-c-event-stream.dll
+						${GDAL_BIN_DIR}/aws-c-common.dll
                         )
                 elseif (GDAL_VERSION_3)
                     set (  GDAL_DEP_DLL_FILES	${GDAL_BIN_DIR}/ogdi.dll
