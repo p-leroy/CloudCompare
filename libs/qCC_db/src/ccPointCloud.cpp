@@ -46,6 +46,7 @@
 #include "ccPolyline.h"
 #include "ccProgressDialog.h"
 #include "ccScalarField.h"
+#include "ccHObjectCaster.h"
 
 //Qt
 #include <QCoreApplication>
@@ -179,7 +180,7 @@ void UpdateGridIndexes(const std::vector<int>& newIndexMap, std::vector<ccPointC
 	}
 }
 
-ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* selection, int* warnings/*=nullptr*/) const
+ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* selection, int* warnings/*=nullptr*/, bool withChildEntities/*=true*/) const
 {
 	if (warnings)
 	{
@@ -192,7 +193,12 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 		return nullptr;
 	}
 
-	ccPointCloud* result = new ccPointCloud(getName() + QString(".extract"));
+	static constexpr const char* DefaultSuffix = ".extract";
+	QString cloneName = getName();
+	if (!cloneName.endsWith(DefaultSuffix)) // avoid adding a multitude of suffixes
+		cloneName += DefaultSuffix;
+
+	ccPointCloud* result = new ccPointCloud(cloneName);
 
 	//visibility
 	result->setVisible(isVisible());
@@ -203,10 +209,10 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 	result->importParametersFrom(this);
 
 	//from now on we will need some points to proceed ;)
-	unsigned n = selection->size();
-	if (n)
+	unsigned selectionSize = selection->size();
+	if (selectionSize != 0)
 	{
-		if (!result->reserveThePointsTable(n))
+		if (!result->reserveThePointsTable(selectionSize))
 		{
 			ccLog::Error("[ccPointCloud::partialClone] Not enough memory to duplicate cloud!");
 			delete result;
@@ -215,7 +221,7 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 
 		//import points
 		{
-			for (unsigned i = 0; i < n; i++)
+			for (unsigned i = 0; i < selectionSize; i++)
 			{
 				result->addPoint(*getPointPersistentPtr(selection->getPointGlobalIndex(i)));
 			}
@@ -226,7 +232,7 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 		{
 			if (result->reserveTheRGBTable())
 			{
-				for (unsigned i = 0; i < n; i++)
+				for (unsigned i = 0; i < selectionSize; i++)
 				{
 					result->addColor(getPointColor(selection->getPointGlobalIndex(i)));
 				}
@@ -245,7 +251,7 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 		{
 			if (result->reserveTheNormsTable())
 			{
-				for (unsigned i = 0; i < n; i++)
+				for (unsigned i = 0; i < selectionSize; i++)
 				{
 					result->addNormIndex(getPointNormalIndex(selection->getPointGlobalIndex(i)));
 				}
@@ -266,7 +272,7 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 			{
 				try
 				{
-					for (unsigned i = 0; i < n; i++)
+					for (unsigned i = 0; i < selectionSize; i++)
 					{
 						const ccWaveform& w = m_fwfWaveforms[selection->getPointGlobalIndex(i)];
 						if (!result->fwfDescriptors().contains(w.descriptorID()))
@@ -311,12 +317,12 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 					{
 						ccScalarField* currentScalarField = static_cast<ccScalarField*>(result->getScalarField(sfIdx));
 						assert(currentScalarField);
-						if (currentScalarField->resizeSafe(n))
+						if (currentScalarField->resizeSafe(selectionSize))
 						{
 							currentScalarField->setGlobalShift(sf->getGlobalShift());
 
 							//we copy data to new SF
-							for (unsigned i = 0; i < n; i++)
+							for (unsigned i = 0; i < selectionSize; i++)
 								currentScalarField->setValue(i, sf->getValue(selection->getPointGlobalIndex(i)));
 
 							currentScalarField->computeMinAndMax();
@@ -352,20 +358,30 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 			}
 		}
 
+		std::vector<int> newIndexMap;
+		if (gridCount() != 0 || withChildEntities)
+		{
+			//we need a map between old and new indexes
+			try
+			{
+				newIndexMap.resize(size(), -1);
+				for (unsigned i = 0; i < selectionSize; i++)
+				{
+					newIndexMap[selection->getPointGlobalIndex(i)] = i;
+				}
+			}
+			catch (const std::bad_alloc&)
+			{
+				ccLog::Warning("Not enough memory");
+			}
+		}
+
 		//scan grids
 		if (gridCount() != 0)
 		{
+			assert(newIndexMap.size() == size());
 			try
 			{
-				//we need a map between old and new indexes
-				std::vector<int> newIndexMap(size(), -1);
-				{
-					for (unsigned i = 0; i < n; i++)
-					{
-						newIndexMap[selection->getPointGlobalIndex(i)] = i;
-					}
-				}
-
 				//duplicate the grid structure(s)
 				std::vector<Grid::Shared> newGrids;
 				{
@@ -399,34 +415,13 @@ ccPointCloud* ccPointCloud::partialClone(const CCCoreLib::ReferenceCloud* select
 			}
 		}
 
-		//Meshes //TODO
-		/*Lib::GenericIndexedMesh* theMesh = source->_getMesh();
-		if (theMesh)
+		if (withChildEntities)
 		{
-		//REVOIR --> on pourrait le faire pour chaque sous-mesh non ?
-		CCCoreLib::GenericIndexedMesh* newTri = CCCoreLib::ManualSegmentationTools::segmentMesh(theMesh,selection,true,nullptr,this);
-		setMesh(newTri);
-		if (source->areMeshesDisplayed()) showTri();
+			assert(newIndexMap.size() == size());
+			ccHObjectCaster::CloneChildren(this, result, &newIndexMap);
 		}
-
-		//PoV & Scanners
-		bool importScanners = true;
-		if (source->isMultipleScansModeActivated())
-		if (activateMultipleScansMode())
-		{
-		scanIndexesTableType* _theScans = source->getTheScansIndexesArray();
-		for (i=0; i<n; ++i) cubeVertexesIndexes.setValue(i,_theScans->getValue(i));
-		}
-		else importScanners=false;
-
-		if (importScanners)
-		{
-		//on insere les objets "capteur" (pas de copie ici, la meme instance peut-etre partagee par plusieurs listes)
-		for (i=1;i<=source->getNumberOfSensors();++i)
-		setSensor(source->_getSensor(i),i);
-		}
-		*/
 	}
+
 	return result;
 }
 
@@ -509,7 +504,7 @@ ccPointCloud* ccPointCloud::cloneThis(ccPointCloud* destCloud/*=nullptr*/, bool 
 	//import other parameters
 	result->importParametersFrom(this);
 
-	result->setName(getName()+QString(".clone"));
+	result->setName(getName() + QString(".clone"));
 
 	return result;
 }
@@ -983,6 +978,9 @@ const ccPointCloud& ccPointCloud::append(ccPointCloud* addedCloud, unsigned poin
 	//children (not yet reserved)
 	if (!ignoreChildren)
 	{
+		ccHObjectCaster::CloneChildren(addedCloud, this);
+
+		// we still miss the meshes
 		unsigned childrenCount = addedCloud->getChildrenNumber();
 		for (unsigned c = 0; c < childrenCount; ++c)
 		{
@@ -1015,44 +1013,6 @@ const ccPointCloud& ccPointCloud::append(ccPointCloud* addedCloud, unsigned poin
 				{
 					ccLog::Warning(QString("[ccPointCloud::fusion] Not enough memory: failed to clone sub mesh %1!").arg(mesh->getName()));
 				}
-			}
-			else if (child->isKindOf(CC_TYPES::IMAGE))
-			{
-				//ccImage* image = static_cast<ccImage*>(child);
-
-				//DGM FIXME: take image ownership! (dirty)
-				addedCloud->transferChild(child, *this);
-			}
-			else if (child->isA(CC_TYPES::LABEL_2D))
-			{
-				//clone label and update points if necessary
-				cc2DLabel* label = static_cast<cc2DLabel*>(child);
-				cc2DLabel* newLabel = new cc2DLabel(label->getName());
-				for (unsigned j = 0; j < label->size(); ++j)
-				{
-					cc2DLabel::PickedPoint P = label->getPickedPoint(j);
-					if (P._cloud == addedCloud)
-					{
-						P._cloud = this;
-						P.index += pointCountBefore;
-					}
-					newLabel->addPickedPoint(P);
-				}
-				newLabel->displayPointLegend(label->isPointLegendDisplayed());
-				newLabel->setDisplayedIn2D(label->isDisplayedIn2D());
-				newLabel->setCollapsed(label->isCollapsed());
-				newLabel->setPosition(label->getPosition()[0], label->getPosition()[1]);
-				newLabel->setVisible(label->isVisible());
-				newLabel->setDisplay(getDisplay());
-				addChild(newLabel);
-			}
-			else if (child->isA(CC_TYPES::GBL_SENSOR))
-			{
-				//copy sensor object
-				ccGBLSensor* sensor = new ccGBLSensor(*static_cast<ccGBLSensor*>(child));
-				addChild(sensor);
-				sensor->setDisplay(getDisplay());
-				sensor->setVisible(child->isVisible());
 			}
 		}
 	}
@@ -1427,6 +1387,12 @@ bool ccPointCloud::resize(unsigned newNumberOfPoints)
 
 	//if we are changing the cloud contents, let's stop the LOD construction process
 	clearLOD();
+
+	if (newNumberOfPoints != size())
+	{
+		//unallocate the visibility array (just in case)
+		unallocateVisibilityArray();
+	}
 
 	//call parent method first (for points + scalar fields)
 	if (!BaseClass::resize(newNumberOfPoints))
@@ -2125,7 +2091,6 @@ void ccPointCloud::invertNormals()
 
 void ccPointCloud::swapPoints(unsigned firstIndex, unsigned secondIndex)
 {
-	assert(!isLocked());
 	assert(firstIndex < size() && secondIndex < size());
 
 	if (firstIndex == secondIndex)
@@ -3259,6 +3224,12 @@ ccPointCloud* ccPointCloud::filterPointsByScalarValue(ScalarType minVal, ScalarT
 
 	QSharedPointer<CCCoreLib::ReferenceCloud> c(CCCoreLib::ManualSegmentationTools::segment(this, minVal, maxVal, outside));
 
+	if (c && c->size() == size())
+	{
+		// specific case: all points fall within the specified range
+		return this;
+	}
+
 	return (c ? partialClone(c.data()) : nullptr);
 }
 
@@ -3289,7 +3260,11 @@ void ccPointCloud::hidePointsByScalarValue(ScalarType minVal, ScalarType maxVal)
 	}
 }
 
-ccGenericPointCloud* ccPointCloud::createNewCloudFromVisibilitySelection(bool removeSelectedPoints/*=false*/, VisibilityTableType* visTable/*=nullptr*/, bool silent/*=false*/)
+ccGenericPointCloud* ccPointCloud::createNewCloudFromVisibilitySelection(	bool removeSelectedPoints/*=false*/,
+																			VisibilityTableType* visTable/*=nullptr*/,
+																			std::vector<int>* newIndexesOfRemainingPoints/*=nullptr*/,
+																			bool silent/*=false*/,
+																			CCCoreLib::ReferenceCloud* selection/*=nullptr*/)
 {
 	if (!visTable)
 	{
@@ -3309,11 +3284,28 @@ ccGenericPointCloud* ccPointCloud::createNewCloudFromVisibilitySelection(bool re
 		}
 	}
 
+	// count the number of visible points
+	{
+		unsigned visiblePoints = 0;
+		for (size_t i = 0; i < visTable->size(); ++i)
+		{
+			if (visTable->at(i) == CCCoreLib::POINT_VISIBLE)
+			{
+				++visiblePoints;
+			}
+		}
+		if (visiblePoints == size())
+		{
+			// all points are visible: nothing to do
+			return this;
+		}
+	}
+
 	//we create a new cloud with the "visible" points
 	ccPointCloud* result = nullptr;
 	{
 		//we create a temporary entity with the visible points only
-		CCCoreLib::ReferenceCloud* rc = getTheVisiblePoints(visTable, silent);
+		CCCoreLib::ReferenceCloud* rc = getTheVisiblePoints(visTable, silent, selection);
 		if (!rc)
 		{
 			//a warning message has already been issued by getTheVisiblePoints!
@@ -3325,85 +3317,146 @@ ccGenericPointCloud* ccPointCloud::createNewCloudFromVisibilitySelection(bool re
 		result = partialClone(rc);
 
 		//don't need this one anymore
-		delete rc;
-		rc = nullptr;
+		if (rc != selection)
+		{
+			delete rc;
+			rc = nullptr;
+		}
 	}
 
 	if (!result)
 	{
-		ccLog::Warning("[ccPointCloud] Failed to generate a subset cloud");
+		ccLog::Warning("[ccPointCloud::createNewCloudFromVisibilitySelection] Failed to generate a subset cloud");
 		return nullptr;
 	}
 
-	QSettings settings;
-	settings.beginGroup("SegmentationToolOptions");
-	QString segmentedSuffix = settings.value("Segmented", ".segmented").toString();
-	settings.endGroup();
+	static constexpr const char* DefaultSuffix = ".segmented";
+	QString newName = getName();
+	if (!newName.endsWith(DefaultSuffix)) // avoid adding a multitude of suffixes
+		newName += DefaultSuffix;
 
-	result->setName(getName() + segmentedSuffix);
+	result->setName(newName);
 
 	//shall the visible points be erased from this cloud?
-	if (removeSelectedPoints && !isLocked())
+	if (removeSelectedPoints)
 	{
-		//we drop the octree before modifying this cloud's contents
-		deleteOctree();
-		clearLOD();
-
-		unsigned count = size();
-
-		//we have to take care of scan grids first
+		if (isLocked())
 		{
-			//we need a map between old and new indexes
-			std::vector<int> newIndexMap(size(), -1);
+			ccLog::Warning("[ccPointCloud::createNewCloudFromVisibilitySelection] Can't remove selected points as cloud is locked");
+			if (newIndexesOfRemainingPoints)
 			{
-				unsigned newIndex = 0;
-				for (unsigned i = 0; i < count; ++i)
-				{
-					if (m_pointsVisibility[i] != CCCoreLib::POINT_VISIBLE)
-					{
-						newIndexMap[i] = newIndex++;
-					}
-				}
-			}
-
-			//then update the indexes
-			UpdateGridIndexes(newIndexMap, m_grids);
-
-			//and reset the invalid (empty) ones
-			//(DGM: we don't erase them as they may still be useful?)
-			for (Grid::Shared &grid : m_grids)
-			{
-				if (grid->validCount == 0)
-				{
-					grid->indexes.resize(0);
-				}
+				newIndexesOfRemainingPoints->clear();
 			}
 		}
-
-		//we remove all visible points
-		unsigned lastPoint = 0;
-		for (unsigned i = 0; i < count; ++i)
+		else
 		{
-			if (m_pointsVisibility[i] != CCCoreLib::POINT_VISIBLE)
-			{
-				if (i != lastPoint)
-				{
-					swapPoints(lastPoint, i);
-				}
-				++lastPoint;
-			}
+			removeVisiblePoints(visTable, newIndexesOfRemainingPoints);
 		}
-
-		unallocateVisibilityArray();
-
-		//TODO: handle associated meshes
-
-		resize(lastPoint);
-		
-		refreshBB(); //calls notifyGeometryUpdate + releaseVBOs
 	}
 
 	return result;
+}
+
+bool ccPointCloud::removeVisiblePoints(VisibilityTableType* visTable/*=nullptr*/, std::vector<int>* newIndexes/*=nullptr*/)
+{
+	if (!visTable)
+	{
+		if (!isVisibilityTableInstantiated())
+		{
+			ccLog::Error("[removeVisiblePoints] Visibility table not instantiated!");
+			return false;
+		}
+		visTable = &m_pointsVisibility;
+	}
+	else
+	{
+		if (visTable->size() != size())
+		{
+			ccLog::Error("[removeVisiblePoints] Invalid input visibility table");
+			return false;
+		}
+	}
+
+	std::vector<int> localNewIndexes;
+	std::vector<int>* _newIndexes = nullptr;
+	try
+	{
+		if (newIndexes)
+		{
+			if (newIndexes->empty())
+			{
+				newIndexes->resize(size());
+			}
+			else if (newIndexes->size() != size())
+			{
+				ccLog::Error("[removeVisiblePoints] Input 'new indexes' has a wrong size");
+				return false;
+			}
+			_newIndexes = newIndexes;
+		}
+		else if (!m_grids.empty())
+		{
+			//we still need the mapping between old and new indexes
+			localNewIndexes.resize(size());
+			_newIndexes = &localNewIndexes;
+		}
+	}
+	catch (const std::bad_alloc&)
+	{
+		ccLog::Error("[removeVisiblePoints] Not enough memory");
+		return false;
+	}
+
+	//we drop the octree before modifying this cloud's contents
+	deleteOctree();
+	clearLOD();
+
+	//we remove all visible points
+	unsigned lastPointIndex = 0;
+	unsigned previousCount = size();
+	for (unsigned i = 0; i < previousCount; ++i)
+	{
+		if (visTable->at(i) != CCCoreLib::POINT_VISIBLE)
+		{
+			if (_newIndexes)
+			{
+				_newIndexes->at(i) = lastPointIndex;
+			}
+			if (i != lastPointIndex)
+			{
+				swapPoints(lastPointIndex, i);
+			}
+			++lastPointIndex;
+		}
+		else if (_newIndexes)
+		{
+			_newIndexes->at(i) = -1;
+		}
+	}
+
+	//we have to take care of scan grids
+	if (!m_grids.empty())
+	{
+		assert(_newIndexes);
+		//then update the indexes
+		UpdateGridIndexes(*_newIndexes, m_grids);
+
+		//and reset the invalid (empty) ones
+		//(DGM: we don't erase them as they may still be useful?)
+		for (Grid::Shared &grid : m_grids)
+		{
+			if (grid->validCount == 0)
+			{
+				grid->indexes.resize(0);
+			}
+		}
+	}
+
+	resize(lastPointIndex);
+
+	refreshBB(); //calls notifyGeometryUpdate + releaseVBOs
+
+	return true;
 }
 
 ccScalarField* ccPointCloud::getCurrentDisplayedScalarField() const
@@ -6049,4 +6102,93 @@ bool ccPointCloud::exportNormalToSF(bool exportDims[3])
 	}
 
 	return true;
+}
+
+ccPointCloud* ccPointCloud::removeDuplicatePoints(double minDistanceBetweenPoints, ccProgressDialog* pDlg/*=nullptr*/)
+{
+	static const char DEFAULT_DUPLICATE_TEMP_SF_NAME[] = "DuplicateFlags";
+
+	//create temporary SF for 'duplicate flags'
+	int sfIdx = getScalarFieldIndexByName(DEFAULT_DUPLICATE_TEMP_SF_NAME);
+	if (sfIdx < 0)
+	{
+		sfIdx = addScalarField(DEFAULT_DUPLICATE_TEMP_SF_NAME);
+	}
+	if (sfIdx >= 0)
+	{
+		setCurrentScalarField(sfIdx);
+	}
+	else
+	{
+		ccLog::Warning(QObject::tr("Couldn't create temporary scalar field! Not enough memory?"));
+		return nullptr;
+	}
+
+	ccOctree::Shared octree = getOctree();
+
+	CCCoreLib::GeometricalAnalysisTools::ErrorCode result = CCCoreLib::GeometricalAnalysisTools::FlagDuplicatePoints(
+					this,
+					minDistanceBetweenPoints,
+					pDlg,
+					octree.data());
+
+	if (result != CCCoreLib::GeometricalAnalysisTools::NoError)
+	{
+		ccLog::Warning(QObject::tr("An error occurred! (Not enough memory?)"));
+		return nullptr;
+	}
+
+	//count the number of duplicate points
+	CCCoreLib::ScalarField* flagSF = getScalarField(sfIdx);
+	unsigned duplicateCount = 0;
+	if (flagSF)
+	{
+		for (unsigned j = 0; j < flagSF->currentSize(); ++j)
+		{
+			if (flagSF->getValue(j) != 0)
+			{
+				++duplicateCount;
+			}
+		}
+	}
+	else
+	{
+		assert(false);
+	}
+
+	if (duplicateCount == 0)
+	{
+		//the cloud has no duplicate points
+		ccLog::Print(QObject::tr("Cloud '%1' has no duplicate points").arg(getName()));
+		deleteScalarField(sfIdx);
+		return this;
+	}
+
+	ccLog::Warning(QObject::tr("Cloud '%1' has %2 duplicate point(s)").arg(getName()).arg(duplicateCount));
+
+	ccPointCloud* filteredCloud = filterPointsByScalarValue(0, 0);
+
+	deleteScalarField(sfIdx);
+
+	if (!filteredCloud)
+	{
+		ccLog::Warning(QObject::tr("Not enough memory to create the filtered cloud"));
+		return nullptr;
+	}
+	else if (filteredCloud == this)
+	{
+		// we have tested above that there should be some duplicate points
+		assert(false);
+		return this;
+	}
+	filteredCloud->setName(QString("%1.clean").arg(getName()));
+
+	// we must remove the scalar field from the new cloud as well!
+	{
+		int sfIdx2 = filteredCloud->getScalarFieldIndexByName(DEFAULT_DUPLICATE_TEMP_SF_NAME);
+		assert(sfIdx2 >= 0);
+		filteredCloud->deleteScalarField(sfIdx2);
+	}
+
+	return filteredCloud;
 }

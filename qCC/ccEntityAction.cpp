@@ -30,14 +30,14 @@
 #include <ReferenceCloud.h>
 
 //qCC_db
-#include "ccColorScalesManager.h"
-#include "ccFacet.h"
-#include "ccGenericPrimitive.h"
-#include "ccOctreeProxy.h"
-#include "ccPointCloud.h"
-#include "ccPointCloudInterpolator.h"
-#include "ccPolyline.h"
-#include "ccSensor.h"
+#include <ccColorScalesManager.h>
+#include <ccFacet.h>
+#include <ccGenericPrimitive.h>
+#include <ccOctreeProxy.h>
+#include <ccPointCloud.h>
+#include <ccPointCloudInterpolator.h>
+#include <ccPolyline.h>
+#include <ccSensor.h>
 
 //qCC_gl
 #include "ccGuiParameters.h"
@@ -517,7 +517,7 @@ namespace ccEntityAction
 	}
 	
     //! Interpolate scalar fields from one entity and transfer them to another one without the dialog
-    bool	interpolateSFs(ccPointCloud *source, ccPointCloud *dest, int sfIndex, QWidget* parent)
+    bool	interpolateSFs(ccPointCloud *source, ccPointCloud *dest, int sfIndex, ccPointCloudInterpolator::Parameters& params, QWidget* parent)
     {
         if (!source || !dest)
         {
@@ -538,34 +538,17 @@ namespace ccEntityAction
             return false;
         }
 
-        std::vector<int> sfIndexes(1);
-        sfIndexes.back() = sfIndex;
-
-        //semi-persistent parameters
-        static ccPointCloudInterpolator::Parameters::Method s_interpMethod = ccPointCloudInterpolator::Parameters::NEAREST_NEIGHBOR;
-        static ccPointCloudInterpolator::Parameters::Algo s_interpAlgo = ccPointCloudInterpolator::Parameters::NORMAL_DIST;
-        static int s_interpKNN = 6;
-
-        ccInterpolationDlg iDlg(parent);
-        iDlg.setInterpolationMethod(s_interpMethod);
-        iDlg.setInterpolationAlgorithm(s_interpAlgo);
-        iDlg.knnSpinBox->setValue(s_interpKNN);
-        iDlg.radiusDoubleSpinBox->setValue(dest->getOwnBB().getDiagNormd() / 100);
-
-        //setup parameters
-        ccPointCloudInterpolator::Parameters params;
-        params.method = s_interpMethod = iDlg.getInterpolationMethod();
-        params.algo = s_interpAlgo = iDlg.getInterpolationAlgorithm();
-        params.knn = s_interpKNN = iDlg.knnSpinBox->value();
-        params.radius = iDlg.radiusDoubleSpinBox->value();
-        params.sigma = iDlg.kernelDoubleSpinBox->value();
 
         ccProgressDialog pDlg(true, parent);
 
-        if (!ccPointCloudInterpolator::InterpolateScalarFieldsFrom(dest, source, sfIndexes, params, &pDlg))
-            ccConsole::Error(QObject::tr("[ccEntityAction::interpolateSFs] An error occurred! (see console)"));
-
-        return true;
+		std::vector<int> sfIndexes({ sfIndex });
+		if (!ccPointCloudInterpolator::InterpolateScalarFieldsFrom(dest, source, sfIndexes, params, parent ? &pDlg : nullptr))
+		{
+			ccConsole::Error(QObject::tr("[ccEntityAction::interpolateSFs] An error occurred! (see console)"));
+			return false;
+		}
+        
+		return true;
     }
 
 	bool	convertTextureToColor(const ccHObject::Container& selectedEntities, QWidget* parent)
@@ -816,13 +799,13 @@ namespace ccEntityAction
 		return true;
 	}
 	
-	bool	sfBilateralFilter(const ccHObject::Container &selectedEntities, QWidget* parent)
+	bool	sfBilateralFilter(const ccHObject::Container& selectedEntities, QWidget* parent)
 	{
 		if (selectedEntities.empty())
 			return false;
 		
-		double sigma = ccLibAlgorithms::GetDefaultCloudKernelSize(selectedEntities);
-		if (sigma < 0.0)
+		double spatialSigma = ccLibAlgorithms::GetDefaultCloudKernelSize(selectedEntities);
+		if (spatialSigma < 0.0)
 		{
 			ccConsole::Error(QObject::tr("No eligible point cloud in selection!"));
 			return false;
@@ -830,29 +813,33 @@ namespace ccEntityAction
 		
 		//estimate a good value for scalar field sigma, based on the first cloud
 		//and its displayed scalar field
-		ccPointCloud* pc_test = ccHObjectCaster::ToPointCloud(selectedEntities[0]);
+		ccPointCloud* pc_test = ccHObjectCaster::ToPointCloud(selectedEntities.front());
 		CCCoreLib::ScalarField* sf_test = pc_test->getCurrentDisplayedScalarField();
+		if (!sf_test)
+		{
+			ccConsole::Error(QObject::tr("No active scalar field"));
+			return false;
+		}
 		ScalarType range = sf_test->getMax() - sf_test->getMin();
 		double scalarFieldSigma = range / 4; // using 1/4 of total range
-		
 		
 		ccAskTwoDoubleValuesDlg dlg(QObject::tr("Spatial sigma"),
 									QObject::tr("Scalar sigma"),
 									DBL_MIN,
 									1.0e9,
-									sigma,
+									spatialSigma,
 									scalarFieldSigma,
 									8,
 									nullptr,
 									parent);
 		
-		dlg.doubleSpinBox1->setStatusTip(QObject::tr("3*sigma = 98% attenuation"));
-		dlg.doubleSpinBox2->setStatusTip(QObject::tr("Scalar field's sigma controls how much the filter behaves as a Gaussian Filter\n sigma at +inf uses the whole range of scalars"));
+		dlg.doubleSpinBox1->setStatusTip(QObject::tr("3*sigma = 99.7% attenuation"));
+		dlg.doubleSpinBox2->setStatusTip(QObject::tr("Scalar field's sigma controls how much the filter behaves as a Gaussian Filter\nSigma at +inf uses the whole range of scalars"));
 		if (!dlg.exec())
 			return false;
 		
 		//get values
-		sigma = dlg.doubleSpinBox1->value();
+		spatialSigma = dlg.doubleSpinBox1->value();
 		scalarFieldSigma = dlg.doubleSpinBox2->value();
 		
 		ccProgressDialog pDlg(true, parent);
@@ -880,7 +867,7 @@ namespace ccEntityAction
 				CCCoreLib::ScalarField* outSF = pc->getCurrentOutScalarField();
 				Q_ASSERT(outSF != nullptr);
 				
-				QString sfName = QString("%1.bilsmooth(%2,%3)").arg(outSF->getName()).arg(sigma).arg(scalarFieldSigma);
+				QString sfName = QString("%1.bilsmooth(%2,%3)").arg(outSF->getName()).arg(spatialSigma).arg(scalarFieldSigma);
 				int sfIdx = pc->getScalarFieldIndexByName(qPrintable(sfName));
 				if (sfIdx < 0)
 					sfIdx = pc->addScalarField(qPrintable(sfName)); //output SF has same type as input SF
@@ -903,16 +890,19 @@ namespace ccEntityAction
 					}
 				}
 				
-				Q_ASSERT(octree != nullptr);
 				{
 					QElapsedTimer eTimer;
 					eTimer.start();
 					
-					CCCoreLib::ScalarFieldTools::applyScalarFieldGaussianFilter(static_cast<PointCoordinateType>(sigma),
-																			pc,
-																			static_cast<PointCoordinateType>(scalarFieldSigma),
-																			&pDlg,
-																			octree.data());
+					if (!CCCoreLib::ScalarFieldTools::applyScalarFieldGaussianFilter(	static_cast<PointCoordinateType>(spatialSigma),
+																						pc,
+																						static_cast<PointCoordinateType>(scalarFieldSigma),
+																						&pDlg,
+																						octree.data()))
+					{
+						ccConsole::Warning(QObject::tr("[BilateralFilter] Failed to apply filter"));
+						return false;
+					}
 					
 					ccConsole::Print("[BilateralFilter] Timing: %3.2f s.", eTimer.elapsed() / 1000.0);
 					pc->setCurrentDisplayedScalarField(sfIdx);

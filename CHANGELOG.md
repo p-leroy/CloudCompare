@@ -6,13 +6,12 @@ v2.13.alpha (???) - (??/??/????)
 - - New features:
 	- New command line option:
 		- FLIP_TRI (to flip the order of the triangle vertices of all opened meshes)
-		- SPLIT_XY_Z 
-			- for commands C2C_DIST and C2M_DIST, to split the distance between the z component and the xy plane component
-		- SF_OP_SF
+		- SF_OP_SF {SF 1} {operation} {SF 2}
 			- to compute an arithmetic operation between two scalar fields (add, sub, mult, div)
-		- SF_INTERP with option DEST_IS_FIRST
+			- works on clouds and meshes
+		- SF_INTERP {SF index} with sub-option -DEST_IS_FIRST
 			- to interpolate a scalar field from one cloud to another cloud (use DEST_IS_FIRST if destination is first)
-		- SF_ADD_CONST
+		- SF_ADD_CONST {SF name} {const value}
 			- to add a constant scalar field to a cloud
 		- CLEVELS
 			- to edit the color bands histogram of a cloud or a mesh (https://www.cloudcompare.org/doc/wiki/index.php/Colors%5CLevels)
@@ -21,6 +20,9 @@ v2.13.alpha (???) - (??/??/????)
 				- selected color component values will be scaled so that
 					[INPUT_RANGE_MIN INPUT_RANGE_MAX] becomes [OUTPUT_RANGE_MIN OUTPUT_RANGE_MAX]
 					(values ouside of the input range will also be scaled)
+        - RDP {opt: min distance between points}
+        	- removes duplicate points of all loaded clouds
+			- the min distance between points to consider them as duplicated can be set (1e-8 by default)
 
 	- New display feature: near and far clipping planes in 3D views
 		- extension of the previously existing feature to set a near clipping plane
@@ -37,7 +39,22 @@ v2.13.alpha (???) - (??/??/????)
 		- once 4 columns are assigned to one of the 4 quaternion components (w,x,y,z), the user can elect the display scale of the
 			'Coordinate System' objects
 
+	- New unified plugin to load LAS files (by Thomas Montaigu)
+		- based on LASzip
+		- should work on all platforms (Windows, Linux, macOS)
+		- manages all versions of LAS files (1.0 to 1.4)
+		- gives much more control over extended fields (EVLR) as well as custom mapping between
+			the existing fields of a cloud and their destination in the LAS file
+
+	- Display > Restore window geometry on startup
+		- Option to control whether the previous window geometry (size and position) should be restored or not
+		
+
 - Improvements:
+	- Segmentation
+		- CC will now preserve some children entities (labels, sensors, etc.) when segmenting clouds or meshes:
+			with graphical segmentation, cross section tool (for clouds only), subsampling, filter by SF value, etc.
+
 	- Rasterize:
 		- new option to compute the median height
 		- new option to compute the median scalar field value(s)
@@ -57,7 +74,9 @@ v2.13.alpha (???) - (??/??/????)
 		- the shortcut has been changed to ALT+P (so as to not conflict with the already existing CTRL+P shortcut for the 'Trace polyline' tool)
 		
 	- Graphical Segmentation Tool:
-		- the user can now configure the name suffix for the remaining and segmented cloud 
+		- the user can now configure the name suffix for the remaining and segmented cloud
+		- the display should be faster until the first segmentation is performed
+		- unused mesh vertices should now be properly removed from both the segmented and the remaining mesh parts
 
 	- LAS files:
 		- The default shift for (GPS) time values is now rounded to the nearest 10^5 value
@@ -69,6 +88,7 @@ v2.13.alpha (???) - (??/??/????)
 			(use simple quotes if the scalar field name has spaces in it)
 		- The -SF_COLOR_SCALE option now works on meshes (vertices) as well
 		- The -FILTER_SF option now works on meshes as well
+		- New sub-option for the -C2C_DIST and -C2M_DIST commands: -SPLIT_XY_Z to split the distance between the z component and the xy plane component
 		- New sub-option for the -C2M_DIST command: -UNSIGNED, to compute unsigned distances
 		- New sub-option for the -SF_ARITHMETIC command: -IN_PLACE, to update the scalar field in place, without creating a new SF
 
@@ -79,11 +99,21 @@ v2.13.alpha (???) - (??/??/????)
 		- use 'ALT + SHIFT + mouse wheel' to change the zFar value (perspective mode)
 		  (reminder: use 'ALT + mouse wheel' to change the zNear value)
 
+	- Cloning:
+		- ability to clone images
+		- ability to clone 2D labels
+		- ability to clone 2D viewport labels
+		- ability to clone viewport objects
+
 	- EDL shader:
 		- contrast and rendering quality improved
 
 	- ICP:
 		- the computed registration transformation will now be applied to the aligned entity and all its children (if any)
+
+	- STP:
+		- the triangles of meshes tesselated from STEP files should now all be properly oriented
+		- the linear deflection is asked only once when multiple files are loaded at the same time
 
 - Bug fix:
 	- PCD: when transforming a cloud with a sensor (either manually, or via a registration tool, or via Edit > Apply Tranformation) and then exporting
@@ -97,6 +127,8 @@ v2.13.alpha (???) - (??/??/????)
 	- When pausing the graphical segmentation tool while a contour / polyline was started but not closed, the tool icons would not be clickable anymore
 		(forcing the user to exit the tool with ESC)
 	- The 'Point List Picking' tool was not transferring the Global Shift information when exporting the list of points as a polyline
+	- Rasterize tool: interpolated scalar fields were not properly exported in geotiff files (the interpolated part was missing)
+	- the Registration tools (ICP and Point-pair based alignment) transformation filter mechanism would not let filter both translations and rotation at the same time
 
 v2.12.4 (Kyiv) - (14/07/2022)
 ----------------------

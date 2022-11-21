@@ -36,6 +36,7 @@
 //qCC_db
 #include <cc2DLabel.h>
 #include <cc2DViewportObject.h>
+#include <cc2DViewportLabel.h>
 #include <ccCameraSensor.h>
 #include <ccColorScalesManager.h>
 #include <ccCylinder.h>
@@ -286,6 +287,14 @@ MainWindow::MainWindow()
 		connect(m_mdiArea, &QMdiArea::subWindowActivated, m_pickingHub, &ccPickingHub::onActiveWindowChanged);
 	}
 
+	// restore the state of the 'auto-restore' menu entry
+	// (do that before connecting the actions)
+	{
+		QSettings settings;
+		bool doNotAutoRestoreGeometry = settings.value(ccPS::DoNotRestoreWindowGeometry(), !m_UI->actionRestoreWindowOnStartup->isChecked()).toBool();
+		m_UI->actionRestoreWindowOnStartup->setChecked(!doNotAutoRestoreGeometry);
+	}
+
 	connectActions();
 
 	new3DView();
@@ -493,12 +502,12 @@ void MainWindow::connectActions()
 	/*** MAIN MENU ***/
 
 	//"File" menu
-	connect(m_UI->actionOpen,					&QAction::triggered, this, &MainWindow::doActionLoadFile);
-	connect(m_UI->actionSave,					&QAction::triggered, this, &MainWindow::doActionSaveFile);
-	connect(m_UI->actionGlobalShiftSettings,	&QAction::triggered, this, &MainWindow::doActionGlobalShiftSeetings);
-	connect(m_UI->actionPrimitiveFactory,		&QAction::triggered, this, &MainWindow::doShowPrimitiveFactory);
-	connect(m_UI->actionCloseAll,				&QAction::triggered, this, &MainWindow::closeAll);
-	connect(m_UI->actionQuit,					&QAction::triggered, this, &QWidget::close);
+	connect(m_UI->actionOpen,						&QAction::triggered, this, &MainWindow::doActionLoadFile);
+	connect(m_UI->actionSave,						&QAction::triggered, this, &MainWindow::doActionSaveFile);
+	connect(m_UI->actionGlobalShiftSettings,		&QAction::triggered, this, &MainWindow::doActionGlobalShiftSeetings);
+	connect(m_UI->actionPrimitiveFactory,			&QAction::triggered, this, &MainWindow::doShowPrimitiveFactory);
+	connect(m_UI->actionCloseAll,					&QAction::triggered, this, &MainWindow::closeAll);
+	connect(m_UI->actionQuit,						&QAction::triggered, this, &QWidget::close);
 
 	//"Edit > Colors" menu
 	connect(m_UI->actionSetUniqueColor,				&QAction::triggered, this, &MainWindow::doActionSetUniqueColor);
@@ -509,7 +518,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionInterpolateColors,			&QAction::triggered, this, &MainWindow::doActionInterpolateColors);
 	connect(m_UI->actionEnhanceRGBWithIntensities,	&QAction::triggered, this, &MainWindow::doActionEnhanceRGBWithIntensities);
 	connect(m_UI->actionColorFromScalarField,       &QAction::triggered, this, &MainWindow::doActionColorFromScalars);
-	connect(m_UI->actionClearColor, &QAction::triggered, this, [=]() {
+	connect(m_UI->actionClearColor,					&QAction::triggered, this, [=]() {
 		clearSelectedEntitiesProperty( ccEntityAction::CLEAR_PROPERTY::COLORS );
 	});
 
@@ -521,7 +530,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionExportNormalToSF,			&QAction::triggered, this, &MainWindow::doActionExportNormalToSF);
 	connect(m_UI->actionOrientNormalsMST,			&QAction::triggered, this, &MainWindow::doActionOrientNormalsMST);
 	connect(m_UI->actionOrientNormalsFM,			&QAction::triggered, this, &MainWindow::doActionOrientNormalsFM);
-	connect(m_UI->actionClearNormals, &QAction::triggered, this, [=]() {
+	connect(m_UI->actionClearNormals,				&QAction::triggered, this, [=]() {
 		clearSelectedEntitiesProperty( ccEntityAction::CLEAR_PROPERTY::NORMALS );
 	});
 
@@ -601,10 +610,10 @@ void MainWindow::connectActions()
     connect(m_UI->actionSplitCloudUsingSF,          &QAction::triggered, this, &MainWindow::doActionSplitCloudUsingSF);
 	connect(m_UI->actionSetSFAsCoord,				&QAction::triggered, this, &MainWindow::doActionSetSFAsCoord);
 	connect(m_UI->actionInterpolateSFs,				&QAction::triggered, this, &MainWindow::doActionInterpolateScalarFields);
-	connect(m_UI->actionDeleteScalarField, &QAction::triggered, this, [=]() {
+	connect(m_UI->actionDeleteScalarField,			&QAction::triggered, this, [=]() {
 		clearSelectedEntitiesProperty( ccEntityAction::CLEAR_PROPERTY::CURRENT_SCALAR_FIELD );
 	});
-	connect(m_UI->actionDeleteAllSF, &QAction::triggered, this, [=]() {
+	connect(m_UI->actionDeleteAllSF,				&QAction::triggered, this, [=]() {
 		clearSelectedEntitiesProperty( ccEntityAction::CLEAR_PROPERTY::ALL_SCALAR_FIELDS );
 	});
 	
@@ -634,7 +643,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionRasterize,					&QAction::triggered, this, &MainWindow::doActionRasterize);
 	connect(m_UI->actionConvertPolylinesToMesh,		&QAction::triggered, this, &MainWindow::doConvertPolylinesToMesh);
 	//connect(m_UI->actionCreateSurfaceBetweenTwoPolylines, &QAction::triggered, this, &MainWindow::doMeshTwoPolylines); //DGM: already connected to actionMeshTwoPolylines
-	connect(m_UI->actionExportCoordToSF, &QAction::triggered, this, &MainWindow::doActionExportCoordToSF);
+	connect(m_UI->actionExportCoordToSF,			&QAction::triggered, this, &MainWindow::doActionExportCoordToSF);
 	
 	//"Tools > Registration" menu
 	connect(m_UI->actionMatchBBCenters,				&QAction::triggered, this, &MainWindow::doActionMatchBBCenters);
@@ -718,6 +727,7 @@ void MainWindow::connectActions()
 
 	//"Display" menu
 	connect(m_UI->actionResetGUIElementsPos,		&QAction::triggered, this, &MainWindow::doActionResetGUIElementsPos);
+	connect(m_UI->actionRestoreWindowOnStartup,		&QAction::toggled,   this, &MainWindow::doActionToggleRestoreWindowOnStartup);
 	connect(m_UI->actionResetAllVBOs,				&QAction::triggered, this, &MainWindow::doActionResetAllVBOs);
 
 	//"3D Views" menu
@@ -737,7 +747,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionAboutPlugins,				&QAction::triggered, m_pluginUIManager, &ccPluginUIManager::showAboutDialog);
 	connect(m_UI->actionEnableQtWarnings,			&QAction::toggled, this, &MainWindow::doEnableQtWarnings);
 
-	connect(m_UI->actionAbout,	&QAction::triggered, this, [this] () {
+	connect(m_UI->actionAbout,						&QAction::triggered, this, [this] () {
 		ccAboutDialog* aboutDialog = new ccAboutDialog(this);
 		aboutDialog->exec();
 	});
@@ -2773,97 +2783,42 @@ void MainWindow::doRemoveDuplicatePoints()
 	//save parameter
 	settings.setValue(ccPS::DuplicatePointsMinDist(), minDistanceBetweenPoints);
 
-	static const char DEFAULT_DUPLICATE_TEMP_SF_NAME[] = "DuplicateFlags";
-
 	ccProgressDialog pDlg(true, this);
 	pDlg.setAutoClose(false);
 
 	ccHObject::Container selectedEntities = getSelectedEntities(); //we have to use a local copy: 'unselectAllEntities' and 'selectEntity' will change the set of currently selected entities!
 
-	for (ccHObject *entity : selectedEntities)
+	for (ccHObject* entity : selectedEntities)
 	{
 		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(entity);
 		if (cloud)
 		{
-			//create temporary SF for 'duplicate flags'
-			int sfIdx = cloud->getScalarFieldIndexByName(DEFAULT_DUPLICATE_TEMP_SF_NAME);
-			if (sfIdx < 0)
-				sfIdx = cloud->addScalarField(DEFAULT_DUPLICATE_TEMP_SF_NAME);
-			if (sfIdx >= 0)
-				cloud->setCurrentScalarField(sfIdx);
-			else
+			ccPointCloud* filteredCloud = cloud->removeDuplicatePoints(minDistanceBetweenPoints, &pDlg);
+			if (!filteredCloud)
 			{
-				ccConsole::Error(tr("Couldn't create temporary scalar field! Not enough memory?"));
+				ccConsole::Error(tr("Process failed (see Console)"));
 				break;
 			}
 
-			ccOctree::Shared octree = cloud->getOctree();
-
-			CCCoreLib::GeometricalAnalysisTools::ErrorCode result = CCCoreLib::GeometricalAnalysisTools::FlagDuplicatePoints(	cloud,
-																																minDistanceBetweenPoints,
-																																&pDlg,
-																																octree.data());
-
-			if (result == CCCoreLib::GeometricalAnalysisTools::NoError)
+			if (filteredCloud != cloud) // otherwise the cloud has no duplicate point
 			{
-				//count the number of duplicate points!
-				CCCoreLib::ScalarField* flagSF = cloud->getScalarField(sfIdx);
-				unsigned duplicateCount = 0;
-				assert(flagSF);
-				if (flagSF)
+				filteredCloud->prepareDisplayForRefresh();
+				addToDB(filteredCloud);
+				if (first)
 				{
-					for (unsigned j = 0; j < flagSF->currentSize(); ++j)
-					{
-						if (flagSF->getValue(j) != 0)
-						{
-							++duplicateCount;
-						}
-					}
+					m_ccRoot->unselectAllEntities();
+					first = false;
 				}
-
-				if (duplicateCount == 0)
-				{
-					ccConsole::Print(tr("Cloud '%1' has no duplicate points").arg(cloud->getName()));
-				}
-				else
-				{
-					ccConsole::Warning(tr("Cloud '%1' has %2 duplicate point(s)").arg(cloud->getName()).arg(duplicateCount));
-
-					ccPointCloud* filteredCloud = cloud->filterPointsByScalarValue(0, 0);
-					if (filteredCloud)
-					{
-						int sfIdx2 = filteredCloud->getScalarFieldIndexByName(DEFAULT_DUPLICATE_TEMP_SF_NAME);
-						assert(sfIdx2 >= 0);
-						filteredCloud->deleteScalarField(sfIdx2);
-						filteredCloud->setName(QString("%1.clean").arg(cloud->getName()));
-						filteredCloud->setDisplay(cloud->getDisplay());
-						filteredCloud->prepareDisplayForRefresh();
-						addToDB(filteredCloud);
-						if (first)
-						{
-							m_ccRoot->unselectAllEntities();
-							first = false;
-						}
-						cloud->setEnabled(false);
-						m_ccRoot->selectEntity(filteredCloud, true);
-					}
-					else
-					{
-						ccConsole::Error(tr("Not enough memory to create the filtered cloud"));
-					}
-				}
+				cloud->setEnabled(false);
+				m_ccRoot->selectEntity(filteredCloud, true);
 			}
-			else
-			{
-				ccConsole::Error(tr("An error occurred! (Not enough memory?)"));
-			}
-
-			cloud->deleteScalarField(sfIdx);
 		}
 	}
 
 	if (!first)
+	{
 		ccConsole::Warning(tr("Previously selected entities (sources) have been hidden!"));
+	}
 
 	refreshAll();
 }
@@ -2937,14 +2892,11 @@ void MainWindow::doActionFilterByValue()
 		{
 			ccHObject* ent = item.first;
 			ccPointCloud* pc = item.second;
-			//CCCoreLib::ScalarField* sf = pc->getCurrentDisplayedScalarField();
-			//assert(sf);
 
 			//we set as output (OUT) the currently displayed scalar field
 			int outSfIdx = pc->getCurrentDisplayedScalarFieldIndex();
 			assert(outSfIdx >= 0);
 			pc->setCurrentOutScalarField(outSfIdx);
-			//pc->setCurrentScalarField(outSfIdx);
 
 			ccHObject* resultInside = nullptr;
 			ccHObject* resultOutside = nullptr;
@@ -2952,33 +2904,64 @@ void MainWindow::doActionFilterByValue()
 			{
 				pc->hidePointsByScalarValue(minVal, maxVal);
 				if (ent->isA(CC_TYPES::MESH)/*|| ent->isKindOf(CC_TYPES::PRIMITIVE)*/) //TODO
-					resultInside = ccHObjectCaster::ToMesh(ent)->createNewMeshFromSelection(false);
+					resultInside = ccHObjectCaster::ToMesh(ent)->createNewMeshFromSelection(false, nullptr, true);
 				else if (ent->isA(CC_TYPES::SUB_MESH))
 					resultInside = ccHObjectCaster::ToSubMesh(ent)->createNewSubMeshFromSelection(false);
 
-				if (mode == ccFilterByValueDlg::SPLIT)
+				if (resultInside == ent)
+				{
+					//specific case: all triangles were selected, nothing to do
+					ccLog::Warning(QString("Mesh %1 is fully inside the specified range").arg(ent->getName()));
+					resultInside = nullptr;
+				}
+				else if (mode == ccFilterByValueDlg::SPLIT)
 				{
 					pc->invertVisibilityArray();
 					if (ent->isA(CC_TYPES::MESH)/*|| ent->isKindOf(CC_TYPES::PRIMITIVE)*/) //TODO
-						resultOutside = ccHObjectCaster::ToMesh(ent)->createNewMeshFromSelection(false);
+						resultOutside = ccHObjectCaster::ToMesh(ent)->createNewMeshFromSelection(false, nullptr, true);
 					else if (ent->isA(CC_TYPES::SUB_MESH))
 						resultOutside = ccHObjectCaster::ToSubMesh(ent)->createNewSubMeshFromSelection(false);
+
+					if (resultOutside == ent)
+					{
+						//specific case: all triangles were selected, nothing to do
+						ccLog::Warning(QString("Mesh %1 is fully outside the specified range").arg(ent->getName()));
+						ent->setEnabled(false);
+						ent->prepareDisplayForRefresh();
+
+						delete resultInside; // we don't need it
+						resultInside = nullptr;
+						resultOutside = nullptr;
+					}
 				}
 
 				pc->unallocateVisibilityArray();
 			}
 			else if (ent->isKindOf(CC_TYPES::POINT_CLOUD))
 			{
-				//pc->hidePointsByScalarValue(minVal,maxVal);
-				//result = ccHObjectCaster::ToGenericPointCloud(ent)->hidePointsByScalarValue(false);
-				//pc->unallocateVisibilityArray();
-
 				//shortcut, as we know here that the point cloud is a "ccPointCloud"
 				resultInside = pc->filterPointsByScalarValue(minVal, maxVal, false);
-
-				if (mode == ccFilterByValueDlg::SPLIT)
+				
+				if (resultInside == ent)
+				{
+					//specific case: all points were selected, nothing to do
+					ccLog::Warning(QString("Cloud %1 is fully inside the specified range").arg(ent->getName()));
+					resultInside = nullptr;
+				}
+				else if (mode == ccFilterByValueDlg::SPLIT)
 				{
 					resultOutside = pc->filterPointsByScalarValue(minVal, maxVal, true);
+					if (resultOutside == ent)
+					{
+						//specific case: all points were selected, nothing to do
+						ccLog::Warning(QString("Cloud %1 is fully outside the specified range").arg(ent->getName()));
+						ent->setEnabled(false);
+						ent->prepareDisplayForRefresh();
+
+						delete resultInside;
+						resultInside = nullptr;
+						resultOutside = nullptr;
+					}
 				}
 			}
 
@@ -3001,7 +2984,6 @@ void MainWindow::doActionFilterByValue()
 
 				results.push_back(resultOutside);
 			}
-			//*/
 		}
 	}
 
@@ -3862,7 +3844,7 @@ void MainWindow::doAction4pcsRegister()
 			ccConsole::Print(tr("Hint: copy it (CTRL+C) and apply it - or its inverse - on any entity with the 'Edit > Apply transformation' tool"));
 		}
 
-		ccPointCloud *newDataCloud = data->isA(CC_TYPES::POINT_CLOUD) ? static_cast<ccPointCloud*>(data)->cloneThis() : ccPointCloud::From(data, data);
+		ccPointCloud* newDataCloud = data->isA(CC_TYPES::POINT_CLOUD) ? static_cast<ccPointCloud*>(data)->cloneThis() : ccPointCloud::From(data, data);
 
 		if (data->getParent())
 			data->getParent()->addChild(newDataCloud);
@@ -5470,10 +5452,10 @@ void MainWindow::doActionSORFilter()
 
 		//computation
 		CCCoreLib::ReferenceCloud* selection = CCCoreLib::CloudSamplingTools::sorFilter(cloud,
-																				s_sorFilterKnn,
-																				s_sorFilterNSigma,
-																				nullptr,
-																				&pDlg);
+																						s_sorFilterKnn,
+																						s_sorFilterNSigma,
+																						cloud->getOctree().data(),
+																						&pDlg);
 
 		if (selection && cloud)
 		{
@@ -5586,15 +5568,15 @@ void MainWindow::doActionFilterNoise()
 
 		//computation
 		CCCoreLib::ReferenceCloud* selection = CCCoreLib::CloudSamplingTools::noiseFilter(	cloud,
-																					kernelRadius,
-																					s_noiseFilterNSigma,
-																					s_noiseFilterRemoveIsolatedPoints,
-																					s_noiseFilterUseKnn,
-																					s_noiseFilterKnn,
-																					s_noiseFilterUseAbsError,
-																					s_noiseFilterAbsError,
-																					nullptr,
-																					&pDlg);
+																							kernelRadius,
+																							s_noiseFilterNSigma,
+																							s_noiseFilterRemoveIsolatedPoints,
+																							s_noiseFilterUseKnn,
+																							s_noiseFilterKnn,
+																							s_noiseFilterUseAbsError,
+																							s_noiseFilterAbsError,
+																							cloud->getOctree().data(),
+																							&pDlg);
 
 		if (selection && cloud)
 		{
@@ -5935,6 +5917,12 @@ void MainWindow::doActionResetGUIElementsPos()
 	s_autoSaveGuiElementPos = false;
 }
 
+void MainWindow::doActionToggleRestoreWindowOnStartup(bool state)
+{
+	QSettings settings;
+	settings.setValue(ccPS::DoNotRestoreWindowGeometry(), !state);
+}
+
 void MainWindow::doActionResetAllVBOs()
 {
 	ccHObject::Container clouds;
@@ -5975,21 +5963,27 @@ void MainWindow::restoreGUIElementsPos()
 		restoreState(previousState.toByteArray());
 	}
 
-	//randomly makes CC freeze if restored on the second screen?!
-	//QVariant previousGeometry = settings.value(ccPS::MainWinGeom());
-	//if (previousGeometry.isValid())
-	//{
-	//	restoreGeometry(previousGeometry.toByteArray()); 
-	//}
-	//else
+	QVariant previousGeometry;
+	if (!settings.value(ccPS::DoNotRestoreWindowGeometry(), false).toBool())
+	{
+		previousGeometry = settings.value(ccPS::MainWinGeom());
+	}
+
+	if (previousGeometry.isValid())
+	{
+		restoreGeometry(previousGeometry.toByteArray()); 
+	}
+	else
 	{
 		showMaximized();
 	}
 
-	//if (isFullScreen())
-	//{
-	//	m_UI->actionFullScreen->setChecked(true);
-	//}
+	if (isFullScreen())
+	{
+		m_UI->actionFullScreen->blockSignals(true);
+		m_UI->actionFullScreen->setChecked(true);
+		m_UI->actionFullScreen->blockSignals(false);
+	}
 }
 
 void MainWindow::showEvent(QShowEvent* event)
@@ -6544,7 +6538,7 @@ void MainWindow::deactivateSegmentationMode(bool state)
 	}
 	else
 	{
-		m_gsTool->removeAllEntities(true);
+		m_gsTool->removeAllEntities();
 	}
 
 	//we enable all GL windows
@@ -7640,8 +7634,7 @@ void MainWindow::doActionClone()
 		}
 		else if (entity->isA(CC_TYPES::FACET))
 		{
-			ccFacet* facet = ccHObjectCaster::ToFacet(entity);
-			clone = (facet ? facet->clone() : nullptr);
+			clone = ccHObjectCaster::ToFacet(entity);
 			if (!clone)
 			{
 				ccConsole::Error(tr("An error occurred while cloning facet %1").arg(entity->getName()));
@@ -7652,8 +7645,11 @@ void MainWindow::doActionClone()
 			ccCameraSensor* camera = ccHObjectCaster::ToCameraSensor(entity);
 			if (camera)
 			{
-				ccCameraSensor* cloned = new ccCameraSensor(*camera);
-				clone = (cloned ? cloned : nullptr);
+				clone = new ccCameraSensor(*camera);
+				if (camera->getParent())
+				{
+					camera->getParent()->addChild(clone);
+				}
 			}
 			if (!clone)
 			{
@@ -7665,13 +7661,80 @@ void MainWindow::doActionClone()
 			ccGBLSensor* sensor = ccHObjectCaster::ToGBLSensor(entity);
 			if (sensor)
 			{
-				ccGBLSensor* cloned = new ccGBLSensor(*sensor);
-				clone = (cloned ? cloned : nullptr);
+				clone = new ccGBLSensor(*sensor);
+				if (sensor->getParent())
+				{
+					sensor->getParent()->addChild(clone);
+				}
 			}
 			if (!clone)
 			{
 				ccConsole::Error(tr("An error occurred while cloning GBL sensor %1").arg(entity->getName()));
 			}
+		}
+		else if (entity->isA(CC_TYPES::IMAGE))
+		{
+			ccImage* image = ccHObjectCaster::ToImage(entity);
+			if (image)
+			{
+				clone = new ccImage(*image);
+				if (image->getParent())
+				{
+					image->getParent()->addChild(clone);
+				}
+			}
+			if (!clone)
+			{
+				ccConsole::Error(tr("An error occurred while cloning image %1").arg(entity->getName()));
+			}
+		}
+		else if (entity->isA(CC_TYPES::LABEL_2D))
+		{
+			cc2DLabel* label = ccHObjectCaster::To2DLabel(entity);
+			if (label)
+			{
+				clone = new cc2DLabel(*label, true);
+				if (label->getParent())
+				{
+					label->getParent()->addChild(clone);
+				}
+			}
+			if (!clone)
+			{
+				ccConsole::Error(tr("An error occurred while cloning label %1").arg(entity->getName()));
+			}
+		}
+		else if (entity->isA(CC_TYPES::VIEWPORT_2D_OBJECT))
+		{
+		cc2DViewportObject* viewport = ccHObjectCaster::To2DViewportObject(entity);
+		if (viewport)
+		{
+			clone = new cc2DViewportObject(*viewport);
+			if (viewport->getParent())
+			{
+				viewport->getParent()->addChild(clone);
+			}
+		}
+		if (!clone)
+		{
+			ccConsole::Error(tr("An error occurred while cloning viewport %1").arg(entity->getName()));
+		}
+		}
+		else if (entity->isA(CC_TYPES::VIEWPORT_2D_LABEL))
+		{
+		cc2DViewportLabel* viewportLabel = ccHObjectCaster::To2DViewportLabel(entity);
+		if (viewportLabel)
+		{
+			clone = new cc2DViewportLabel(*viewportLabel);
+			if (viewportLabel->getParent())
+			{
+				viewportLabel->getParent()->addChild(clone);
+			}
+		}
+		if (!clone)
+		{
+			ccConsole::Error(tr("An error occurred while cloning viewport %1").arg(entity->getName()));
+		}
 		}
 		else
 		{

@@ -118,10 +118,11 @@ public: //clone, copy, etc.
 	/** "Reference clouds" are a set of indexes referring to a real point cloud.
 		See CClib documentation for more information about ReferenceClouds.
 		Warning: the ReferenceCloud structure must refer to this cloud.
-		\param selection a ReferenceCloud structure (pointing to source)
-		\param[out] warnings [optional] to determine if warnings (CTOR_ERRORS) occurred during the duplication process
+		\param[in]  selection			a ReferenceCloud structure (pointing to source)
+		\param[out] warnings			[optional] to determine if warnings (CTOR_ERRORS) occurred during the duplication process
+		\param[in]  withChildEntities	whether child entities should be transferred as well (see ccHObjectCaster::CloneChildren)
 	**/
-	ccPointCloud* partialClone(const CCCoreLib::ReferenceCloud* selection, int* warnings = nullptr) const;
+	ccPointCloud* partialClone(const CCCoreLib::ReferenceCloud* selection, int* warnings = nullptr, bool withChildEntities = true) const;
 
 	//! Clones this entity
 	/** All the main features of the entity are cloned, except from the octree and
@@ -464,11 +465,15 @@ public: //other methods
 	const CCVector3& getPointNormal(unsigned pointIndex) const override;
 	CCCoreLib::ReferenceCloud* crop(const ccBBox& box, bool inside = true) override;
 	void scale(PointCoordinateType fx, PointCoordinateType fy, PointCoordinateType fz, CCVector3 center = CCVector3(0,0,0)) override;
-	/** \warning if removeSelectedPoints is true, any attached octree will be deleted. **/
-	ccGenericPointCloud* createNewCloudFromVisibilitySelection(bool removeSelectedPoints = false, VisibilityTableType* visTable = nullptr, bool silent = false) override;
+	/** \warning if removeSelectedPoints is true, any attached octree will be deleted, as well as the visibility table. **/
+	ccGenericPointCloud* createNewCloudFromVisibilitySelection(	bool removeSelectedPoints = false,
+																VisibilityTableType* visTable = nullptr,
+																std::vector<int>* newIndexesOfRemainingPoints = nullptr,
+																bool silent = false,
+																CCCoreLib::ReferenceCloud* selection = nullptr) override;
+	bool removeVisiblePoints(VisibilityTableType* visTable = nullptr, std::vector<int>* newIndexes = nullptr) override;
 	void applyRigidTransformation(const ccGLMatrix& trans) override;
 	inline void refreshBB() override { invalidateBoundingBox(); }
-
 
 	//! Sets whether visibility check is enabled or not (e.g. during distances computation)
 	/** See ccPointCloud::testVisibility.
@@ -647,7 +652,7 @@ public: //other methods
 		\param minVal minimum value
 		\param maxVal maximum value
 		\param outside whether to select the points inside or outside of the specified interval
-		\return resulting cloud (remaining points)
+		\return resulting cloud (remaining points) or the cloud itself if all points fall inside the input range
 	**/
 	ccPointCloud* filterPointsByScalarValue(ScalarType minVal, ScalarType maxVal, bool outside = false);
 
@@ -665,10 +670,12 @@ public: //other methods
 		PointCoordinateType radius;	//!< unrolling cylinder radius (or cone base radius)
 		unsigned char axisDim;		//!< unrolling cylinder/cone axis (X=0, Y=1 or Z=2)
 	};
+
 	struct UnrollCylinderParams : public UnrollBaseParams
 	{
 		CCVector3 center;			//! A point belonging to the cylinder axis
 	};
+
 	struct UnrollConeParams : public UnrollBaseParams
 	{
 		CCVector3 apex;				//! Cone apex
@@ -685,7 +692,7 @@ public: //other methods
 		\param stopAngle_deg stop angle (in degrees)
 		\param progressCb for progress notification
 		\return the unrolled point cloud
-		**/
+	**/
 	ccPointCloud* unroll(	UnrollMode mode,
 							UnrollBaseParams* params,
 							bool exportDeviationSF = false,
@@ -741,6 +748,9 @@ public: //other methods
 
 	//! Returns the VBOs size (if any)
 	size_t vboSize() const;
+
+	//! Removes the duplicate points and return the corresponding cloud (if any, or the same cloud if there's no duplicate point)
+	ccPointCloud* removeDuplicatePoints(double minDistanceBetweenPoints, ccProgressDialog* pDlg = nullptr);
 
 protected:
 

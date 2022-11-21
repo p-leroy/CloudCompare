@@ -17,6 +17,7 @@
 #include <ccScalarField.h>
 #include <ccVolumeCalcTool.h>
 #include <ccSubMesh.h>
+#include <ccPointCloudInterpolator.h>
 
 //qCC_io
 #include <AsciiFilter.h>
@@ -86,6 +87,7 @@ constexpr char COMMAND_NOISE_FILTER_RADIUS[]			= "RADIUS";
 constexpr char COMMAND_NOISE_FILTER_REL[]				= "REL";
 constexpr char COMMAND_NOISE_FILTER_ABS[]				= "ABS";
 constexpr char COMMAND_NOISE_FILTER_RIP[]				= "RIP";
+constexpr char COMMAND_REMOVE_DUPLICATE_POINTS[]	    = "RDP";
 constexpr char COMMAND_SAMPLE_MESH[]					= "SAMPLE_MESH";
 constexpr char COMMAND_CROP[]							= "CROP";
 constexpr char COMMAND_CROP_OUTSIDE[]					= "OUTSIDE";
@@ -2150,15 +2152,20 @@ bool CommandFilterBySFValue::process(ccCommandLineInterface &cmd)
 		{
 			std::pair<ScalarType, ScalarType> range = GetSFRange(*sf, minVal, useValForMin, maxVal, useValForMax);
 			
-			ccPointCloud* fitleredCloud = cmd.clouds()[i].pc->filterPointsByScalarValue(range.first, range.second);
+			ccPointCloud*& pc = cmd.clouds()[i].pc;
+			ccPointCloud* fitleredCloud = pc->filterPointsByScalarValue(range.first, range.second);
 			if (fitleredCloud)
 			{
-				cmd.print(QObject::tr("\t\tCloud '%1' --> %2/%3 points remaining").arg(cmd.clouds()[i].pc->getName()).arg(fitleredCloud->size()).arg(cmd.clouds()[i].pc->size()));
+				cmd.print(QObject::tr("\t\tCloud '%1' --> %2/%3 points remaining").arg(pc->getName()).arg(fitleredCloud->size()).arg(pc->size()));
 				
-				//replace current cloud by this one
-				delete cmd.clouds()[i].pc;
-				cmd.clouds()[i].pc = fitleredCloud;
+				if (fitleredCloud != pc)
+				{
+					//replace current cloud by this one
+					delete pc;
+					pc = fitleredCloud;
+				}
 				cmd.clouds()[i].basename += QObject::tr("_FILTERED_[%1_%2]").arg(range.first).arg(range.second);
+
 				if (cmd.autoSaveMode())
 				{
 					QString errorStr = cmd.exportEntity(cmd.clouds()[i]);
@@ -2204,9 +2211,12 @@ bool CommandFilterBySFValue::process(ccCommandLineInterface &cmd)
 				cmd.print(QObject::tr("\t\tMesh '%1' --> %2/%3 triangles remaining").arg(mesh->getName()).arg(filteredMesh->size()).arg(mesh->size()));
 
 				//replace current mesh by this one
-				delete mesh;
-				mesh = nullptr;
-				cmd.meshes()[i].mesh = filteredMesh;
+				if (filteredMesh != mesh) //it's technically possible to have the same pointer if all triangles were filtered (with 'createNewMeshFromSelection')
+				{
+					delete mesh;
+					mesh = nullptr;
+					cmd.meshes()[i].mesh = filteredMesh;
+				}
 				cmd.meshes()[i].basename += QObject::tr("_FILTERED_[%1_%2]").arg(range.first).arg(range.second);
 				if (cmd.autoSaveMode())
 				{
@@ -3241,6 +3251,66 @@ bool CommandNoiseFilter::process(ccCommandLineInterface &cmd)
 	}
 
 	return true;
+}
+
+CommandRemoveDuplicatePoints::CommandRemoveDuplicatePoints()
+        : ccCommandLineInterface::Command(QObject::tr("Remove duplicate points"), COMMAND_REMOVE_DUPLICATE_POINTS)
+{}
+
+bool CommandRemoveDuplicatePoints::process(ccCommandLineInterface &cmd)
+{
+    cmd.print(QObject::tr("[REMOVE DUPLICATE POINTS]"));
+
+    double minDistanceBetweenPoints = std::numeric_limits<double>::epsilon();
+
+    //get optional argument
+    if (!cmd.arguments().empty())
+	{
+        bool paramOk = false;
+        double arg = cmd.arguments().front().toDouble(&paramOk);
+        if (paramOk)
+		{
+            if (arg < minDistanceBetweenPoints)
+			{
+                return cmd.error(QObject::tr("Invalid argument: '%1'").arg(arg));
+            }
+
+            minDistanceBetweenPoints = arg;
+            cmd.arguments().pop_front();
+        }
+    }
+
+    cmd.print(QObject::tr("Minimum distance between points: '%1'").arg(minDistanceBetweenPoints));
+
+    QScopedPointer<ccProgressDialog> progressDialog(nullptr);
+    if (!cmd.silentMode())
+    {
+        progressDialog.reset(new ccProgressDialog(false, cmd.widgetParent()));
+        progressDialog->setAutoClose(false);
+    }
+
+    for (CLCloudDesc& desc : cmd.clouds())
+    {
+        assert(desc.pc);
+		ccPointCloud* filteredCloud = desc.pc->removeDuplicatePoints(minDistanceBetweenPoints, progressDialog.data());
+		if (!filteredCloud)
+		{
+			return cmd.error(QObject::tr("Process failed (see log)"));
+		}
+
+		//replace current cloud by filtered one
+		delete desc.pc;
+		desc.pc = filteredCloud;
+		desc.basename += QObject::tr("_REMOVED_DUPLICATE_POINTS");
+    }
+
+    if (progressDialog)
+    {
+        progressDialog->close();
+        QCoreApplication::processEvents();
+    }
+
+    return true;
 }
 
 CommandExtractVertices::CommandExtractVertices()
@@ -4838,7 +4908,7 @@ CommandSFOperation::CommandSFOperation()
 	: ccCommandLineInterface::Command(QObject::tr("SF operation"), COMMAND_SF_OP)
 {}
 
-bool CommandSFOperation::process(ccCommandLineInterface &cmd)
+bool CommandSFOperation::process(ccCommandLineInterface& cmd)
 {
 	cmd.print(QObject::tr("[SF OPERATION]"));
 	
@@ -5012,26 +5082,49 @@ bool CommandSFOperationSF::process(ccCommandLineInterface &cmd)
         sf2.sfIndex = sfIndex2;
     }
 
-    //apply operation on clouds
-    for (size_t i = 0; i < cmd.clouds().size(); ++i)
-    {
-        ccPointCloud* cloud = cmd.clouds()[i].pc;
-        if (cloud && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
-        {
-            if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, true, &sf2))
-            {
-                return cmd.error(QObject::tr("Failed to apply operation on cloud '%1'").arg(cloud->getName()));
-            }
-            else if (cmd.autoSaveMode())
-            {
-                QString errorStr = cmd.exportEntity(cmd.clouds()[i], "SF_OP");
-                if (!errorStr.isEmpty())
-                {
-                    return cmd.error(errorStr);
-                }
-            }
-        }
-    }
+	//apply operation on clouds
+	for (size_t i = 0; i < cmd.clouds().size(); ++i)
+	{
+		ccPointCloud* cloud = cmd.clouds()[i].pc;
+		if (cloud && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
+		{
+			if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, true, &sf2))
+			{
+				return cmd.error(QObject::tr("Failed top apply operation on cloud '%1'").arg(cloud->getName()));
+			}
+			else if (cmd.autoSaveMode())
+			{
+				QString errorStr = cmd.exportEntity(cmd.clouds()[i], "SF_OP_SF");
+				if (!errorStr.isEmpty())
+				{
+					return cmd.error(errorStr);
+				}
+			}
+		}
+	}
+
+	//and meshes!
+	for (size_t j = 0; j < cmd.meshes().size(); ++j)
+	{
+		bool isLocked = false;
+		ccGenericMesh* mesh = cmd.meshes()[j].mesh;
+		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(mesh, &isLocked);
+		if (cloud && !isLocked && cloud->getNumberOfScalarFields() != 0 && sfIndex < static_cast<int>(cloud->getNumberOfScalarFields()))
+		{
+			if (!ccScalarFieldArithmeticsDlg::Apply(cloud, operation, sfIndex < 0 ? static_cast<int>(cloud->getNumberOfScalarFields()) - 1 : sfIndex, true, &sf2))
+			{
+				return cmd.error(QObject::tr("Failed top apply operation on mesh '%1'").arg(mesh->getName()));
+			}
+			else if (cmd.autoSaveMode())
+			{
+				QString errorStr = cmd.exportEntity(cmd.meshes()[j], "SF_OP_SF");
+				if (!errorStr.isEmpty())
+				{
+					return cmd.error(errorStr);
+				}
+			}
+		}
+	}
 
     return true;
 }
@@ -5048,7 +5141,7 @@ bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
         return cmd.error(QObject::tr("Missing parameter(s): SF index after '%1' (1 value expected)").arg(COMMAND_SF_INTERP));
 
     if (cmd.clouds().size() < 2)
-        return cmd.error(QObject::tr("Unexpected number of clouds for '%1' (2 clouds expected: first = source, second = dest)").arg(COMMAND_SF_INTERP));
+        return cmd.error(QObject::tr("Unexpected number of clouds for '%1' (at least 2 clouds expected: first = source, second = dest)").arg(COMMAND_SF_INTERP));
 
     //read sf index
     int sfIndex = -1;
@@ -5081,22 +5174,33 @@ bool CommandSFInterpolation::process(ccCommandLineInterface &cmd)
         }
     }
 
-    ccPointCloud *source = cmd.clouds()[0].pc;
-    ccPointCloud *dst = cmd.clouds()[1].pc;
+    ccPointCloud* source = cmd.clouds()[0].pc;
+    ccPointCloud* dest = cmd.clouds()[1].pc;
     if (destIsFirst) // swap source and destination
     {
         source = cmd.clouds()[1].pc;
-        dst = cmd.clouds()[0].pc;
+		dest = cmd.clouds()[0].pc;
     }
 
     if (!ok || sfIndex == -1)
+	{
         return cmd.error(QObject::tr("[CommandSFInterpolation::process] Invalid SF index! (after %1)").arg(COMMAND_SF_OP));
-    else
-    {
-        sfIndex = sfIndex < 0 ? source->getNumberOfScalarFields() - 1 : sfIndex;
-        cmd.print("SF to interpolate: index " + QString::number(sfIndex) + ", name " + source->getScalarField(sfIndex)->getName());
-        return ccEntityAction::interpolateSFs(source, dst, sfIndex, cmd.widgetParent());
-    }
+	}
+
+	sfIndex = sfIndex < 0 ? source->getNumberOfScalarFields() - 1 : sfIndex;
+    cmd.print("SF to interpolate: index " + QString::number(sfIndex) + ", name " + source->getScalarField(sfIndex)->getName());
+
+	//semi-persistent parameters
+	ccPointCloudInterpolator::Parameters params;
+	{
+		params.method = ccPointCloudInterpolator::Parameters::NEAREST_NEIGHBOR; // nearest neighbor
+		params.algo = ccPointCloudInterpolator::Parameters::NORMAL_DIST; // normal distribution
+		params.knn = 6;
+		params.radius = static_cast<float>(dest->getOwnBB().getDiagNormd() / 100);
+		params.sigma = params.radius / 2.5; // see ccInterpolationDlg::onRadiusUpdated
+	}
+
+	return ccEntityAction::interpolateSFs(source, dest, sfIndex, params, cmd.widgetParent());
 }
 
 CommandSFRename::CommandSFRename()
@@ -5217,11 +5321,8 @@ bool CommandSFAddConst::process(ccCommandLineInterface &cmd)
     QString sfName = cmd.arguments().takeFirst();
 
     //read constant value
-    ScalarType value = 0.;
     bool ok = true;
-    QString valueStr = cmd.arguments().takeFirst();
-    value = valueStr.toFloat(&ok);
-
+	ScalarType value = static_cast<ScalarType>(cmd.arguments().takeFirst().toDouble(&ok));
     if (!ok)
     {
         return cmd.error(QObject::tr("Invalid constant value! (after %1)").arg(COMMAND_SF_ADD_CONST));
@@ -5233,7 +5334,7 @@ bool CommandSFAddConst::process(ccCommandLineInterface &cmd)
         ccPointCloud* cloud = cloudDesc.pc;
         if (cloud)
         {
-            // check that there is no existing scalar field
+            // check that there is no existing scalar field with the same name
             int indexOfSFWithSameName = cloud->getScalarFieldIndexByName(qPrintable(sfName));
             if (indexOfSFWithSameName >= 0)
                 return cmd.error("A SF with the same name is already defined on cloud " + cloud->getName());
@@ -5242,14 +5343,16 @@ bool CommandSFAddConst::process(ccCommandLineInterface &cmd)
             int sfIndex = cloud->addScalarField(qPrintable(sfName));
             if (sfIndex == -1)
             {
-                assert(false);
                 return cmd.error("Internal error: addScalarField failed");
             }
             CCCoreLib::ScalarField* sf = cloud->getScalarField(sfIndex);
-            for (unsigned index = 0; index < cloud->size(); index++)
-                sf->setValue(index, value);
-
-            if (cmd.autoSaveMode())
+			assert(sf);
+			for (unsigned index = 0; index < cloud->size(); index++)
+			{
+				sf->setValue(index, value);
+			}
+            
+			if (cmd.autoSaveMode())
             {
                 QString errorStr = cmd.exportEntity(cloudDesc, "SF_ADDED");
                 if (!errorStr.isEmpty())

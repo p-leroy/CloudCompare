@@ -114,21 +114,26 @@ CC_FILE_ERROR STEPFilter::loadFile( const QString& fullFilename,
 		return CC_FERR_UNKNOWN_FILE;
 	}
 	
-	double linearDeflection = s_defaultLinearDeflection;
-	if (parameters.parentWidget)
+	if (parameters.sessionStart && parameters.parentWidget)
 	{
 		bool ok = false;
-		linearDeflection = QInputDialog::getDouble(parameters.parentWidget, "Linear deflection", "Linear deflection", s_defaultLinearDeflection, 1.0e-6, 1.0e-2, 6, &ok);
+		double linearDeflection = QInputDialog::getDouble(parameters.parentWidget, "Linear deflection", "Linear deflection", s_defaultLinearDeflection, 1.0e-6, 1.0e-2, 6, &ok);
 		if (!ok)
 		{
 			return CC_FERR_CANCELED_BY_USER;
 		}
+		SetDefaultLinearDeflection(linearDeflection);
 	}
 	
 	CC_FILE_ERROR error;
 	try
 	{
-		error = importStepFile(container, fullFilename, linearDeflection, parameters);
+		error = importStepFile(container, fullFilename, s_defaultLinearDeflection, parameters);
+	}
+	catch (Standard_Failure e)
+	{
+		ccLog::Warning(QString("OpenCascade error: ") + e.GetMessageString());
+		return CC_FERR_THIRD_PARTY_LIB_EXCEPTION;
 	}
 	catch (...)
 	{
@@ -151,10 +156,6 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 	{
 		return CC_FERR_THIRD_PARTY_LIB_FAILURE;
 	}
-
-	//bool isFailsonly = false;
-	//aReader.PrintCheckLoad(isFailsonly, IFSelect_PrintCount::IFSelect_ItemsByEntity);
-	//aReader.PrintCheckTransfer(isFailsonly, IFSelect_PrintCount::IFSelect_ItemsByEntity);
 
 	// Collecting entities inside the STEP file
 	int rootCount = aReader.NbRootsForTransfer();
@@ -212,10 +213,15 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 		++faceCount;
 
 		TopLoc_Location location;
-		Poly_Triangulation facing = BRep_Tool::Triangulation(face, location);
+		const auto& facing = BRep_Tool::Triangulation(face, location);
+		if (!facing)
+		{
+			delete mesh;
+			return CC_FERR_THIRD_PARTY_LIB_FAILURE;
+		}
 
-		vertCount += static_cast<unsigned>(facing.NbNodes());
-		triCount += static_cast<unsigned>(facing.NbTriangles());
+		vertCount += static_cast<unsigned>(facing->NbNodes());
+		triCount += static_cast<unsigned>(facing->NbTriangles());
 
 		if (triCount > mesh->capacity() && !mesh->reserve(triCount + 65536))
 		{
@@ -229,26 +235,27 @@ CC_FILE_ERROR STEPFilter::importStepFile(	ccHObject& container,
 		}
 
 		gp_Trsf nodeTransformation = location;
-		TColgp_Array1OfPnt nodes = facing.Nodes();
-		Poly_Array1OfTriangle tri = facing.Triangles();
+		const Poly_Array1OfTriangle& triangles = facing->Triangles();
+		TopAbs_Orientation orientation = face.Orientation();
 
-		for (int j = 1; j <= facing.NbTriangles(); j++)
+		for (int j = 1; j <= facing->NbTriangles(); j++)
 		{
-			Standard_Integer index1, index2, index3;
-			tri.Value(j).Get(index1, index2, index3);
-			gp_Pnt p1 = nodes.Value(index1).Transformed(nodeTransformation);
-			gp_Pnt p2 = nodes.Value(index2).Transformed(nodeTransformation);
-			gp_Pnt p3 = nodes.Value(index3).Transformed(nodeTransformation);
+			Standard_Integer index[3] = { 0 };
+			triangles.Value(j).Get(index[0], index[1], index[2]);
+			
+			unsigned vertIndexes[3] = { 0 };
+			for (unsigned k = 0; k < 3; ++k)
+			{
+				gp_Pnt pk = facing->Node(index[k]).Transformed(nodeTransformation);
 
-			unsigned vertIndexes[3];
-			vertIndexes[0] = vertices->size();
-			vertices->addPoint(CCVector3(p1.X(), p1.Y(), p1.Z()));
-			vertIndexes[1] = vertices->size();
-			vertices->addPoint(CCVector3(p2.X(), p2.Y(), p2.Z()));
-			vertIndexes[2] = vertices->size();
-			vertices->addPoint(CCVector3(p3.X(), p3.Y(), p3.Z()));
+				vertIndexes[k] = vertices->size();
 
-			mesh->addTriangle(vertIndexes[0], vertIndexes[1], vertIndexes[2]);
+				vertices->addPoint(CCVector3(pk.X(), pk.Y(), pk.Z()));
+			}
+			if (orientation == TopAbs_REVERSED)
+				mesh->addTriangle(vertIndexes[0], vertIndexes[2], vertIndexes[1]);
+			else
+				mesh->addTriangle(vertIndexes[0], vertIndexes[1], vertIndexes[2]);
 		}
 	}
 
