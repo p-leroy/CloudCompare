@@ -86,6 +86,8 @@ function( target_link_GDAL ) # ARGV0 = project name
                         ${GDAL_BIN_DIR}/aws-checksums.dll
                         # for pdal
                         ${GDAL_BIN_DIR}/laszip3.dll
+						${GDAL_BIN_DIR}/libdeflate.dll
+						${GDAL_BIN_DIR}/Lerc.dll
                         )
                 elseif (GDAL_VERSION EQUAL 3.3)
                     set ( GDAL_DEP_DLL_FILES ${GDAL_BIN_DIR}/xerces-c_3_2.dll
