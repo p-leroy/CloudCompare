@@ -72,6 +72,11 @@ namespace LasNames
 
 namespace LasDetails
 {
+	// The position of the overlap flag in the classification flags
+	// (valid for fmt >= 6)
+	constexpr unsigned OVERLAP_FLAG_BIT_POS  = 3;
+	constexpr unsigned OVERLAP_FLAG_BIT_MASK = 1 << OVERLAP_FLAG_BIT_POS;
+
 	/// Header part of a LAS Extended VLR
 	///
 	/// In a LAS file, EVLRs are stored after the points.
@@ -113,9 +118,7 @@ namespace LasDetails
 	inline bool HasGpsTime(unsigned pointFormatId)
 	{
 		return pointFormatId == 1
-		       || pointFormatId == 3
-		       || pointFormatId == 5
-		       || pointFormatId >= 6;
+		       || pointFormatId >= 3;
 	}
 
 	/// Returns whether the point format supports RGB
@@ -123,9 +126,10 @@ namespace LasDetails
 	{
 		return pointFormatId == 2
 		       || pointFormatId == 3
-		       || pointFormatId == 4
 		       || pointFormatId == 5
-		       || pointFormatId >= 7;
+		       || pointFormatId == 7
+		       || pointFormatId == 8
+		       || pointFormatId == 10;
 	}
 
 	/// Returns whether the point format supports Waveforms
@@ -133,7 +137,7 @@ namespace LasDetails
 	{
 		return pointFormatId == 4
 		       || pointFormatId == 5
-		       || pointFormatId >= 8;
+		       || pointFormatId >= 9;
 	}
 
 	/// Returns whether the point format support Near Infrared

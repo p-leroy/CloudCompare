@@ -93,7 +93,7 @@ void LasScalarFieldSaver::handleScalarFields(size_t pointIndex, laszip_point& po
 		case LasScalarField::ScanAngleRank:
 			if (field.sf)
 			{
-				point.extended_scan_angle = static_cast<laszip_I16>(value);
+				point.scan_angle_rank = static_cast<laszip_I8>(value);
 			}
 		case LasScalarField::UserData:
 			if (field.sf)
@@ -128,7 +128,7 @@ void LasScalarFieldSaver::handleScalarFields(size_t pointIndex, laszip_point& po
 		case LasScalarField::OverlapFlag:
 			if (field.sf)
 			{
-				point.extended_classification_flags |= (static_cast<laszip_U8>(value) > 0) ? (1u << 5) : 0;
+				point.extended_classification_flags |= (static_cast<laszip_U8>(value) > 0) ? LasDetails::OVERLAP_FLAG_BIT_MASK : 0;
 			}
 			break;
 		case LasScalarField::ExtendedClassification:

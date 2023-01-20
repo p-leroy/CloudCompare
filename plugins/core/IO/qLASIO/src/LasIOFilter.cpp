@@ -47,8 +47,6 @@
 #include <numeric>
 #include <utility>
 
-static constexpr const char LAS_METADATA_INFO_KEY[] = "LAS.savedInfo";
-
 static CCVector3d GetGlobalShift(FileIOFilter::LoadParameters& parameters,
                                  bool&                         preserveCoordinateShift,
                                  const CCVector3d&             lasOffset,
@@ -92,11 +90,12 @@ LasIOFilter::LasIOFilter()
     : FileIOFilter({"LAS IO Filter",
                     3.0f, // priority (same as the old PDAL-based plugin)
                     QStringList{"las", "laz"},
-                    "laz",
+                    "las",
                     QStringList{"LAS file (*.las *.laz)"},
                     QStringList{"LAS file (*.las *.laz)"},
                     Import | Export})
 {
+	m_openDialog.resetShouldSkipDialog();
 }
 
 CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
@@ -150,15 +149,6 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 		return CC_FERR_NOT_IMPLEMENTED;
 	}
 
-	auto pointCloud = std::make_unique<ccPointCloud>(QFileInfo(fileName).fileName());
-	if (!pointCloud->reserve(pointCount))
-	{
-		laszip_close_reader(laszipReader);
-		laszip_clean(laszipReader);
-		laszip_destroy(laszipReader);
-		return CC_FERR_NOT_ENOUGH_MEMORY;
-	}
-
 	std::vector<LasScalarField> availableScalarFields = LasScalarField::ForPointFormat(laszipHeader->point_data_format);
 
 	std::vector<LasExtraScalarField> availableEXtraScalarFields = LasExtraScalarField::ParseExtraScalarFields(*laszipHeader);
@@ -169,27 +159,36 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 	infoOfCurrentFile->extraScalarFields        = availableEXtraScalarFields;
 
 	bool fileContentIsDifferentFromPrevious = (m_infoOfLastOpened && (*m_infoOfLastOpened != *infoOfCurrentFile));
-	if (!m_openDialog || fileContentIsDifferentFromPrevious)
+
+	m_openDialog.setInfo(laszipHeader->version_minor, laszipHeader->point_data_format, pointCount);
+	m_openDialog.setAvailableScalarFields(availableScalarFields, availableEXtraScalarFields);
+	m_infoOfLastOpened = std::move(infoOfCurrentFile);
+
+	// The idea is that when Loading a file (as opposed to tiling one)
+	// we want to show the dialog when the file structure is different from the previous
+	// (not same scalar fields, etc) even if the user asked to skip dialogs
+	// as we can't choose for him.
+	//
+	// For tiling even if the file is different from the previous,
+	// since we copy points without loading into CC we don't have to force the
+	// dialog to be re-shown.
+	if (m_openDialog.shouldSkipDialog() && m_openDialog.action() == LasOpenDialog::Action::Load && fileContentIsDifferentFromPrevious)
 	{
-		m_openDialog.reset(new LasOpenDialog);
-		m_openDialog->setInfo(laszipHeader->version_minor, laszipHeader->point_data_format, pointCount);
-		m_openDialog->setAvailableScalarFields(availableScalarFields, availableEXtraScalarFields);
-		m_infoOfLastOpened = std::move(infoOfCurrentFile);
+		m_openDialog.resetShouldSkipDialog();
 	}
-	LasOpenDialog& dialog = *m_openDialog;
 
 	if (parameters.sessionStart)
 	{
 		// we do this AFTER restoring the previous context because it may still
 		// be good that the previous configuration is restored even though the
 		// user needs to confirm it
-		dialog.resetShouldSkipDialog();
+		m_openDialog.resetShouldSkipDialog();
 	}
 
-	if (parameters.alwaysDisplayLoadDialog && !dialog.shouldSkipDialog())
+	if (parameters.alwaysDisplayLoadDialog && !m_openDialog.shouldSkipDialog())
 	{
-		dialog.exec();
-		if (dialog.result() == QDialog::Rejected)
+		m_openDialog.exec();
+		if (m_openDialog.result() == QDialog::Rejected)
 		{
 			laszip_close_reader(laszipReader);
 			laszip_clean(laszipReader);
@@ -198,16 +197,25 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 		}
 	}
 
-	dialog.filterOutNotChecked(availableScalarFields, availableEXtraScalarFields);
+	if (m_openDialog.action() == LasOpenDialog::Action::Tile)
+	{
+		return TileLasReader(laszipReader, fileName, m_openDialog.tilingOptions());
+	}
 
-	CCVector3d lasOffset(laszipHeader->x_offset,
-	                     laszipHeader->y_offset,
-	                     0.0 /*laszipHeader->z_offset*/); // it's never a good idea to shift along Z
+	auto pointCloud = std::make_unique<ccPointCloud>(QFileInfo(fileName).fileName());
+	if (!pointCloud->reserve(pointCount))
+	{
+		laszip_close_reader(laszipReader);
+		laszip_clean(laszipReader);
+		laszip_destroy(laszipReader);
+		return CC_FERR_NOT_ENOUGH_MEMORY;
+	}
 
-	laszip_F64    laszipCoordinates[3];
-	laszip_point* laszipPoint;
+	m_openDialog.filterOutNotChecked(availableScalarFields, availableEXtraScalarFields);
+
+	laszip_F64    laszipCoordinates[3] = {0};
+	laszip_point* laszipPoint{nullptr};
 	CCVector3     currentPoint{};
-	CCVector3d    shift;
 	bool          preserveGlobalShift{true};
 
 	if (laszip_get_point_pointer(laszipReader, &laszipPoint))
@@ -224,9 +232,9 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 	                            availableEXtraScalarFields,
 	                            *pointCloud);
 
-	loader.setIgnoreFieldsWithDefaultValues(dialog.shouldIgnoreFieldsWithDefaultValues());
-	loader.setForce8bitRgbMode(dialog.shouldForce8bitColors());
-	loader.setManualTimeShift(dialog.timeShiftValue());
+	loader.setIgnoreFieldsWithDefaultValues(m_openDialog.shouldIgnoreFieldsWithDefaultValues());
+	loader.setForce8bitRgbMode(m_openDialog.shouldForce8bitColors());
+	loader.setManualTimeShift(m_openDialog.timeShiftValue());
 	std::unique_ptr<LasWaveformLoader> waveformLoader{nullptr};
 	if (LasDetails::HasWaveform(laszipHeader->point_data_format))
 	{
@@ -245,6 +253,7 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 	progressDialog.start();
 
 	CC_FILE_ERROR error{CC_FERR_NO_ERROR};
+	CCVector3d    globalShift(0, 0, 0);
 	for (unsigned i = 0; i < pointCount; ++i)
 	{
 		if (progressDialog.isCancelRequested())
@@ -268,30 +277,34 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 		if (i == 0)
 		{
 			CCVector3d firstPoint(laszipCoordinates);
-			shift = GetGlobalShift(parameters,
-			                       preserveGlobalShift,
-			                       lasOffset,
-			                       firstPoint);
+
+			CCVector3d lasOffset(laszipHeader->x_offset,
+			                     laszipHeader->y_offset,
+			                     0.0 /*laszipHeader->z_offset*/); // it's never a good idea to shift along Z
+
+			globalShift = GetGlobalShift(parameters,
+			                             preserveGlobalShift,
+			                             lasOffset,
+			                             firstPoint);
 
 			if (preserveGlobalShift)
 			{
-				pointCloud->setGlobalShift(shift);
+				pointCloud->setGlobalShift(globalShift);
 			}
 
-			if (shift.norm2() != 0.0)
+			if (globalShift.norm2() != 0.0)
 			{
 				ccLog::Warning("[LAS] Cloud has been re-centered! Translation: "
 				               "(%.2f ; %.2f ; %.2f)",
-				               shift.x,
-				               shift.y,
-				               shift.z);
+				               globalShift.x,
+				               globalShift.y,
+				               globalShift.z);
 			}
-			pointCloud->setGlobalShift(shift);
 		}
 
-		currentPoint.x = static_cast<PointCoordinateType>(laszipCoordinates[0] + shift.x);
-		currentPoint.y = static_cast<PointCoordinateType>(laszipCoordinates[1] + shift.y);
-		currentPoint.z = static_cast<PointCoordinateType>(laszipCoordinates[2] + shift.z);
+		currentPoint.x = static_cast<PointCoordinateType>(laszipCoordinates[0] + globalShift.x);
+		currentPoint.y = static_cast<PointCoordinateType>(laszipCoordinates[1] + globalShift.y);
+		currentPoint.z = static_cast<PointCoordinateType>(laszipCoordinates[2] + globalShift.z);
 
 		pointCloud->addPoint(currentPoint);
 
@@ -415,10 +428,11 @@ CC_FILE_ERROR LasIOFilter::loadFile(const QString&  fileName,
 	{
 		laszip_get_error(laszipHeader, &errorMsg);
 		ccLog::Warning("[LAS] laszip error: '%s'", errorMsg);
-		laszip_close_reader(laszipReader);
-		laszip_clean(laszipReader);
-		laszip_destroy(laszipReader);
 	}
+
+	laszip_close_reader(laszipReader);
+	laszip_clean(laszipReader);
+	laszip_destroy(laszipReader);
 
 	timer.elapsed();
 	qint64  elapsed = timer.elapsed();
@@ -469,44 +483,30 @@ CC_FILE_ERROR LasIOFilter::saveToFile(ccHObject* entity, const QString& filename
 
 	// Determine the best LAS offset (required for determing the best LAS scale)
 	CCVector3d lasOffset;
-	if (LasMetadata::LoadOffsetFrom(*pointCloud, lasOffset))
-	{
-		// Check that the saved offset still 'works'
-		if (ccGlobalShiftManager::NeedShift(bbMax - lasOffset))
-		{
-			ccLog::Warning("[LAS] The former LAS offset doesn't seem to be optimal");
-			CCVector3d globaShift = pointCloud->getGlobalShift(); //'global shift' is the opposite of LAS offset ;)
+	bool       hasLASOffset       = LasMetadata::LoadOffsetFrom(*pointCloud, lasOffset);
+	bool       lasOffsetCanBeUsed = hasLASOffset && !ccGlobalShiftManager::NeedShift(bbMax - lasOffset);
 
-			if (ccGlobalShiftManager::NeedShift(bbMax + globaShift))
-			{
-				ccLog::Warning("[LAS] Using the minimum bounding-box corner (X, Y) instead");
-				lasOffset.x = bbMin.x;
-				lasOffset.y = bbMin.y;
-				lasOffset.z = 0;
-			}
-			else
-			{
-				ccLog::Warning("[LAS] Using the previous Global Shift instead");
-				lasOffset = -globaShift;
-			}
-		}
-		else
-		{
-			// keep the previous offset
-		}
-	}
-	else // This point cloud does not come from a LAS file, so we don't have saved offset for it.
+	CCVector3d globaShift           = pointCloud->getGlobalShift();
+	bool       hasGlobalShift       = pointCloud->isShifted();
+	bool       globalShiftCanBeUsed = hasGlobalShift && !ccGlobalShiftManager::NeedShift(bbMax + globaShift); //'global shift' is the opposite of LAS offset ;)
+
+	bool minBBCornerCanBeUsed = !ccGlobalShiftManager::NeedShift(bbMax - bbMin);
+
+	if (!lasOffsetCanBeUsed)
 	{
-		ccLog::Print("[LAS] No LAS offset defined");
-		// Try to use the global shift if no LAS offset is defined
-		if (pointCloud->isShifted())
+		if (hasLASOffset)
 		{
-			ccLog::Print("[LAS] Using the Global Shift as LAS offset");
-			lasOffset = -pointCloud->getGlobalShift();
+			ccLog::Warning(QString("[LAS] The former LAS offset (%1 ; %2 ; %3) doesn't seem to be optimal").arg(lasOffset.x).arg(lasOffset.y).arg(lasOffset.z));
 		}
-		else if (ccGlobalShiftManager::NeedShift(bbMax))
+
+		if (hasGlobalShift && (globalShiftCanBeUsed || !minBBCornerCanBeUsed))
 		{
-			ccLog::Print("[LAS] Using the minimum bounding-box corner (X, Y) as LAS offset");
+			ccLog::Warning("[LAS] Will use the entity Global Shift as LAS offset");
+			lasOffset = -globaShift; //'global shift' is the opposite of LAS offset ;)
+		}
+		else if (minBBCornerCanBeUsed)
+		{
+			ccLog::Warning("[LAS] Will use the minimum bounding-box corner (X, Y) as LAS offset");
 			lasOffset.x = bbMin.x;
 			lasOffset.y = bbMin.y;
 			lasOffset.z = 0;
@@ -573,6 +573,7 @@ CC_FILE_ERROR LasIOFilter::saveToFile(ccHObject* entity, const QString& filename
 	{
 		LasExtraScalarField::MatchExtraBytesToScalarFields(vlr.extraScalarFields, *pointCloud);
 	}
+
 	saveDialog.setExtraScalarFields(vlr.extraScalarFields);
 
 	if (parameters.alwaysDisplaySaveDialog)
@@ -586,15 +587,59 @@ CC_FILE_ERROR LasIOFilter::saveToFile(ccHObject* entity, const QString& filename
 
 	LasSaver::Parameters params;
 	{
-		params.standardFields = saveDialog.fieldsToSave();
-		params.extraFields    = saveDialog.extraFieldsToSave();
-		params.shouldSaveRGB  = saveDialog.shouldSaveRGB();
+		params.standardFields     = saveDialog.fieldsToSave();
+		params.extraFields        = saveDialog.extraFieldsToSave();
+		params.shouldSaveRGB      = saveDialog.shouldSaveRGB();
+		params.shouldSaveWaveform = saveDialog.shouldSaveWaveform();
 
 		saveDialog.selectedVersion(params.versionMajor, params.versionMinor);
 		params.pointFormat = saveDialog.selectedPointFormat();
 
 		params.lasScale  = saveDialog.chosenScale();
 		params.lasOffset = lasOffset;
+	}
+
+	// In case of command line call, add automatically all remaining scalar fiels as extra scalar fields
+	if (!parameters.alwaysDisplaySaveDialog)
+	{
+		uint sfCount = pointCloud->getNumberOfScalarFields();
+		for (uint index = 0; index < sfCount; index++)
+		{
+			ccScalarField* sf     = static_cast<ccScalarField*>(pointCloud->getScalarField(index));
+			const char*    sfName = sf->getName();
+			bool           found  = false;
+			for (auto& el : params.standardFields)
+				if (strcmp(sfName, el.name()) == 0)
+				{
+					found = true;
+					break;
+				}
+			if (!found)
+				for (auto& el : params.extraFields)
+					if (strcmp(sfName, el.scalarFields[0]->getName()) == 0)
+					{
+						found = true;
+						break;
+					}
+			if (!found)
+			{
+				ccLog::Print("[LAS] scalar field " + QString(sfName) + " will be saved automatically in the extra fields of the output file");
+				LasExtraScalarField field;
+				const std::string   stdName = sfName;
+				strncpy(field.name, stdName.c_str(), LasExtraScalarField::MAX_NAME_SIZE);
+
+				if (stdName.size() > LasExtraScalarField::MAX_NAME_SIZE)
+				{
+					ccLog::Warning("[LAS] Extra Scalar field name '%s' is too long and will be truncated",
+					               stdName.c_str());
+				}
+
+				field.type            = LasExtraScalarField::DataType::f32;
+				field.scalarFields[0] = sf;
+
+				params.extraFields.push_back(field);
+			}
+		}
 	}
 
 	LasSaver      saver(*pointCloud, params);

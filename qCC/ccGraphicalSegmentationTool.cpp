@@ -55,6 +55,11 @@
 //System
 #include <assert.h>
 
+#if defined(_OPENMP)
+//OpenMP
+#include <omp.h>
+#endif
+
 ccGraphicalSegmentationTool::ccGraphicalSegmentationTool(QWidget* parent)
 	: ccOverlayDialog(parent)
 	, Ui::GraphicalSegmentationDlg()
@@ -898,13 +903,14 @@ void ccGraphicalSegmentationTool::segment(bool keepPointsInside, ScalarType clas
 
 		// we project each point and we check if it falls inside the segmentation polyline
 #if defined(_OPENMP)
+		omp_set_num_threads(std::max(1, omp_get_max_threads() - 1)); // always leave one thread/core to let the application breath
 		#pragma omp parallel for
 #endif
 		for (int i = 0; i < cloudSize; ++i)
 		{
 			if (visibilityArray[i] == CCCoreLib::POINT_VISIBLE)
 			{
-				const CCVector3 *P3D = cloud->getPoint(i);
+				const CCVector3* P3D = cloud->getPoint(i);
 
 				CCVector3d Q2D;
 				bool pointInFrustum = false;
@@ -1107,7 +1113,7 @@ void ccGraphicalSegmentationTool::doActionUseExistingPolyline()
 				return;
 			assert(index >= 0 && index < static_cast<int>(polylines.size()));
 			assert(polylines[index]->isA(CC_TYPES::POLY_LINE));
-			ccPolyline *poly = static_cast<ccPolyline *>(polylines[index]);
+			ccPolyline* poly = static_cast<ccPolyline*>(polylines[index]);
 
 			//look for an associated viewport
 			ccHObject::Container viewports;
@@ -1142,7 +1148,7 @@ void ccGraphicalSegmentationTool::doActionUseExistingPolyline()
 
 			//duplicate polyline 'a minima' (only points and indexes + closed state)
 			if (	m_polyVertices->reserve(vertices->size() + (poly->isClosed() ? 0 : 1))
-					&&	m_segmentationPoly->reserve(poly->size() + (poly->isClosed() ? 0 : 1)))
+				&&	m_segmentationPoly->reserve(poly->size() + (poly->isClosed() ? 0 : 1)))
 			{
 				for (unsigned i = 0; i < vertices->size(); ++i)
 				{

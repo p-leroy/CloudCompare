@@ -154,8 +154,7 @@ namespace LasDetails
 		return std::accumulate(vlrs,
 		                       vlrs + numVlrs,
 		                       0,
-		                       [=](laszip_U32 size, const laszip_vlr_struct& vlr)
-		                       { return vlr.record_length_after_header + header_size + size; });
+		                       [=](laszip_U32 size, const laszip_vlr_struct& vlr) { return vlr.record_length_after_header + header_size + size; });
 	}
 
 	const std::vector<unsigned>* PointFormatsAvailableForVersion(QString version)
@@ -262,18 +261,16 @@ namespace LasDetails
 		}
 		else
 		{
-			bool hasGpsTime  = cloud.getScalarFieldIndexByName(LasNames::GpsTime) != -1;
-			int  pointFormat = 0;
+			bool hasGpsTime   = cloud.getScalarFieldIndexByName(LasNames::GpsTime) != -1;
+			int  pointFormat  = 0;
+			int  minorVersion = 2;
 			if (hasWaveform)
 			{
+				minorVersion = 3;
 				if (hasGpsTime)
-				{
 					pointFormat = 4;
-				}
 				else if (hasRGB)
-				{
 					pointFormat = 5;
-				}
 			}
 			else
 			{
@@ -286,7 +283,7 @@ namespace LasDetails
 					pointFormat += 2;
 				}
 			}
-			return {pointFormat, 2};
+			return {pointFormat, minorVersion};
 		}
 	}
 

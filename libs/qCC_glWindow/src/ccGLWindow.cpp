@@ -320,7 +320,6 @@ struct ccGLWindow::PickingParameters
 	bool pickInLocalDB;
 };
 
-
 ccGLWindow::ccGLWindow(	QSurfaceFormat* format/*=nullptr*/,
 						ccGLWindowParent* parent/*=nullptr*/,
 						bool silentInitialization/*=false*/)
@@ -398,6 +397,7 @@ ccGLWindow::ccGLWindow(	QSurfaceFormat* format/*=nullptr*/,
 	, m_lockedRotationAxis(0, 0, 1)
 	, m_texturePoolLastIndex(0)
 	, m_clippingPlanesEnabled(true)
+	, m_defaultCursorShape(Qt::ArrowCursor)
 {
 	//start internal timer
 	m_timer.start();
@@ -3760,7 +3760,7 @@ void ccGLWindow::getContext(CC_DRAW_CONTEXT& CONTEXT)
 //	return QString();
 //}
 
-void ccGLWindow::setPickingMode(PICKING_MODE mode/*=DEFAULT_PICKING*/)
+void ccGLWindow::setPickingMode(PICKING_MODE mode/*=DEFAULT_PICKING*/, Qt::CursorShape defaultCursorShape/*=Qt::ArrowCursor*/)
 {
 	//is the picking mode locked?
 	if (m_pickingModeLocked)
@@ -3776,19 +3776,24 @@ void ccGLWindow::setPickingMode(PICKING_MODE mode/*=DEFAULT_PICKING*/)
 		mode = ENTITY_PICKING;
 	case NO_PICKING:
 	case ENTITY_PICKING:
-		setCursor(QCursor(Qt::ArrowCursor));
+		m_defaultCursorShape = defaultCursorShape;
 		break;
 	case POINT_OR_TRIANGLE_PICKING:
 	case POINT_OR_TRIANGLE_OR_LABEL_PICKING:
 	case TRIANGLE_PICKING:
 	case POINT_PICKING:
-		setCursor(QCursor(Qt::PointingHandCursor));
-		break;
+	{
+		const ccGui::ParamStruct& displayParams = getDisplayParameters();
+		m_defaultCursorShape = displayParams.pickingCursorShape;
+	}
+	break;
+	
 	default:
 		break;
 	}
 
 	m_pickingMode = mode;
+	setCursor(QCursor(m_defaultCursorShape));
 
 	//ccLog::Warning(QString("[%1] Picking mode set to: ").arg(m_uniqueID) + ToString(m_pickingMode));
 }
@@ -3937,7 +3942,7 @@ void ccGLWindow::mousePressEvent(QMouseEvent *event)
 			||	((QApplication::keyboardModifiers() & Qt::ControlModifier) && (m_interactionFlags & INTERACT_CTRL_PAN))
 			)
 		{
-			QApplication::setOverrideCursor(QCursor(Qt::SizeAllCursor));
+			setCursor(QCursor(Qt::SizeAllCursor));
 		}
 
 		if (m_interactionFlags & INTERACT_SIG_RB_CLICKED)
@@ -3952,7 +3957,7 @@ void ccGLWindow::mousePressEvent(QMouseEvent *event)
 		//left click = rotation
 		if (m_interactionFlags & INTERACT_ROTATE)
 		{
-			QApplication::setOverrideCursor(QCursor(Qt::PointingHandCursor));
+			setCursor(QCursor(Qt::ClosedHandCursor));
 		}
 
 		if (m_interactionFlags & INTERACT_SIG_LB_CLICKED)
@@ -4377,7 +4382,6 @@ void ccGLWindow::mouseMoveEvent(QMouseEvent *event)
 					rotateBaseViewMat(rotMat);
 
 					showPivotSymbol(true);
-					QApplication::changeOverrideCursor(QCursor(Qt::ClosedHandCursor));
 
 					//feedback for 'echo' mode
 					Q_EMIT viewMatRotated(rotMat);
@@ -4502,7 +4506,7 @@ void ccGLWindow::mouseReleaseEvent(QMouseEvent *event)
 	//reset to default state
 	m_mouseButtonPressed = false;
 	m_mouseMoved = false;
-	QApplication::restoreOverrideCursor();
+	setCursor(m_defaultCursorShape);
 
 	if (m_interactionFlags & INTERACT_SIG_BUTTON_RELEASED)
 	{
@@ -4839,8 +4843,6 @@ void ccGLWindow::processPickingResult(	const PickingParameters& params,
 	{
 		if (selectedIDs)
 			Q_EMIT entitiesSelectionChanged(*selectedIDs);
-		else
-			assert(false);
 	}
 	//3D point or triangle or label picking
 	else if (	params.mode == POINT_PICKING
@@ -5017,8 +5019,8 @@ void ccGLWindow::startOpenGLPicking(const PickingParameters& params)
 	try
 	{
 		// crop the picking rectangle so that's it strictly inside the displayed window
-		int xTop = params.centerX - params.pickWidth / 2;
 		int xCenter = params.centerX;
+		int xTop = xCenter - params.pickWidth / 2;
 		int xWidth = params.pickWidth;
 		if (xTop < 0)
 		{
@@ -5035,8 +5037,8 @@ void ccGLWindow::startOpenGLPicking(const PickingParameters& params)
 			return;
 		}
 
-		int yTop = glHeight() - 1 - params.centerY - params.pickHeight / 2;
 		int yCenter = glHeight() - 1 - params.centerY;
+		int yTop = yCenter - params.pickHeight / 2;
 		int yWidth = params.pickHeight;
 		if (yTop < 0)
 		{
@@ -5068,6 +5070,7 @@ void ccGLWindow::startOpenGLPicking(const PickingParameters& params)
 
 		//process hits
 		int minSquareDistToCenter = -1;
+		ccColor::Rgba centerPixelColor(0, 0, 0, 0);
 		ccColor::Rgba previousPixelColor(0, 0, 0, 0);
 
 		ccColor::Rgba* _pickedPixels = pickedPixels.data();
@@ -5100,15 +5103,20 @@ void ccGLWindow::startOpenGLPicking(const PickingParameters& params)
 						int dX = i - xCenter;
 						int dY = j - yCenter;
 						int squareDistToCenter = dX * dX + dY * dY;
-						if (!pickedEntity || minSquareDistToCenter < squareDistToCenter)
+						if (minSquareDistToCenter < 0 || squareDistToCenter < minSquareDistToCenter )
 						{
 							minSquareDistToCenter = squareDistToCenter;
-							pickedEntity = CONTEXT.entityPicking.objectFromColor(*_pickedPixels);
-							assert(pickedEntity);
+							centerPixelColor = *_pickedPixels;
 						}
 					}
 				}
 			}
+		}
+
+		if (params.mode != ENTITY_RECT_PICKING && minSquareDistToCenter >= 0)
+		{
+			pickedEntity = CONTEXT.entityPicking.objectFromColor(centerPixelColor);
+			assert(pickedEntity);
 		}
 
 		//testImage.save("C:\\Temp\\test.png");

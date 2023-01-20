@@ -49,18 +49,18 @@ static const char CANUPO_PER_LEVEL_ADDITIONAL_SF_NAME[] = "CANUPO.(x-y)";
 static const char s_canupoMSCMetaData[] = "CanupoMSCData";
 
 //Tries to refine the classification (returns the new confidence if successful)
-float RefinePointClassif(	const Classifier& classifier,
-							const float confidence,
-							float& distToBoundary,
-							ccPointCloud* cloud,
-							ccOctree* octree,
-							unsigned char octreeLevel,
-							CCCoreLib::GenericIndexedCloudPersist* corePoints,
-							CCCoreLib::DgmOctree* corePointsOctree,
-							unsigned char coreOctreeLevel,
-							unsigned coreIndex,
-							PointCoordinateType largestRadius,
-							const std::vector<int>& corePointClasses
+static float RefinePointClassif(const Classifier& classifier,
+								const float confidence,
+								float& distToBoundary,
+								ccPointCloud* cloud,
+								ccOctree* octree,
+								unsigned char octreeLevel,
+								CCCoreLib::GenericIndexedCloudPersist* corePoints,
+								CCCoreLib::DgmOctree* corePointsOctree,
+								unsigned char coreOctreeLevel,
+								unsigned coreIndex,
+								PointCoordinateType largestRadius,
+								const std::vector<int>& corePointClasses
 	)
 {
 	CCCoreLib::ScalarField* sf = cloud->getCurrentDisplayedScalarField();
@@ -96,11 +96,11 @@ float RefinePointClassif(	const Classifier& classifier,
 			{
 				double maxSquareDist = 0;
 				CCCoreLib::ReferenceCloud Yk(corePoints);
-				if (corePointsOctree->findPointNeighbourhood(cloud->getPoint(currentPointIndex),
-					&Yk,
-					1,
-					coreOctreeLevel,
-					maxSquareDist) == 1)
+				if (corePointsOctree->findPointNeighbourhood(cloud->getPoint(	currentPointIndex),
+																				&Yk,
+																				1,
+																				coreOctreeLevel,
+																				maxSquareDist) == 1)
 				{
 					nearestCoreIndex = Yk.getPointGlobalIndex(0);
 				}
@@ -438,13 +438,16 @@ bool qCanupoProcess::Classify(	QString classifierFilename,
 						if (!coreRoughnessSFs[s]->resizeSafe(corePoints->size(), CCCoreLib::NAN_VALUE))
 						{
 							if (app)
-								app->dispToConsole("Not enough memory to store per-level roughness!",ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+								app->dispToConsole("Not enough memory to store per-level roughness!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 							generateRoughnessSF = false;
 							break;
 						}
 					}
 				}
 #endif
+				if (app)
+					app->dispToConsole(QString("[Canupo] Will use %1 threads").arg(params.maxThreadCount == 0 ? "the max number of" : QString::number(params.maxThreadCount)), ccMainAppInterface::STD_CONSOLE_MESSAGE);
+
 				//computes the 'descriptors'
 				bool invalidDescriptors = false;
 				QString errorStr;
@@ -760,7 +763,7 @@ bool qCanupoProcess::Classify(	QString classifierFilename,
 						else
 						{
 							if (app)
-								app->dispToConsole("Not enough memory!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
+								app->dispToConsole("Not enough memory (class label can't be created)!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
 							break;
 						}
 					}
@@ -782,7 +785,7 @@ bool qCanupoProcess::Classify(	QString classifierFilename,
 						}
 					}
 
-					//optional: create 1 sf per scale with 'x-y'
+					//optional: create 1 SF per scale with 'x-y'
 					std::vector<ccScalarField*> scaleSFs;
 					bool generateAdditionalSF = params.generateAdditionalSF;
 					if (generateAdditionalSF && corePointsDescriptors.dimPerScale() != 2)
@@ -814,7 +817,6 @@ bool qCanupoProcess::Classify(	QString classifierFilename,
 						for (size_t s = 0; s < scaleCount; ++s)
 						{
 							QString sfName = QString(CANUPO_PER_LEVEL_ADDITIONAL_SF_NAME) + QString(" @ scale %1").arg(scales[s]);
-
 
 							//SF with same name (if any) should have already been removed!
 							assert(cloud->getScalarFieldIndexByName(qPrintable(sfName)) < 0);
@@ -1008,7 +1010,9 @@ bool qCanupoProcess::Classify(	QString classifierFilename,
 						cloud->setCurrentDisplayedScalarField(classLabelSFIdx);
 
 						if (confidenceSF)
+						{
 							confidenceSF->computeMinAndMax();
+						}
 
 						if (generateAdditionalSF)
 						{
@@ -1067,7 +1071,7 @@ bool qCanupoProcess::Classify(	QString classifierFilename,
 						else
 						{
 							if (app)
-								app->dispToConsole("[qCanupo] Failed to save MSC meta-dataa (not enough memory?)", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
+								app->dispToConsole("[qCanupo] Failed to save MSC meta-data (not enough memory?)", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
 						}
 					}
 				}

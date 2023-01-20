@@ -48,18 +48,38 @@ v2.13.alpha (???) - (??/??/????)
 
 	- Display > Restore window geometry on startup
 		- Option to control whether the previous window geometry (size and position) should be restored or not
-		
+	
+	- Display > Display settings > Picking cursor ('Cross' or 'Pointing hand')
+		- Default mouse cursor for picking points will now be the cross
+		- This can be changed in the 'Display options' dialog
+
+	- Edit > Normals > Shift points along normals
+		- to shift the points of a given quantity along their associated normal
 
 - Improvements:
+
+	- multi-threading
+		- By default, CC will now use one less thread/core than the max number, so as to let the application breath
+		- (warning: some dialogs may keep the previous value as it's stored in the system registry)
+
 	- Segmentation
 		- CC will now preserve some children entities (labels, sensors, etc.) when segmenting clouds or meshes:
 			with graphical segmentation, cross section tool (for clouds only), subsampling, filter by SF value, etc.
 
 	- Rasterize:
-		- new option to compute the median height
-		- new option to compute the median scalar field value(s)
-		- new option to export the median height as a scalar field (attached to the exported cloud)
-		- new command line sub-option -MED (to be used with -PROJ or -SF_PROJ)
+		- various improvements and glitch fixes
+		- if a scalar field projection option is chosen, all SF and colors will be projected at once so that all layers are valid right away
+			(no need to 'update' the grid several times)
+		- new projection options (inside each cell)
+			- Median
+			- Inverse variance: the height or scalar value of each cell is equal to a weighted average of the points falling inside the cell.
+								The weights are equal to the inverse variance (= 1/std_dev^2). Standard deviation values (std_dev) are
+								obtained from an already existing scalar field, which must be selected by the user)
+		- statistics can now be computed on the altitudes and/or all scalar fields
+		- new statistics: median, percentile (with custom percentage) and nuùber of unique values inside a cell
+		- new command line sub-options (to be used with -PROJ or -SF_PROJ)
+			- -MED 
+			- -INV_VAR (+ std. dev. SF index or name)
 
 	- Edit > Color > Set unique & Edit > Color > Colorize
 		- CC will now remember the last input color
@@ -83,9 +103,21 @@ v2.13.alpha (???) - (??/??/????)
 		- The shift value is now displayed as a property of the currently selected scalar field
 		- When using the standard LAS I/O filter (PDAL), the user can now set a custom shift for GPS time values
 
+	- E57 files:
+		- Images are now saved internally as JPEG files (faster and smaller)
+		- Sensors associated to images should now be properly shifted if the associated cloud is shifted,
+			or if they are not associated to a cloud
+
+	- SF Arithmetic tool:
+		- New operation: 'SET' (to set a constant value)
+			- this operation is also accessible via the command line (with the -SF_OP command)
+		- New operation: 'ABS' (to compute the absolue value)
+			- this operation is also accessible via the command line (with the -SF_ARITHMETIC command)
+
 	- Command line:
 		- It is now possible to pass a SF name after -SET_ACTIVE_SF  instead of the field index
 			(use simple quotes if the scalar field name has spaces in it)
+		- The -SET_ACTIVE_SF command can now be applied to the loaded meshes
 		- The -SF_COLOR_SCALE option now works on meshes (vertices) as well
 		- The -FILTER_SF option now works on meshes as well
 		- New sub-option for the -C2C_DIST and -C2M_DIST commands: -SPLIT_XY_Z to split the distance between the z component and the xy plane component
@@ -115,6 +147,16 @@ v2.13.alpha (???) - (??/??/????)
 		- the triangles of meshes tesselated from STEP files should now all be properly oriented
 		- the linear deflection is asked only once when multiple files are loaded at the same time
 
+	- Camera sensor edition dialog
+		- the user can now control whether the input 'center' is in the world C.S. or in the camera C.S.
+			(or more exactly, it's the translation part of a 4x4 transformation matrix - which was the case by default in the previous versions)
+
+	- GBL sensor edition dialog
+		- CC will now remember the last parameters used to create a sensor (not to edit one though)
+
+	- CSF plugin
+		- the CSF filter can now be applied on multiple clouds at once (both in the GUI and the command line version)
+
 - Bug fix:
 	- PCD: when transforming a cloud with a sensor (either manually, or via a registration tool, or via Edit > Apply Tranformation) and then exporting
 		the cloud to a PCD file, both the points AND the sensor were transformed, resulting in the PCD file coordinates to be in the wrong coordinate
@@ -128,7 +170,18 @@ v2.13.alpha (???) - (??/??/????)
 		(forcing the user to exit the tool with ESC)
 	- The 'Point List Picking' tool was not transferring the Global Shift information when exporting the list of points as a polyline
 	- Rasterize tool: interpolated scalar fields were not properly exported in geotiff files (the interpolated part was missing)
-	- the Registration tools (ICP and Point-pair based alignment) transformation filter mechanism would not let filter both translations and rotation at the same time
+	- The Registration tools (ICP and Point-pair based alignment) transformation filter mechanism would not let filter both translations and rotation at the same time
+	- With a lot of NaN values in a scalar field, the Edit > Scalar field > Compute Stat Params tool could show wrong abscissa values below the histogram and curve.
+		(note that the average, standard deviation, RMS and Chi2 distance values displayed either above the histogram or in the Console were correct)
+	- When loading E57s file with large coordinates, and applying a Global Shift, the associated image sensors were not translated of the same Global Shift
+	- When applying the viewport of a calibrated image (= image with an associated sensor), the camera f.o.v. was applied instead of a smarter value,
+		taking the 3D view dimensions into account (resulting in a bad match between the 3D scene and the overlaid image)
+	- The PCL plugin's 'MLS' tool dialog was broken
+	- The CSF plugin command line could truncate the exported clouds filename if floating point values were present in this filename
+	- The colors of the 'Compute Stat. Params' histogram could be wrong if the associated color scale was 'absolute'
+	- M3C2 plugin:
+		- the display was not always updated when M3C2 computation was done
+		- some parameters were not properly restored when re-opening the plugin dialog (e.g. the 'normal source')
 
 v2.12.4 (Kyiv) - (14/07/2022)
 ----------------------
