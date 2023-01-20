@@ -92,9 +92,9 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 
 	requestedNormMode = -1;
 
-	int maxThreadCount = QThread::idealThreadCount();
-	maxThreadCountSpinBox->setRange(1, maxThreadCount);
-	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(maxThreadCount));
+	static int MaxThreadCount = QThread::idealThreadCount();
+	maxThreadCountSpinBox->setRange(1, MaxThreadCount);
+	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(MaxThreadCount));
 
 	connect(showCloud1CheckBox,		&QAbstractButton::toggled,	this, &qM3C2Dialog::setCloud1Visibility);
 	connect(showCloud2CheckBox,		&QAbstractButton::toggled,	this, &qM3C2Dialog::setCloud2Visibility);
@@ -112,7 +112,6 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 	connect(cpSubsampleRadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
 	connect(cpUseOtherCloudRadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
 
-	loadParamsFromPersistentSettings();
 
 	setClouds(cloud1, cloud2);
 
@@ -139,6 +138,8 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 		//command line mode: we need to update the combo-box
 		updateNormalComboBox();
 	}
+
+	loadParamsFromPersistentSettings(); // must be done after updating the 'normal source' combox-box!
 }
 
 bool PopulateSFCombo(QComboBox* combo, const ccPointCloud& cloud, int defaultFieldIndex = -1, QString defaultField = QString())
@@ -542,7 +543,7 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	bool exportStdDevInfo = settings.value("ExportStdDevInfo", exportStdDevInfoCheckBox->isChecked()).toBool();
 	bool exportDensityAtProjScale = settings.value("ExportDensityAtProjScale", exportDensityAtProjScaleCheckBox->isChecked()).toBool();
 
-	int maxThreadCount = settings.value("MaxThreadCount", maxThreadCountSpinBox->maximum()).toInt();
+	int maxThreadCount = settings.value("MaxThreadCount", std::max(1, QThread::idealThreadCount() - 1)).toInt();
 
 	bool usePrecisionMaps = settings.value("UsePrecisionMaps", precisionMapsGroupBox->isChecked()).toBool();
 	double pm1Scale = settings.value("PM1Scale", pm1ScaleDoubleSpinBox->value()).toDouble();
