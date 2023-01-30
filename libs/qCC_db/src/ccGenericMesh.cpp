@@ -691,10 +691,19 @@ void ccGenericMesh::drawMeOnly(CC_DRAW_CONTEXT& context)
 	}
 }
 
-bool ccGenericMesh::toFile_MeOnly(QFile& out) const
+bool ccGenericMesh::toFile_MeOnly(QFile& out, short dataVersion) const
 {
-	if (!ccHObject::toFile_MeOnly(out))
+	assert(out.isOpen() && (out.openMode() & QIODevice::WriteOnly));
+	if (dataVersion < 29)
+	{
+		assert(false);
 		return false;
+	}
+
+	if (!ccHObject::toFile_MeOnly(out, dataVersion))
+	{
+		return false;
+	}
 
 	//'show wired' state (dataVersion>=20)
 	if (out.write(reinterpret_cast<const char*>(&m_showWired), sizeof(bool)) < 0)
@@ -740,6 +749,11 @@ bool ccGenericMesh::fromFile_MeOnly(QFile& in, short dataVersion, int flags, Loa
 	}
 
 	return true;
+}
+
+short ccGenericMesh::minimumFileVersion_MeOnly() const
+{
+	return std::max(static_cast<short>(29), ccHObject::minimumFileVersion_MeOnly());
 }
 
 ccPointCloud* ccGenericMesh::samplePoints(	bool densityBased,
@@ -1068,8 +1082,8 @@ bool ccGenericMesh::trianglePicking(const CCVector2d& clickPos,
 #endif
 
 #if defined(_OPENMP) && !defined(_DEBUG) && !defined(TEST_PICKING)
-	omp_set_num_threads(std::max(1, omp_get_max_threads() - 1)); // always leave one thread/core to let the application breath
-#pragma omp parallel for
+	omp_set_num_threads(omp_get_max_threads());
+	#pragma omp parallel for
 #endif
 	for (int i = 0; i < static_cast<int>(size()); ++i)
 	{
