@@ -52,6 +52,13 @@
 #include <unistd.h>
 #endif
 
+//! Last saved file version
+static short s_lastSavedFileBinVersion = 0;
+
+short BinFilter::GetLastSavedFileVersion()
+{
+	return s_lastSavedFileBinVersion;
+}
 
 BinFilter::BinFilter()
 	: FileIOFilter( {
@@ -151,16 +158,18 @@ static ccHObject* s_container = nullptr;
 
 CC_FILE_ERROR _LoadFileV2()
 {
-	return (s_file && s_container ? BinFilter::LoadFileV2(*s_file,*s_container,s_flags) : CC_FERR_BAD_ARGUMENT);
+	return (s_file && s_container ? BinFilter::LoadFileV2(*s_file, *s_container, s_flags) : CC_FERR_BAD_ARGUMENT);
 }
 
 CC_FILE_ERROR _SaveFileV2()
 {
-	return (s_file && s_container ? BinFilter::SaveFileV2(*s_file,s_container) : CC_FERR_BAD_ARGUMENT);
+	return (s_file && s_container ? BinFilter::SaveFileV2(*s_file, s_container) : CC_FERR_BAD_ARGUMENT);
 }
 
 CC_FILE_ERROR BinFilter::saveToFile(ccHObject* root, const QString& filename, const SaveParameters& parameters)
 {
+	s_lastSavedFileBinVersion = 0;
+
 	if (!root || filename.isNull())
 		return CC_FERR_BAD_ARGUMENT;
 
@@ -215,28 +224,6 @@ CC_FILE_ERROR BinFilter::SaveFileV2(QFile& out, ccHObject* object)
 	//About BIN versions:
 	//- 'original' version (file starts by the number of clouds - no header)
 	//- 'new' evolutive version, starts by 4 bytes ("CCB2") + save the current ccObject version
-
-	//header
-	//Since ver 2.5.2, the 4th character of the header corresponds to
-	//'deserialization flags' (see ccSerializableObject::DeserializationFlags)
-	char firstBytes[5] = "CCB2";
-	{
-		char flags = 0;
-		if (sizeof(PointCoordinateType) == 8)
-			flags |= static_cast<char>(ccSerializableObject::DF_POINT_COORDS_64_BITS);
-		if (sizeof(ScalarType) == 4)
-			flags |= static_cast<char>(ccSerializableObject::DF_SCALAR_VAL_32_BITS);
-		assert(flags <= 8);
-		firstBytes[3] = 48 + flags; //48 = ASCII("0")
-	}
-
-	if (out.write(firstBytes,4) < 0)
-		return CC_FERR_WRITING;
-
-	// Current BIN file version
-	uint32_t binVersion_u32 = static_cast<uint32_t>(ccObject::GetCurrentDBVersion());
-	if (out.write((char*)&binVersion_u32, 4) < 0)
-		return CC_FERR_WRITING;
 
 	CC_FILE_ERROR result = CC_FERR_NO_ERROR;
 
@@ -329,9 +316,43 @@ CC_FILE_ERROR BinFilter::SaveFileV2(QFile& out, ccHObject* object)
 			toCheck.push_back(currentObject->getChild(i));
 	}
 
-	if (result == CC_FERR_NO_ERROR)
-		if (!object->toFile(out))
-			result = CC_FERR_CONSOLE_ERROR;
+	if (result != CC_FERR_NO_ERROR)
+	{
+		return result;
+	}
+
+	//header
+	//Since ver 2.5.2, the 4th character of the header corresponds to
+	//'deserialization flags' (see ccSerializableObject::DeserializationFlags)
+	char firstBytes[5] = "CCB2";
+	{
+		char flags = 0;
+		if (sizeof(PointCoordinateType) == 8)
+			flags |= static_cast<char>(ccSerializableObject::DF_POINT_COORDS_64_BITS);
+		if (sizeof(ScalarType) == 4)
+			flags |= static_cast<char>(ccSerializableObject::DF_SCALAR_VAL_32_BITS);
+		assert(flags <= 8);
+		firstBytes[3] = 48 + flags; //48 = ASCII("0")
+	}
+
+	if (out.write(firstBytes, 4) < 0)
+		return CC_FERR_WRITING;
+
+	// Current BIN file version
+	short dataVersion = object->minimumFileVersion();
+	{
+		ccLog::Print(QString("[BIN] Output file version: %1.%2 (automatically deduced from selected entities)").arg(dataVersion / 10).arg(dataVersion % 10));
+		uint32_t binVersion_u32 = dataVersion;
+		if (out.write((char*)&binVersion_u32, 4) < 0)
+			return CC_FERR_WRITING;
+	}
+
+	if (!object->toFile(out, dataVersion))
+	{
+		result = CC_FERR_CONSOLE_ERROR;
+	}
+
+	s_lastSavedFileBinVersion = dataVersion;
 
 	out.close();
 
@@ -1120,16 +1141,16 @@ CC_FILE_ERROR BinFilter::LoadFileV1(QFile& in, ccHObject& container, unsigned nb
 		}
 		else
 		{
-			sprintf(cloudName,"unnamed - Cloud #%u",k);
+			snprintf(cloudName, 256, "unnamed - Cloud #%u", k);
 		}
 
 		//Cloud name
 		char sfName[1024] = "unnamed";
 		if (header.sfName)
 		{
-			for (int i=0; i<1024; ++i)
+			for (int i = 0; i < 1024; ++i)
 			{
-				if (in.read(sfName+i,1) < 0)
+				if (in.read(sfName + i, 1) < 0)
 				{
 					//Console::print("[BinFilter::loadModelFromBinaryFile] Error reading the cloud name!\n");
 					return CC_FERR_READING;
@@ -1142,7 +1163,7 @@ CC_FILE_ERROR BinFilter::LoadFileV1(QFile& in, ccHObject& container, unsigned nb
 		}
 		else
 		{
-			strcpy(sfName,"Loaded scalar field");
+			strncpy(sfName, "Loaded scalar field", 1024);
 		}
 		
 		//Creation
@@ -1197,9 +1218,7 @@ CC_FILE_ERROR BinFilter::LoadFileV1(QFile& in, ccHObject& container, unsigned nb
 				container.addChild(loadedCloud);
 				fileChunkPos = lineRead;
 				fileChunkSize = std::min(nbOfPoints - lineRead, CC_MAX_NUMBER_OF_POINTS_PER_CLOUD);
-				char partName[sizeof(cloudName) + 16];
-				++parts;
-				sprintf(partName, "%s.part_%u", cloudName, parts);
+				QString partName = QString("%1.%2").arg(cloudName).arg(parts);
 				loadedCloud = new ccPointCloud(partName);
 				if (!loadedCloud->reserveThePointsTable(fileChunkSize))
 				{

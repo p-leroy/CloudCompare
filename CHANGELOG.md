@@ -23,6 +23,9 @@ v2.13.alpha (???) - (??/??/????)
         - RDP {opt: min distance between points}
         	- removes duplicate points of all loaded clouds
 			- the min distance between points to consider them as duplicated can be set (1e-8 by default)
+		- DEBUG
+			- display various information to help one debug and tweak the command line
+			- can be placed at difference positions
 
 	- New display feature: near and far clipping planes in 3D views
 		- extension of the previously existing feature to set a near clipping plane
@@ -59,8 +62,8 @@ v2.13.alpha (???) - (??/??/????)
 - Improvements:
 
 	- multi-threading
-		- By default, CC will now use one less thread/core than the max number, so as to let the application breath
-		- (warning: some dialogs may keep the previous value as it's stored in the system registry)
+		- If possible, CC will now try to use less threads/cores than the maximum number, so as to let the application breath
+		  (warning: some dialogs may keep the previous value as it's stored in the system registry)
 
 	- Segmentation
 		- CC will now preserve some children entities (labels, sensors, etc.) when segmenting clouds or meshes:
@@ -98,6 +101,14 @@ v2.13.alpha (???) - (??/??/????)
 		- the display should be faster until the first segmentation is performed
 		- unused mesh vertices should now be properly removed from both the segmented and the remaining mesh parts
 
+	- Color scales / Color scale editor
+		- it is now possible to override a custom label value by a text
+			(in the custom labels definition field, add a text between double quotes, after the numerical value)
+
+	- BIN files:
+		- CC is now able to create BIN files with the lowest version as possible (depending on the selected entities)
+			so that the resulting file may potentially be opened by earlier versions
+
 	- LAS files:
 		- The default shift for (GPS) time values is now rounded to the nearest 10^5 value
 		- The shift value is now displayed as a property of the currently selected scalar field
@@ -107,6 +118,12 @@ v2.13.alpha (???) - (??/??/????)
 		- Images are now saved internally as JPEG files (faster and smaller)
 		- Sensors associated to images should now be properly shifted if the associated cloud is shifted,
 			or if they are not associated to a cloud
+		- Scan grids ('groupingByLine' scheme) will now be loaded by CloudCompare.
+			This is useful to compute clean and fast normals.
+			(note that they are still not exported)
+
+	- PLY dialog:
+		- the scalar fields are now displayed in a 'list widget' in case there are too many to fit in the screen
 
 	- SF Arithmetic tool:
 		- New operation: 'SET' (to set a constant value)
@@ -115,6 +132,8 @@ v2.13.alpha (???) - (??/??/????)
 			- this operation is also accessible via the command line (with the -SF_ARITHMETIC command)
 
 	- Command line:
+		- Simple quotes should now be properly handled
+			(and can be used to set output filenames or scalar field names with space characters)
 		- It is now possible to pass a SF name after -SET_ACTIVE_SF  instead of the field index
 			(use simple quotes if the scalar field name has spaces in it)
 		- The -SET_ACTIVE_SF command can now be applied to the loaded meshes
@@ -139,6 +158,9 @@ v2.13.alpha (???) - (??/??/????)
 
 	- EDL shader:
 		- contrast and rendering quality improved
+
+	- PCV plugin:
+		- the number of rays and the context resolution can now be set to up to 65536
 
 	- ICP:
 		- the computed registration transformation will now be applied to the aligned entity and all its children (if any)
@@ -178,6 +200,7 @@ v2.13.alpha (???) - (??/??/????)
 		taking the 3D view dimensions into account (resulting in a bad match between the 3D scene and the overlaid image)
 	- The PCL plugin's 'MLS' tool dialog was broken
 	- The CSF plugin command line could truncate the exported clouds filename if floating point values were present in this filename
+	- The 'File > Save File' option could also truncate the cloud name when suggesting a default output filename
 	- The colors of the 'Compute Stat. Params' histogram could be wrong if the associated color scale was 'absolute'
 	- M3C2 plugin:
 		- the display was not always updated when M3C2 computation was done

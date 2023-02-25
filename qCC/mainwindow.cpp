@@ -10253,7 +10253,7 @@ void MainWindow::doActionSaveFile()
 		}
 
 		//we remove the extension
-		defaultFileName = QFileInfo(defaultFileName).baseName();
+		defaultFileName = QFileInfo(defaultFileName).completeBaseName();
 
 		if (!IsValidFileName(defaultFileName))
 		{
@@ -10337,6 +10337,17 @@ void MainWindow::doActionSaveFile()
 		if (result == CC_FERR_NO_ERROR && m_ccRoot)
 		{
 			m_ccRoot->unselectAllEntities();
+		}
+	}
+
+	if (result == CC_FERR_NO_ERROR && selectedFilter == BinFilter::GetFileFilter())
+	{
+		//only for BIN files: display the compatible CC version
+		short fileVersion = BinFilter::GetLastSavedFileVersion();
+		if (0 != fileVersion)
+		{
+			QString minCCVersion = ccApplication::GetMinCCVersionForFileVersion(fileVersion);
+			ccLog::Print(QString("This file can be loaded by CloudCompare version %1 and later").arg(minCCVersion));
 		}
 	}
 
