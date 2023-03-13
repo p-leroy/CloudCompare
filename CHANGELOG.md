@@ -23,6 +23,9 @@ v2.13.alpha (???) - (??/??/????)
         - RDP {opt: min distance between points}
         	- removes duplicate points of all loaded clouds
 			- the min distance between points to consider them as duplicated can be set (1e-8 by default)
+		- DEBUG
+			- display various information to help one debug and tweak the command line
+			- can be placed at difference positions
 
 	- New display feature: near and far clipping planes in 3D views
 		- extension of the previously existing feature to set a near clipping plane
@@ -129,6 +132,8 @@ v2.13.alpha (???) - (??/??/????)
 			- this operation is also accessible via the command line (with the -SF_ARITHMETIC command)
 
 	- Command line:
+		- Simple quotes should now be properly handled
+			(and can be used to set output filenames or scalar field names with space characters)
 		- It is now possible to pass a SF name after -SET_ACTIVE_SF  instead of the field index
 			(use simple quotes if the scalar field name has spaces in it)
 		- The -SET_ACTIVE_SF command can now be applied to the loaded meshes
@@ -153,6 +158,9 @@ v2.13.alpha (???) - (??/??/????)
 
 	- EDL shader:
 		- contrast and rendering quality improved
+
+	- PCV plugin:
+		- the number of rays and the context resolution can now be set to up to 65536
 
 	- ICP:
 		- the computed registration transformation will now be applied to the aligned entity and all its children (if any)
@@ -192,6 +200,7 @@ v2.13.alpha (???) - (??/??/????)
 		taking the 3D view dimensions into account (resulting in a bad match between the 3D scene and the overlaid image)
 	- The PCL plugin's 'MLS' tool dialog was broken
 	- The CSF plugin command line could truncate the exported clouds filename if floating point values were present in this filename
+	- The 'File > Save File' option could also truncate the cloud name when suggesting a default output filename
 	- The colors of the 'Compute Stat. Params' histogram could be wrong if the associated color scale was 'absolute'
 	- M3C2 plugin:
 		- the display was not always updated when M3C2 computation was done

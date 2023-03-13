@@ -154,6 +154,7 @@ constexpr char COMMAND_MOMENT[]							= "MOMENT";
 constexpr char COMMAND_FEATURE[]						= "FEATURE";
 constexpr char COMMAND_RGB_CONVERT_TO_SF[]				= "RGB_CONVERT_TO_SF";
 constexpr char COMMAND_FLIP_TRIANGLES[]					= "FLIP_TRI";
+constexpr char COMMAND_DEBUG[]							= "DEBUG";
 
 //options / modifiers
 constexpr char COMMAND_MAX_THREAD_COUNT[]				= "MAX_TCOUNT";
@@ -165,11 +166,8 @@ constexpr char OPTION_FILE_NAMES[]						= "FILE";
 constexpr char OPTION_ORIENT[]							= "ORIENT";
 constexpr char OPTION_MODEL[]							= "MODEL";
 
-bool GetSFIndexOrName(ccCommandLineInterface& cmd, int& sfIndex, QString& sfName)
+static void GetSFIndexOrName(ccCommandLineInterface& cmd, int& sfIndex, QString& sfName)
 {
-	sfIndex = -1;
-	sfName.clear();
-	bool validSFIndexOrName = true;
 	sfName = cmd.arguments().takeFirst();
 	if (sfName.toUpper() == OPTION_LAST)
 	{
@@ -180,34 +178,16 @@ bool GetSFIndexOrName(ccCommandLineInterface& cmd, int& sfIndex, QString& sfName
 	{
 		bool validInt = false;
 		sfIndex = sfName.toInt(&validInt);
-		if (!validInt)
+		if (validInt)
 		{
-			sfIndex = -1;
-			if (sfName.size() >= 2 && sfName.startsWith('\''))
-			{
-				while (!sfName.endsWith('\'') && !cmd.arguments().empty())
-				{
-					sfName.append(' ');
-					sfName.append(cmd.arguments().takeFirst());
-				}
-				if (!sfName.endsWith('\''))
-				{
-					cmd.error(QObject::tr("Invalid SF name! (missing closing simple quote)"));
-					validSFIndexOrName = false;
-				}
-				else
-				{
-					sfName = sfName.mid(1, sfName.size() - 2);
-					cmd.print(QObject::tr("Set active SF name: '%1'").arg(sfName));
-					validSFIndexOrName = true;
-				}
-			}
+			cmd.print(QObject::tr("Set active SF index: %1").arg(sfIndex));
 		}
 		else
-			cmd.print(QObject::tr("Set active SF index: %1").arg(sfIndex));
+		{
+			cmd.print(QObject::tr("Set active SF name: '%1'").arg(sfName));
+			sfIndex = -1;
+		}
 	}
-
-	return validSFIndexOrName;
 }
 
 CommandChangeOutputFormat::CommandChangeOutputFormat(const QString& name, const QString& keyword)
@@ -1049,8 +1029,8 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 				result->setName(desc.pc->getName() + QObject::tr(".subsampled"));
 				if (cmd.autoSaveMode())
 				{
-					CLCloudDesc desc(result, desc.basename, desc.path, desc.indexInFile);
-					QString errorStr = cmd.exportEntity(desc, "RANDOM_SUBSAMPLED");
+					CLCloudDesc newDesc(result, desc.basename, desc.path, desc.indexInFile);
+					QString errorStr = cmd.exportEntity(newDesc, "RANDOM_SUBSAMPLED");
 					if (!errorStr.isEmpty())
 					{
 						delete result;
@@ -1106,8 +1086,8 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 				result->setName(desc.pc->getName() + QObject::tr(".subsampled"));
 				if (cmd.autoSaveMode())
 				{
-					CLCloudDesc desc(result, desc.basename, desc.path, desc.indexInFile);
-					QString errorStr = cmd.exportEntity(desc, "SPATIAL_SUBSAMPLED");
+					CLCloudDesc newDesc(result, desc.basename, desc.path, desc.indexInFile);
+					QString errorStr = cmd.exportEntity(newDesc, "SPATIAL_SUBSAMPLED");
 					if (!errorStr.isEmpty())
 					{
 						delete result;
@@ -1173,8 +1153,8 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 				result->setName(desc.pc->getName() + QObject::tr(".subsampled"));
 				if (cmd.autoSaveMode())
 				{
-					CLCloudDesc desc(result, desc.basename, desc.path, desc.indexInFile);
-					QString errorStr = cmd.exportEntity(desc, QObject::tr("OCTREE_LEVEL_%1_SUBSAMPLED").arg(octreeLevel));
+					CLCloudDesc newDesc(result, desc.basename, desc.path, desc.indexInFile);
+					QString errorStr = cmd.exportEntity(newDesc, QObject::tr("OCTREE_LEVEL_%1_SUBSAMPLED").arg(octreeLevel));
 					if (!errorStr.isEmpty())
 					{
 						delete result;
@@ -1314,17 +1294,17 @@ bool CommandExtractCCs::process(ccCommandLineInterface& cmd)
 						compCloud->copyGlobalShiftAndScale(*desc.pc);
 						compCloud->setName(QString(desc.pc->getName() + "_CC#%1").arg(j + 1));
 						
-						CLCloudDesc desc(compCloud, desc.basename + QObject::tr("_COMPONENT_%1").arg(++realIndex), desc.path);
+						CLCloudDesc newDesc(compCloud, desc.basename + QObject::tr("_COMPONENT_%1").arg(++realIndex), desc.path);
 						if (cmd.autoSaveMode())
 						{
-							QString errorStr = cmd.exportEntity(desc, QString(), nullptr, ccCommandLineInterface::ExportOption::ForceNoTimestamp);
+							QString errorStr = cmd.exportEntity(newDesc, QString(), nullptr, ccCommandLineInterface::ExportOption::ForceNoTimestamp);
 							if (!errorStr.isEmpty())
 							{
 								cmd.error(errorStr);
 							}
 						}
-						//add desc.pc to the current pool
-						cmd.clouds().push_back(desc);
+						//add newDesc to the current pool
+						cmd.clouds().push_back(newDesc);
 					}
 					else
 					{
@@ -2488,8 +2468,7 @@ bool CommandSetActiveSF::process(ccCommandLineInterface& cmd)
 	
 	int sfIndex;
 	QString sfName;
-	if(!GetSFIndexOrName(cmd, sfIndex, sfName))
-		return cmd.error("option -SET_ACTIVE_SF failed due to bad SF index or name");
+	GetSFIndexOrName(cmd, sfIndex, sfName);
 	
 	if (cmd.clouds().empty() && cmd.meshes().empty())
 	{
@@ -2627,8 +2606,7 @@ bool CommandRemoveSF::process(ccCommandLineInterface& cmd)
 
 	int sfIndex;
 	QString sfName;
-	if(!GetSFIndexOrName(cmd, sfIndex, sfName))
-		return cmd.error("option -REMOVE_SF failed due to bad SF index or name");
+	GetSFIndexOrName(cmd, sfIndex, sfName);
 
 	for (auto& desc : cmd.clouds())
 	{
@@ -3110,8 +3088,8 @@ bool CommandSORFilter::process(ccCommandLineInterface& cmd)
 				cleanCloud->setName(desc.pc->getName() + QObject::tr(".clean"));
 				if (cmd.autoSaveMode())
 				{
-					CLCloudDesc desc(cleanCloud, desc.basename, desc.path, desc.indexInFile);
-					QString errorStr = cmd.exportEntity(desc, "SOR");
+					CLCloudDesc newDesc(cleanCloud, desc.basename, desc.path, desc.indexInFile);
+					QString errorStr = cmd.exportEntity(newDesc, "SOR");
 					if (!errorStr.isEmpty())
 					{
 						delete cleanCloud;
@@ -3261,8 +3239,8 @@ bool CommandNoiseFilter::process(ccCommandLineInterface& cmd)
 				cleanCloud->setName(desc.pc->getName() + QObject::tr(".clean"));
 				if (cmd.autoSaveMode())
 				{
-					CLCloudDesc desc(cleanCloud, desc.basename, desc.path, desc.indexInFile);
-					QString errorStr = cmd.exportEntity(desc, "DENOISED");
+					CLCloudDesc newDesc(cleanCloud, desc.basename, desc.path, desc.indexInFile);
+					QString errorStr = cmd.exportEntity(newDesc, "DENOISED");
 					if (!errorStr.isEmpty())
 					{
 						delete cleanCloud;
@@ -6281,5 +6259,46 @@ bool CommandFeature::process(ccCommandLineInterface& cmd)
 			return false;
 		}
 	}
+	return true;
+}
+
+CommandDebugCmdLine::CommandDebugCmdLine()
+	: ccCommandLineInterface::Command(QObject::tr("Debug Command Line"), COMMAND_DEBUG)
+{}
+
+bool CommandDebugCmdLine::process(ccCommandLineInterface& cmd)
+{
+	cmd.print("[DEBUG]");
+
+	cmd.print("******************************************");
+	cmd.print("Number of clouds: " + QString::number(cmd.clouds().size()));
+	cmd.print("Number of meshes: " + QString::number(cmd.meshes().size()));
+
+	cmd.print("******************************************");
+	const QStringList& arguments = cmd.arguments();
+	cmd.print("Number of arguments: " + QString::number(arguments.size()));
+	for (int i = 0; i < arguments.size(); ++i)
+	{
+		cmd.print(QString("Argument #%1: < %2 >").arg(i + 1).arg(arguments[i]));
+	}
+
+	cmd.print("******************************************");
+	cmd.print("[Loading parameters]");
+	cmd.print(QObject::tr("Global shift set: ") + (cmd.fileLoadingParams().coordinatesShiftEnabled ? "yes" : "no"));
+	cmd.print(QObject::tr("Global shift: (%1, %2, %3)").arg(cmd.fileLoadingParams().coordinatesShift.x).arg(cmd.fileLoadingParams().coordinatesShift.y).arg(cmd.fileLoadingParams().coordinatesShift.z));
+
+	cmd.print("******************************************");
+	cmd.print("[Export parameters]");
+	cmd.print("Cloud export format: " + cmd.cloudExportFormat());
+	cmd.print("Mesh export format: " + cmd.meshExportFormat());
+	cmd.print("Group export format: " + cmd.hierarchyExportFormat());
+
+	cmd.print("******************************************");
+	cmd.print("[Other parameters]");
+	cmd.print(QObject::tr("Silent mode: ") + (cmd.silentMode() ? "ON" : "OFF"));
+	cmd.print(QObject::tr("Auto save: ") + (cmd.autoSaveMode() ? "ON" : "OFF"));
+	cmd.print(QObject::tr("Auto add timestamp: ") + (cmd.addTimestamp() ? "ON" : "OFF"));
+	cmd.print(QObject::tr("Numerical precision: %1").arg(cmd.numericalPrecision()));
+
 	return true;
 }
