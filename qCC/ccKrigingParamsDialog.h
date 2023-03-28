@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                              CLOUDCOMPARE                              #
@@ -11,51 +13,40 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#          COPYRIGHT: CloudCompare project                               #
+//#                    COPYRIGHT: CloudCompare project                     #
 //#                                                                        #
 //##########################################################################
 
-#include <QtGlobal>
+//Qt
+#include <QDialog>
 
-#ifdef Q_OS_MAC
-#include <QFileOpenEvent>
-#endif
+//qCC_db
+#include <ccRasterGrid.h>
 
-#include "ccviewer.h"
-#include "ccViewerApplication.h"
+class Ui_KrigingParamsDialog;
 
-
-ccViewerApplication::ccViewerApplication( int &argc, char **argv, bool isCommandLine )
-	: ccApplicationBase( argc, argv, isCommandLine, QString( "1.41.alpha (%1)" ).arg(__DATE__))
+//! Dialog to set the Kriging parameters
+class ccKrigingParamsDialog : public QDialog
 {
-	setApplicationName( "CloudCompareViewer" );
-}
+	Q_OBJECT
 
-void ccViewerApplication::setViewer(ccViewer *inViewer)
-{
-	mViewer = inViewer;
-}
+public:
 
-bool ccViewerApplication::event(QEvent *inEvent)
-{
-#ifdef Q_OS_MAC
-	switch ( inEvent->type() )
-	{
-		case QEvent::FileOpen:
-		{			
-			if ( mViewer == nullptr )
-			{
-				return false;
-			}
-			
-			mViewer->addToDB( { static_cast<QFileOpenEvent *>(inEvent)->file() } );
-			return true;
-		}
-			
-		default:
-			break;
-	}
-#endif
+	//! Default constructor
+	ccKrigingParamsDialog(QWidget* parent = nullptr);
 
-	return ccApplicationBase::event( inEvent );
-}
+	//! Destructor
+	virtual ~ccKrigingParamsDialog();
+
+	//! Sets the parameters
+	void setParameters(const ccRasterGrid::KrigingParams& krigingParams);
+
+	//! Gets the parameters
+	void getParameters(ccRasterGrid::KrigingParams& krigingParams);
+
+protected:
+
+	//! Associated ui
+	Ui_KrigingParamsDialog* m_ui;
+
+};
