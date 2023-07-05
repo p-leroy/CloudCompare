@@ -390,13 +390,16 @@ ccWaveDialog::ccWaveDialog(	ccPointCloud* cloud,
 		}
 	}
 
+	m_label = new cc2DLabel();
+	m_label->setSelected(true);
+	m_label->setVisible(true);
+
 	connect(m_gui->pointIndexSpinBox, qOverload<int>(&QSpinBox::valueChanged), this, &ccWaveDialog::onPointIndexChanged);
 	connect(m_gui->logScaleCheckBox,		&QCheckBox::toggled,	this,	&ccWaveDialog::updateCurrentWaveform);
 	connect(m_gui->fixedAmplitudeCheckBox,	&QCheckBox::toggled,	this,	&ccWaveDialog::updateCurrentWaveform);
 	connect(m_gui->pointPickingToolButton,	&QToolButton::toggled,	this,	&ccWaveDialog::onPointPickingButtonToggled);
 	connect(m_gui->saveWaveToolButton,		&QToolButton::clicked,	this,	&ccWaveDialog::onExportWaveAsCSV);
 	connect(this, &QDialog::finished, [&]() { m_gui->pointPickingToolButton->setChecked(false); }); //auto disable picking mode when the dialog is closed
-
 
 	//force update
 	onPointIndexChanged(0);
@@ -432,6 +435,12 @@ void ccWaveDialog::onItemPicked(const PickedItem& pi)
 		assert(!pi.entityCenter);
 		m_gui->pointIndexSpinBox->setValue(static_cast<int>(pi.itemIndex));
 	}
+
+	m_label->addPickedPoint(static_cast<ccGenericPointCloud*>(pi.entity), pi.itemIndex, pi.entityCenter);
+	m_label->setVisible(true);
+	m_label->setDisplayedIn2D(false);
+	m_label->displayPointLegend(true);
+	m_label->setCollapsed(true);
 }
 
 void ccWaveDialog::updateCurrentWaveform()

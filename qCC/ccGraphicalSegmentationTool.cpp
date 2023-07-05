@@ -898,7 +898,7 @@ void ccGraphicalSegmentationTool::segment(bool keepPointsInside, ScalarType clas
 			}
 			classifSF = pc->getScalarField(sfIdx);
 			pc->showSF(true);
-			pc->setCurrentDisplayedScalarField(sfIdx);
+//			pc->setCurrentDisplayedScalarField(sfIdx);
 		}
 
 		// we project each point and we check if it falls inside the segmentation polyline

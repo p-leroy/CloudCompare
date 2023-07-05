@@ -26,6 +26,7 @@
 
 //QCustomPlot
 #include "ccQCustomPlot.h"
+#include <cc2DLabel.h>
 
 class QCPArrow;
 class QCPBarsWithText;
@@ -144,6 +145,9 @@ protected: //members
 
 	//! Maximum wave amplitude (for all points)
 	double m_waveMax;
+
+	//for points picking
+	cc2DLabel *m_label;
 };
 
 #endif //CC_WAVEFORM_DIALOG_HEADER
