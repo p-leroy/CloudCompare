@@ -2200,12 +2200,17 @@ void ccDBRoot::drawNormals()
 		if (ent->isA(CC_TYPES::POINT_CLOUD))
 		{
 			ccPointCloud* cloud = static_cast<ccPointCloud*>(ent);
-			emit openDrawNormalsDialog(cloud);
-			QApplication::processEvents();
-			if (cloud->getDrawNormals())
-				cloud->setDrawNormals(false);
+			if (cloud->normalsAreDrawn())
+			{
+				emit closeDrawNormalsDialog(cloud);
+				cloud->toggleDrawNormals(false);
+			}
 			else
-				cloud->setDrawNormals(true);
+			{
+				emit openDrawNormalsDialog(cloud);
+				QApplication::processEvents();
+				cloud->toggleDrawNormals(true);
+			}
 		}
 	}
 }

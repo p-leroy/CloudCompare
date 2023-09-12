@@ -17,6 +17,10 @@ ccDrawNormalsWidget::ccDrawNormalsWidget(ccPointCloud *cloud, QWidget *parent) :
 	readSettings();
 
 	normalLengthValueChanged(ui->doubleSpinBox_normalLength->value());
+
+	setWindowFlag(Qt::WindowStaysOnTopHint);
+	setWindowFlag(Qt::Window);
+	show();
 }
 
 ccDrawNormalsWidget::~ccDrawNormalsWidget()

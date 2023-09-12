@@ -32,6 +32,7 @@
 
 //Qt
 #include <QGLBuffer>
+#include "QOpenGLShaderProgram"
 
 class ccScalarField;
 class ccPolyline;
@@ -163,7 +164,7 @@ public: //features deletion/clearing
 	//! Notify a modification of color / scalar field display parameters or contents
 	inline void colorsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_COLORS; }
 	//! Notify a modification of normals display parameters or contents
-	inline void normalsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_NORMALS; }
+	inline void normalsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_NORMALS; updateNormalsDrawing();}
 	//! Notify a modification of points display parameters or contents
 	inline void pointsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_POINTS; }
 
@@ -362,10 +363,23 @@ public: //normals computation/orientation
 	bool orientNormalsWithFM(		unsigned char level,
 									ccProgressDialog* pDlg = nullptr);
 
-	void setDrawNormals(bool state);
-	bool getDrawNormals();
+	//! Toggle the drawing of normals as small lines
+	void toggleDrawNormals(bool state);
+
+	//! Are normals drawn as vectors?
+	bool normalsAreDrawn();
+
+	//! Set the length of the normals
 	void setNormalLength(float value);
+
+	//! Do the drawing of normals
 	bool drawNormals(CC_DRAW_CONTEXT &context);
+
+	//! When normals are drawn, a widget is open to set somme parameters
+	void setDrawNormalsWidget(QSharedPointer<QWidget> &&widget);
+
+	///! Update the drawing of normals
+	void updateNormalsDrawing();
 
 public: //waveform (e.g. from airborne scanners)
 
@@ -886,4 +900,14 @@ protected: //waveform (e.g. from airborne scanners)
 	bool m_drawNormals;
 	float m_normalLength;
 
+	QSharedPointer<QOpenGLShaderProgram> m_programDrawNormals;
+
+	struct programDrawNormalsParameters{
+		programDrawNormalsParameters() {}
+		int vertexLocation;
+		int normalLocation;
+		int normalLengthLocation;
+		int matrixLocation;
+		int colorLocation;
+	} m_programParameters;
 };

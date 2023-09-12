@@ -275,6 +275,7 @@ MainWindow::MainWindow()
 		connect(m_ccRoot, &ccDBRoot::dbIsEmpty,           this, [=]() { updateUIWithSelection(); updateMenus(); }, Qt::QueuedConnection); //we don't call updateUI because there's no need to update the properties dialog
 		connect(m_ccRoot, &ccDBRoot::dbIsNotEmptyAnymore, this, [=]() { updateUIWithSelection(); updateMenus(); }, Qt::QueuedConnection); //we don't call updateUI because there's no need to update the properties dialog
 		connect(m_ccRoot, &ccDBRoot::openDrawNormalsDialog, this, &MainWindow::openDrawNormalsWidget);
+		connect(m_ccRoot, &ccDBRoot::closeDrawNormalsDialog, this, &MainWindow::closeDrawNormalsWidget);
 	}
 
 	//MDI Area
@@ -9608,9 +9609,22 @@ bool MainWindow::checkStereoMode(ccGLWindowInterface* win)
 
 void MainWindow::openDrawNormalsWidget(ccPointCloud *cloud)
 {
-	ccDrawNormalsWidget *widget = new ccDrawNormalsWidget(cloud);
-	widget->setWindowFlag(Qt::WindowStaysOnTopHint);
-	widget->show();
+	map_cloud_drawNormalsWidget[cloud] = new ccDrawNormalsWidget(cloud, this);
+}
+
+void MainWindow::closeDrawNormalsWidget(ccPointCloud *cloud)
+{
+	for (auto key: map_cloud_drawNormalsWidget)
+	{
+		if (key.first == cloud)
+		{
+			if (key.second != nullptr)
+			{
+				delete key.second;
+			}
+			map_cloud_drawNormalsWidget.erase(key.first);
+		}
+	}
 }
 
 void MainWindow::toggleActiveWindowCenteredPerspective()

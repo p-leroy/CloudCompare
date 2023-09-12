@@ -5754,12 +5754,13 @@ bool ccPointCloud::orientNormalsWithFM(	unsigned char level,
 	return ccFastMarchingForNormsDirection::OrientNormals(this, level, pDlg);
 }
 
-void ccPointCloud::setDrawNormals(bool state)
+void ccPointCloud::toggleDrawNormals(bool state)
 {
 	m_drawNormals = state;
 
 	if (state == true)
 	{
+		// we need to decompress the normals (maybe it would be possible to do it in the shader program?)
 		m_decompressed_normals.clear();
 		m_decompressed_normals.resize(size());
 		for (unsigned idx = 0; idx < size(); idx++)
@@ -5778,7 +5779,7 @@ void ccPointCloud::setDrawNormals(bool state)
 	getDisplay()->redraw();
 }
 
-bool ccPointCloud::getDrawNormals()
+bool ccPointCloud::normalsAreDrawn()
 {
 	return m_drawNormals;
 }
@@ -5803,65 +5804,95 @@ bool ccPointCloud::drawNormals(CC_DRAW_CONTEXT& context)
 	glFunc->glGetFloatv(GL_MODELVIEW_MATRIX, modelView.data());
 	QMatrix4x4 projectionModelView = projection * modelView; // QMatrix4x4 expects row major data
 
-	QOpenGLShaderProgram program(context.qGLContext);
-
-	// create vertex shader
-	QString vertexShaderFile = ("C:/dev/CloudCompare/qCC/shaders/DrawNormals/DrawNormals.vs");
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShaderFile))
+	if (m_programDrawNormals.isNull())
 	{
-		error = program.log();
-		ccLog::Error(error);
+		m_programDrawNormals = QSharedPointer<QOpenGLShaderProgram>(new QOpenGLShaderProgram(context.qGLContext));
+
+		// create vertex shader
+		QString vertexShaderFile = ("C:/dev/CloudCompare/qCC/shaders/DrawNormals/DrawNormals.vs");
+		if (!m_programDrawNormals->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShaderFile))
+		{
+			error = m_programDrawNormals->log();
+			ccLog::Error(error);
+		}
+
+		// create geometry shader
+		QString geometryShaderFile = ("C:/dev/CloudCompare/qCC/shaders/DrawNormals/DrawNormals.gs");
+		if (!m_programDrawNormals->addShaderFromSourceFile(QOpenGLShader::Geometry, geometryShaderFile))
+		{
+			error = m_programDrawNormals->log();
+			ccLog::Error(error);
+		}
+
+		// create fragment shader
+		QString fragmentShaderFile = ("C:/dev/CloudCompare/qCC/shaders/DrawNormals/DrawNormals.fs");
+		if (!m_programDrawNormals->addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShaderFile))
+		{
+			error = m_programDrawNormals->log();
+			ccLog::Error(error);
+		}
+
+		if (!m_programDrawNormals->link())
+		{
+			error = m_programDrawNormals->log();
+			ccLog::Error(error);
+		}
+
+		m_programDrawNormals->bind();
+
+		m_programParameters.vertexLocation = m_programDrawNormals->attributeLocation("vertexIn");
+		m_programParameters.normalLocation = m_programDrawNormals->attributeLocation("normal");
+		m_programParameters.normalLengthLocation = m_programDrawNormals->uniformLocation("normalLength");
+		m_programParameters.matrixLocation = m_programDrawNormals->uniformLocation("modelViewProjectionMatrix");
+		m_programParameters.colorLocation = m_programDrawNormals->uniformLocation("color");
+
+		// set the vertex locations
+		m_programDrawNormals->enableAttributeArray(m_programParameters.vertexLocation);
+		m_programDrawNormals->setAttributeArray(m_programParameters.vertexLocation, static_cast< GLfloat*>(&m_points[0][0]), 3);
+
+		// set the normals
+		m_programDrawNormals->enableAttributeArray(m_programParameters.normalLocation);
+		m_programDrawNormals->setAttributeArray(m_programParameters.normalLocation, static_cast< GLfloat*>(&m_decompressed_normals[0][0]), 3);
 	}
 
-	// create geometry shader
-	QString geometryShaderFile = ("C:/dev/CloudCompare/qCC/shaders/DrawNormals/DrawNormals.gs");
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Geometry, geometryShaderFile))
-	{
-		error = program.log();
-		ccLog::Error(error);
-	}
-
-	// create fragment shader
-	QString fragmentShaderFile = ("C:/dev/CloudCompare/qCC/shaders/DrawNormals/DrawNormals.fs");
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShaderFile))
-	{
-		error = program.log();
-		ccLog::Error(error);
-	}
-
-	if (!program.link())
-	{
-		error = program.log();
-		ccLog::Error(error);
-	}
-
-	program.bind();
-
-	int vertexLocation = program.attributeLocation("vertexIn");
-	int normalLocation = program.attributeLocation("normal");
-	int normalLengthLocation = program.uniformLocation("normalLength");
-	int matrixLocation = program.uniformLocation("modelViewProjectionMatrix");
-	int colorLocation = program.uniformLocation("color");
+	m_programDrawNormals->bind();
 
 	QColor color(255, 255, 0, 255);
 
-	program.enableAttributeArray(vertexLocation);
-	program.setAttributeArray(vertexLocation, static_cast< GLfloat*>(&m_points[0][0]), 3);
-	program.enableAttributeArray(normalLocation);
-	program.setAttributeArray(normalLocation, static_cast< GLfloat*>(&m_decompressed_normals[0][0]), 3);
 	// set uniforms
-	program.setUniformValue(matrixLocation, projectionModelView);
-	program.setUniformValue(normalLengthLocation, GLfloat(m_normalLength));
-	program.setUniformValue(colorLocation, color);
+	m_programDrawNormals->setUniformValue(m_programParameters.matrixLocation, projectionModelView);
+	m_programDrawNormals->setUniformValue(m_programParameters.normalLengthLocation, GLfloat(m_normalLength));
+	m_programDrawNormals->setUniformValue(m_programParameters.colorLocation, color);
 
 	glFunc->glDrawArrays(GL_POINTS, 0, size());
 
-	program.disableAttributeArray(vertexLocation);
-	program.disableAttributeArray(normalLocation);
+//	m_programDrawNormals->disableAttributeArray(m_programParameters.vertexLocation);
+//	m_programDrawNormals->disableAttributeArray(m_programParameters.normalLocation);
 
-	program.release();
+	m_programDrawNormals->release();
 
 	return true;
+}
+
+void ccPointCloud::updateNormalsDrawing()
+{
+	// if the normals are drawn and they have changed, we need to update the array
+	if (normalsAreDrawn())
+	{
+		// we need to decompress the normals (maybe it would be possible to do it in the shader program?)
+		m_decompressed_normals.clear();
+		m_decompressed_normals.resize(size());
+		for (unsigned idx = 0; idx < size(); idx++)
+		{
+			const CCVector3 N = getPointNormal(idx);
+			m_decompressed_normals[idx].x = N.x;
+			m_decompressed_normals[idx].y = N.y;
+			m_decompressed_normals[idx].z = N.z;
+		}
+		// set the normals
+		m_programDrawNormals->enableAttributeArray(m_programParameters.normalLocation);
+		m_programDrawNormals->setAttributeArray(m_programParameters.normalLocation, static_cast< GLfloat*>(&m_decompressed_normals[0][0]), 3);
+	}
 }
 
 bool ccPointCloud::hasSensor() const

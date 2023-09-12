@@ -224,6 +224,7 @@ Q_SIGNALS:
 	void dbIsEmpty();
 	void dbIsNotEmptyAnymore();
 	void openDrawNormalsDialog(ccPointCloud *cloud);
+	void closeDrawNormalsDialog(ccPointCloud *cloud);
 
 protected:
 
