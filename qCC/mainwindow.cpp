@@ -121,16 +121,18 @@
 #include "ccWaveformDialog.h"
 #include "ccEntitySelectionDlg.h"
 #include "ccSmoothPolylineDlg.h"
+#include "ccDrawNormalsWidget.h"
 
 //other
 #include "ccCropTool.h"
-#include "ccGLPluginInterface.h"
 #include "ccPersistentSettings.h"
 #include "ccRecentFiles.h"
 #include "ccRegistrationTools.h"
 #include "ccUtils.h"
 #include "db_tree/ccDBRoot.h"
 #include "pluginManager/ccPluginUIManager.h"
+
+#include "ccGlFilter.h"
 
 //3D mouse handler
 #ifdef CC_3DXWARE_SUPPORT
@@ -144,6 +146,7 @@
 
 //Qt
 #include <QClipboard>
+#include <QGLShader>
 
 //Qt UI files
 #include <ui_distanceMapDlg.h>
@@ -271,6 +274,7 @@ MainWindow::MainWindow()
 		connect(m_ccRoot, &ccDBRoot::selectionChanged,    this, &MainWindow::updateUIWithSelection, Qt::QueuedConnection);
 		connect(m_ccRoot, &ccDBRoot::dbIsEmpty,           this, [=]() { updateUIWithSelection(); updateMenus(); }, Qt::QueuedConnection); //we don't call updateUI because there's no need to update the properties dialog
 		connect(m_ccRoot, &ccDBRoot::dbIsNotEmptyAnymore, this, [=]() { updateUIWithSelection(); updateMenus(); }, Qt::QueuedConnection); //we don't call updateUI because there's no need to update the properties dialog
+		connect(m_ccRoot, &ccDBRoot::openDrawNormalsDialog, this, &MainWindow::openDrawNormalsWidget);
 	}
 
 	//MDI Area
@@ -9397,7 +9401,6 @@ void MainWindow::doActionCloudPrimitiveDist()
 	}
 }
 
-
 void MainWindow::deactivateComparisonMode(int result)
 {
 	//DGM: a bug apperead with recent changes (from CC or QT?)
@@ -9601,6 +9604,13 @@ bool MainWindow::checkStereoMode(ccGLWindowInterface* win)
 	}
 
 	return true;
+}
+
+void MainWindow::openDrawNormalsWidget(ccPointCloud *cloud)
+{
+	ccDrawNormalsWidget *widget = new ccDrawNormalsWidget(cloud);
+	widget->setWindowFlag(Qt::WindowStaysOnTopHint);
+	widget->show();
 }
 
 void MainWindow::toggleActiveWindowCenteredPerspective()

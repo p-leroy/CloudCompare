@@ -551,6 +551,9 @@ private:
 	//! Adds a single value SF to the active point cloud
 	void addConstantSF(ccPointCloud* cloud, QString sfName, bool integerValue);
 
+	//! Show the dialog to set the normal length
+	void openDrawNormalsWidget(ccPointCloud *cloud);
+
 private: //members
 
 	//! Main UI

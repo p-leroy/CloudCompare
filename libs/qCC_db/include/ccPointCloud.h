@@ -362,6 +362,11 @@ public: //normals computation/orientation
 	bool orientNormalsWithFM(		unsigned char level,
 									ccProgressDialog* pDlg = nullptr);
 
+	void setDrawNormals(bool state);
+	bool getDrawNormals();
+	void setNormalLength(float value);
+	bool drawNormals(CC_DRAW_CONTEXT &context);
+
 public: //waveform (e.g. from airborne scanners)
 
 	//! Returns whether the cloud has associated Full WaveForm data
@@ -766,6 +771,7 @@ protected:
 
 	//! Normals (compressed)
 	NormsIndexesTableType* m_normals;
+	std::vector<CCVector3> m_decompressed_normals; // used for drawing normals if needed
 
 	//! Specifies whether current scalar field color scale should be displayed or not
 	bool m_sfColorScaleDisplayed;
@@ -876,5 +882,8 @@ protected: //waveform (e.g. from airborne scanners)
 
 	//! Waveforms raw data storage
 	SharedFWFDataContainer m_fwfData;
+
+	bool m_drawNormals;
+	float m_normalLength;
 
 };

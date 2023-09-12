@@ -19,6 +19,7 @@
 #define CC_DB_ROOT_HEADER
 
 //Qt
+#include "ccPointCloud.h"
 #include <QAbstractItemModel>
 #include <QPoint>
 #include <QTreeView>
@@ -216,11 +217,13 @@ private:
 	void alignCameraWithEntityIndirect() { alignCameraWithEntity(true); }
 	void enableBubbleViewMode();
 	void editLabelScalarValue();
+	void drawNormals();
 
 Q_SIGNALS:
 	void selectionChanged();
 	void dbIsEmpty();
 	void dbIsNotEmptyAnymore();
+	void openDrawNormalsDialog(ccPointCloud *cloud);
 
 protected:
 
@@ -301,6 +304,8 @@ protected:
 	QAction* m_enableBubbleViewMode;
 	//! Context menu action: change current scalar value (via a 2D label)
 	QAction* m_editLabelScalarValue;
+	//! Context menu action: draw normals
+	QAction* m_drawNormals;
 
 	//! Last context menu pos
 	QPoint m_contextMenuPos;

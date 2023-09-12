@@ -271,6 +271,7 @@ ccDBRoot::ccDBRoot(ccCustomQTreeView* dbTreeWidget, QTreeView* propertiesTreeWid
 	m_alignCameraWithEntityReverse = new QAction("Align camera (reverse)", this);
 	m_enableBubbleViewMode = new QAction("Bubble-view", this);
 	m_editLabelScalarValue = new QAction("Edit scalar value", this);
+	m_drawNormals = new QAction("Toggle draw normals as lines", this);
 
 	m_contextMenuPos = QPoint(-1,-1);
 
@@ -296,6 +297,7 @@ ccDBRoot::ccDBRoot(ccCustomQTreeView* dbTreeWidget, QTreeView* propertiesTreeWid
 	connect(m_alignCameraWithEntityReverse,		&QAction::triggered,					this, &ccDBRoot::alignCameraWithEntityIndirect);
 	connect(m_enableBubbleViewMode,				&QAction::triggered,					this, &ccDBRoot::enableBubbleViewMode);
 	connect(m_editLabelScalarValue,				&QAction::triggered,					this, &ccDBRoot::editLabelScalarValue);
+	connect(m_drawNormals,						&QAction::triggered,					this, &ccDBRoot::drawNormals);
 
 	//other DB tree signals/slots connection
 	connect(m_dbTreeWidget->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ccDBRoot::changeSelection);
@@ -2157,6 +2159,57 @@ void ccDBRoot::editLabelScalarValue()
 	}
 }
 
+void ccDBRoot::drawNormals()
+{
+	QItemSelectionModel* qism = m_dbTreeWidget->selectionModel();
+	QModelIndexList selectedIndexes = qism->selectedIndexes();
+	int selCount = selectedIndexes.size();
+	if (selCount == 0)
+		return;
+
+	//init the list of entities to process
+	ccHObject::Container toProcess;
+	try
+	{
+		toProcess.resize(selCount);
+	}
+	catch (const std::bad_alloc&)
+	{
+		ccLog::Error("Not engough memory");
+		return;
+	}
+
+	for (int i = 0; i < selCount; ++i)
+	{
+		toProcess[i] = static_cast<ccHObject*>(selectedIndexes[i].internalPointer());
+	}
+
+	ccHObject::Container alreadyProcessed;
+	while (!toProcess.empty())
+	{
+		ccHObject* ent = toProcess.back();
+		toProcess.pop_back();
+
+		//we don't process entities twice!
+		if (std::find(alreadyProcessed.begin(), alreadyProcessed.end(), ent) != alreadyProcessed.end())
+		{
+			continue;
+		}
+
+		//gather information from current entity
+		if (ent->isA(CC_TYPES::POINT_CLOUD))
+		{
+			ccPointCloud* cloud = static_cast<ccPointCloud*>(ent);
+			emit openDrawNormalsDialog(cloud);
+			QApplication::processEvents();
+			if (cloud->getDrawNormals())
+				cloud->setDrawNormals(false);
+			else
+				cloud->setDrawNormals(true);
+		}
+	}
+}
+
 void ccDBRoot::showContextMenu(const QPoint& menuPos)
 {
 	m_contextMenuPos = menuPos;
@@ -2269,6 +2322,7 @@ void ccDBRoot::showContextMenu(const QPoint& menuPos)
 				menu.addAction(m_toggleSelectedEntitiesColor);
 				menu.addAction(m_toggleSelectedEntitiesNormals);
 				menu.addAction(m_toggleSelectedEntitiesSF);
+				menu.addAction(m_drawNormals);
 			}
 			if (toggleMaterials)
 			{
