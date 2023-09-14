@@ -2202,12 +2202,12 @@ void ccDBRoot::drawNormals()
 			ccPointCloud* cloud = static_cast<ccPointCloud*>(ent);
 			if (cloud->normalsAreDrawn())
 			{
-				emit closeDrawNormalsDialog(cloud);
+				closeDrawNormalsWidget(cloud);
 				cloud->toggleDrawNormals(false);
 			}
 			else
 			{
-				emit openDrawNormalsDialog(cloud);
+				openDrawNormalsWidget(cloud);
 				QApplication::processEvents();
 				cloud->toggleDrawNormals(true);
 			}
@@ -2371,6 +2371,25 @@ void ccDBRoot::showContextMenu(const QPoint& menuPos)
 	}
 
 	menu.exec(m_dbTreeWidget->mapToGlobal(menuPos));
+}
+
+void ccDBRoot::openDrawNormalsWidget(ccPointCloud *cloud)
+{
+	map_cloud_drawNormalsWidget[cloud] = new ccDrawNormalsWidget(cloud, MainWindow::TheInstance());
+}
+
+void ccDBRoot::closeDrawNormalsWidget(ccPointCloud *cloud)
+{
+	for (auto key: map_cloud_drawNormalsWidget)
+	{
+		if (key.first == cloud)
+		{
+			if (key.second != nullptr)
+			{
+				delete key.second;
+			}
+		}
+	}
 }
 
 QItemSelectionModel::SelectionFlags ccCustomQTreeView::selectionCommand(const QModelIndex& idx, const QEvent* event/*=nullptr*/) const

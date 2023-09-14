@@ -56,7 +56,6 @@ class ccRecentFiles;
 class ccSectionExtractionTool;
 class ccStdPluginInterface;
 class ccTracePolylineTool;
-class ccDrawNormalsWidget;
 
 struct dbTreeSelectionInfo;
 
@@ -552,12 +551,6 @@ private:
 	//! Adds a single value SF to the active point cloud
 	void addConstantSF(ccPointCloud* cloud, QString sfName, bool integerValue);
 
-	//! Show the dialog to set the normal length
-	void openDrawNormalsWidget(ccPointCloud *cloud);
-
-	//! Close the dialog to set the normal length
-	void closeDrawNormalsWidget(ccPointCloud *cloud);
-
 private: //members
 
 	//! Main UI
@@ -645,8 +638,6 @@ private: //members
 	/*** plugins ***/
 	//! Manages plugins - menus, toolbars, and the about dialog
 	ccPluginUIManager	*m_pluginUIManager;
-
-	std::map<ccPointCloud*, ccDrawNormalsWidget*> map_cloud_drawNormalsWidget;
 };
 
 #endif

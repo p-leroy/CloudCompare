@@ -2,6 +2,7 @@
 #define CCDRAWNORMALSWIDGET_H
 
 #include <QWidget>
+#include <QButtonGroup>
 
 #include "ccPointCloud.h"
 
@@ -19,12 +20,16 @@ public:
 	void readSettings();
 	void writeSettings();
 
+	enum normalColor {YELLOW, RED, GREEN, BLUE, BLACK};
+
 public slots:
 	void normalLengthValueChanged(double value);
+	void setNormalColor();
 
 private:
 	Ui::ccDrawNormalsWidget *ui;
 	ccPointCloud * m_cloud;
+	QButtonGroup *buttonGroup;
 };
 
 #endif // CCDRAWNORMALSWIDGET_H

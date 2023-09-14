@@ -164,7 +164,7 @@ public: //features deletion/clearing
 	//! Notify a modification of color / scalar field display parameters or contents
 	inline void colorsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_COLORS; }
 	//! Notify a modification of normals display parameters or contents
-	inline void normalsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_NORMALS; updateNormalsDrawing();}
+	inline void normalsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_NORMALS; updateDecompressedNormals();}
 	//! Notify a modification of points display parameters or contents
 	inline void pointsHaveChanged() { m_vboManager.updateFlags |= vboSet::UPDATE_POINTS; }
 
@@ -372,14 +372,17 @@ public: //normals computation/orientation
 	//! Set the length of the normals
 	void setNormalLength(float value);
 
+	//! Set the length of the normals
+	void setNormalColor(QColor color);
+
 	//! Do the drawing of normals
 	bool drawNormals(CC_DRAW_CONTEXT &context);
 
 	//! When normals are drawn, a widget is open to set somme parameters
 	void setDrawNormalsWidget(QSharedPointer<QWidget> &&widget);
 
-	///! Update the drawing of normals
-	void updateNormalsDrawing();
+	//! Update the drawing of normals
+	void updateDecompressedNormals();
 
 public: //waveform (e.g. from airborne scanners)
 
@@ -897,8 +900,9 @@ protected: //waveform (e.g. from airborne scanners)
 	//! Waveforms raw data storage
 	SharedFWFDataContainer m_fwfData;
 
-	bool m_drawNormals;
+	bool m_normalsAreDrawn;
 	float m_normalLength;
+	QColor m_normalColor;
 
 	QSharedPointer<QOpenGLShaderProgram> m_programDrawNormals;
 

@@ -121,7 +121,6 @@
 #include "ccWaveformDialog.h"
 #include "ccEntitySelectionDlg.h"
 #include "ccSmoothPolylineDlg.h"
-#include "ccDrawNormalsWidget.h"
 
 //other
 #include "ccCropTool.h"
@@ -274,8 +273,6 @@ MainWindow::MainWindow()
 		connect(m_ccRoot, &ccDBRoot::selectionChanged,    this, &MainWindow::updateUIWithSelection, Qt::QueuedConnection);
 		connect(m_ccRoot, &ccDBRoot::dbIsEmpty,           this, [=]() { updateUIWithSelection(); updateMenus(); }, Qt::QueuedConnection); //we don't call updateUI because there's no need to update the properties dialog
 		connect(m_ccRoot, &ccDBRoot::dbIsNotEmptyAnymore, this, [=]() { updateUIWithSelection(); updateMenus(); }, Qt::QueuedConnection); //we don't call updateUI because there's no need to update the properties dialog
-		connect(m_ccRoot, &ccDBRoot::openDrawNormalsDialog, this, &MainWindow::openDrawNormalsWidget);
-		connect(m_ccRoot, &ccDBRoot::closeDrawNormalsDialog, this, &MainWindow::closeDrawNormalsWidget);
 	}
 
 	//MDI Area
@@ -9605,26 +9602,6 @@ bool MainWindow::checkStereoMode(ccGLWindowInterface* win)
 	}
 
 	return true;
-}
-
-void MainWindow::openDrawNormalsWidget(ccPointCloud *cloud)
-{
-	map_cloud_drawNormalsWidget[cloud] = new ccDrawNormalsWidget(cloud, this);
-}
-
-void MainWindow::closeDrawNormalsWidget(ccPointCloud *cloud)
-{
-	for (auto key: map_cloud_drawNormalsWidget)
-	{
-		if (key.first == cloud)
-		{
-			if (key.second != nullptr)
-			{
-				delete key.second;
-			}
-			map_cloud_drawNormalsWidget.erase(key.first);
-		}
-	}
 }
 
 void MainWindow::toggleActiveWindowCenteredPerspective()

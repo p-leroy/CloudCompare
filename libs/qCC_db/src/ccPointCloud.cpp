@@ -69,7 +69,7 @@ ccPointCloud::ccPointCloud(QString name/*=QString()*/, unsigned uniqueID/*=ccUni
 	, m_visibilityCheckEnabled(false)
 	, m_lod(nullptr)
 	, m_fwfData(nullptr)
-	, m_drawNormals(false)
+	, m_normalsAreDrawn(false)
 {
 	setName(name); //sadly we cannot use the ccGenericPointCloud constructor argument
 	showSF(false);
@@ -3200,7 +3200,7 @@ void ccPointCloud::drawMeOnly(CC_DRAW_CONTEXT& context)
 
 		glFunc->glPopAttrib(); //GL_LIGHTING_BIT | GL_COLOR_BUFFER_BIT | GL_TRANSFORM_BIT | GL_POINT_BIT --> will switch the light off
 
-		if (m_drawNormals)
+		if (m_normalsAreDrawn)
 		{
 			drawNormals(context);
 		}
@@ -5756,37 +5756,29 @@ bool ccPointCloud::orientNormalsWithFM(	unsigned char level,
 
 void ccPointCloud::toggleDrawNormals(bool state)
 {
-	m_drawNormals = state;
+	m_normalsAreDrawn = state;
 
-	if (state == true)
-	{
-		// we need to decompress the normals (maybe it would be possible to do it in the shader program?)
+	if (state == false)
 		m_decompressed_normals.clear();
-		m_decompressed_normals.resize(size());
-		for (unsigned idx = 0; idx < size(); idx++)
-		{
-			const CCVector3 N = getPointNormal(idx);
-			m_decompressed_normals[idx].x = N.x;
-			m_decompressed_normals[idx].y = N.y;
-			m_decompressed_normals[idx].z = N.z;
-		}
-	}
-	else
-	{
-		m_decompressed_normals.clear();
-	}
 
 	getDisplay()->redraw();
 }
 
 bool ccPointCloud::normalsAreDrawn()
 {
-	return m_drawNormals;
+	return m_normalsAreDrawn;
 }
 
 void  ccPointCloud::setNormalLength(float value)
 {
 	m_normalLength = value;
+
+	getDisplay()->redraw();
+}
+
+void ccPointCloud::setNormalColor(QColor color)
+{
+	m_normalColor = color;
 
 	getDisplay()->redraw();
 }
@@ -5838,48 +5830,47 @@ bool ccPointCloud::drawNormals(CC_DRAW_CONTEXT& context)
 			ccLog::Error(error);
 		}
 
-		m_programDrawNormals->bind();
-
 		m_programParameters.vertexLocation = m_programDrawNormals->attributeLocation("vertexIn");
 		m_programParameters.normalLocation = m_programDrawNormals->attributeLocation("normal");
 		m_programParameters.normalLengthLocation = m_programDrawNormals->uniformLocation("normalLength");
 		m_programParameters.matrixLocation = m_programDrawNormals->uniformLocation("modelViewProjectionMatrix");
 		m_programParameters.colorLocation = m_programDrawNormals->uniformLocation("color");
 
-		// set the vertex locations
-		m_programDrawNormals->enableAttributeArray(m_programParameters.vertexLocation);
-		m_programDrawNormals->setAttributeArray(m_programParameters.vertexLocation, static_cast< GLfloat*>(&m_points[0][0]), 3);
-
-		// set the normals
-		m_programDrawNormals->enableAttributeArray(m_programParameters.normalLocation);
-		m_programDrawNormals->setAttributeArray(m_programParameters.normalLocation, static_cast< GLfloat*>(&m_decompressed_normals[0][0]), 3);
+		updateDecompressedNormals();
 	}
 
 	m_programDrawNormals->bind();
 
-	QColor color(255, 255, 0, 255);
-
 	// set uniforms
 	m_programDrawNormals->setUniformValue(m_programParameters.matrixLocation, projectionModelView);
 	m_programDrawNormals->setUniformValue(m_programParameters.normalLengthLocation, GLfloat(m_normalLength));
-	m_programDrawNormals->setUniformValue(m_programParameters.colorLocation, color);
+	m_programDrawNormals->setUniformValue(m_programParameters.colorLocation, m_normalColor);
+
+	// set the vertex locations array
+	m_programDrawNormals->setAttributeArray(m_programParameters.vertexLocation, static_cast< GLfloat*>(&m_points[0][0]), 3);
+	// set the normals array
+	m_programDrawNormals->setAttributeArray(m_programParameters.normalLocation, static_cast< GLfloat*>(&m_decompressed_normals[0][0]), 3);
+	// enable the vertex locations array
+	m_programDrawNormals->enableAttributeArray(m_programParameters.vertexLocation);
+	// enable the normals array
+	m_programDrawNormals->enableAttributeArray(m_programParameters.normalLocation);
 
 	glFunc->glDrawArrays(GL_POINTS, 0, size());
 
-//	m_programDrawNormals->disableAttributeArray(m_programParameters.vertexLocation);
-//	m_programDrawNormals->disableAttributeArray(m_programParameters.normalLocation);
+	m_programDrawNormals->disableAttributeArray(m_programParameters.vertexLocation);
+	m_programDrawNormals->disableAttributeArray(m_programParameters.normalLocation);
 
 	m_programDrawNormals->release();
 
 	return true;
 }
 
-void ccPointCloud::updateNormalsDrawing()
+void ccPointCloud::updateDecompressedNormals()
 {
 	// if the normals are drawn and they have changed, we need to update the array
 	if (normalsAreDrawn())
 	{
-		// we need to decompress the normals (maybe it would be possible to do it in the shader program?)
+		// we need to decompress the normals
 		m_decompressed_normals.clear();
 		m_decompressed_normals.resize(size());
 		for (unsigned idx = 0; idx < size(); idx++)
@@ -5889,9 +5880,6 @@ void ccPointCloud::updateNormalsDrawing()
 			m_decompressed_normals[idx].y = N.y;
 			m_decompressed_normals[idx].z = N.z;
 		}
-		// set the normals
-		m_programDrawNormals->enableAttributeArray(m_programParameters.normalLocation);
-		m_programDrawNormals->setAttributeArray(m_programParameters.normalLocation, static_cast< GLfloat*>(&m_decompressed_normals[0][0]), 3);
 	}
 }
 

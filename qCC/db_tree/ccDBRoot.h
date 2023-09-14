@@ -27,6 +27,9 @@
 //qCC_db
 #include <ccHObject.h>
 
+//qCC
+#include "ccDrawNormalsWidget.h"
+
 //System
 #include <unordered_set>
 
@@ -219,12 +222,16 @@ private:
 	void editLabelScalarValue();
 	void drawNormals();
 
+	//! Show the dialog to set the normal length
+	void openDrawNormalsWidget(ccPointCloud *cloud);
+
+	//! Close the dialog to set the normal length
+	void closeDrawNormalsWidget(ccPointCloud *cloud);
+
 Q_SIGNALS:
 	void selectionChanged();
 	void dbIsEmpty();
 	void dbIsNotEmptyAnymore();
-	void openDrawNormalsDialog(ccPointCloud *cloud);
-	void closeDrawNormalsDialog(ccPointCloud *cloud);
 
 protected:
 
@@ -310,6 +317,8 @@ protected:
 
 	//! Last context menu pos
 	QPoint m_contextMenuPos;
+
+	std::map<ccPointCloud*, ccDrawNormalsWidget*> map_cloud_drawNormalsWidget;
 };
 
 #endif
