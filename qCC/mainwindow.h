@@ -187,6 +187,8 @@ private:
 	void doActionShowHelpDialog();
 	//! Displays file open dialog
 	void doActionLoadFile();
+	///! mySection
+	void doActionMySection();
 	//! Displays file save dialog
 	void doActionSaveFile();
 	//! Displays the Global Shift settings dialog

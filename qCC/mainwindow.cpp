@@ -506,6 +506,7 @@ void MainWindow::connectActions()
 
 	//"File" menu
 	connect(m_UI->actionOpen,						&QAction::triggered, this, &MainWindow::doActionLoadFile);
+	connect(m_UI->actionMySection,					&QAction::triggered, this, &MainWindow::doActionMySection);
 	connect(m_UI->actionSave,						&QAction::triggered, this, &MainWindow::doActionSaveFile);
 	connect(m_UI->actionGlobalShiftSettings,		&QAction::triggered, this, &MainWindow::doActionGlobalShiftSeetings);
 	connect(m_UI->actionPrimitiveFactory,			&QAction::triggered, this, &MainWindow::doShowPrimitiveFactory);
@@ -6648,6 +6649,24 @@ void MainWindow::activateSegmentationMode()
 		deactivateSegmentationMode(false);
 	else
 		updateOverlayDialogsPlacement();
+}
+
+void MainWindow::doActionMySection()
+{
+	ccGLWindowInterface* win = getActiveGLWindow();
+	if (!win)
+		return;
+
+	if (!haveSelection())
+		return;
+
+	freezeUI(true);
+	m_UI->toolBarView->setDisabled(false);
+
+	//we disable all other windows
+	disableAllBut(win);
+
+
 }
 
 void MainWindow::deactivateSegmentationMode(bool state)

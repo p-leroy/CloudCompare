@@ -697,6 +697,7 @@ QTreeView::branch:open:has-children:has-siblings  {
     <bool>false</bool>
    </attribute>
    <addaction name="actionOpen"/>
+   <addaction name="actionMySection"/>
    <addaction name="actionSave"/>
    <addaction name="separator"/>
    <addaction name="actionPointPicking"/>
@@ -3174,6 +3175,11 @@ The active scalar field should have integer values.</string>
    </property>
    <property name="toolTip">
     <string>Draw normals</string>
+   </property>
+  </action>
+  <action name="actionMySection">
+   <property name="text">
+    <string>actionMySection</string>
    </property>
   </action>
  </widget>
