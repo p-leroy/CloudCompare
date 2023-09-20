@@ -56,6 +56,7 @@ class ccRecentFiles;
 class ccSectionExtractionTool;
 class ccStdPluginInterface;
 class ccTracePolylineTool;
+class ccSimpleSectionTool;
 
 struct dbTreeSelectionInfo;
 
@@ -640,6 +641,8 @@ private: //members
 	/*** plugins ***/
 	//! Manages plugins - menus, toolbars, and the about dialog
 	ccPluginUIManager	*m_pluginUIManager;
+
+	std::shared_ptr<ccSimpleSectionTool> m_ccSimpleSelectionTool;
 };
 
 #endif

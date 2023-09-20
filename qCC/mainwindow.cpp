@@ -130,6 +130,7 @@
 #include "ccUtils.h"
 #include "db_tree/ccDBRoot.h"
 #include "pluginManager/ccPluginUIManager.h"
+#include "ccSimpleSectionTool.h"
 
 #include "ccGlFilter.h"
 
@@ -6666,7 +6667,7 @@ void MainWindow::doActionMySection()
 	//we disable all other windows
 	disableAllBut(win);
 
-
+	m_ccSimpleSelectionTool.reset(new ccSimpleSectionTool(win, this));
 }
 
 void MainWindow::deactivateSegmentationMode(bool state)

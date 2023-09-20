@@ -19,7 +19,6 @@ public:
 	void addPointToPolylineExt(int x, int y, bool allowClicksOutside);
 	void closePolyLine(int x = 0, int y = 0); //arguments for compatibility with ccGlWindow::rightButtonClicked signal
 	void updatePolyLine(int x, int y, Qt::MouseButtons buttons);
-	void closeRectangle();
 	void stopRunning();
 	void run();
 
@@ -51,8 +50,6 @@ private:
 	//! Associated (MDI) window
 	ccGLWindowInterface* m_associatedWin;
 
-	//! Selection mode
-	bool m_rectangularSelection;
 };
 
 #endif // CCSIMPLESECTIONTOOL_H

@@ -9,8 +9,6 @@ ccSimpleSectionTool::ccSimpleSectionTool(ccGLWindowInterface *window, QObject *p
 	connect(m_associatedWin->signalEmitter(), &ccGLWindowSignalEmitter::leftButtonClicked,	this, &ccSimpleSectionTool::addPointToPolyline);
 	connect(m_associatedWin->signalEmitter(), &ccGLWindowSignalEmitter::rightButtonClicked,	this, &ccSimpleSectionTool::closePolyLine);
 	connect(m_associatedWin->signalEmitter(), &ccGLWindowSignalEmitter::mouseMoved,			this, &ccSimpleSectionTool::updatePolyLine);
-	connect(m_associatedWin->signalEmitter(), &ccGLWindowSignalEmitter::buttonReleased,		this, &ccSimpleSectionTool::closeRectangle);
-
 }
 
 void ccSimpleSectionTool::closePolyLine(int, int)
@@ -108,38 +106,6 @@ void ccSimpleSectionTool::updatePolyLine(int x, int y, Qt::MouseButtons buttons)
 	m_associatedWin->redraw(true, false);
 }
 
-void ccSimpleSectionTool::closeRectangle()
-{
-	//only for rectangle selection in RUNNING mode
-	if ((m_state & RECTANGLE) == 0 || (m_state & RUNNING) == 0)
-		return;
-
-	assert(m_segmentationPoly);
-	unsigned vertCount = m_segmentationPoly->size();
-	if (vertCount < 4)
-	{
-		//first point only? we keep the real time update mechanism
-		if (m_rectangularSelection)
-			return;
-		m_segmentationPoly->clear();
-		m_polyVertices->clear();
-//		allowPolylineExport(false);
-	}
-	else
-	{
-//		allowPolylineExport(true);
-	}
-
-	//stop
-	stopRunning();
-
-	if (m_associatedWin)
-	{
-		m_associatedWin->doReleaseMouse();
-		m_associatedWin->redraw(true, false);
-	}
-}
-
 void ccSimpleSectionTool::stopRunning()
 {
 	m_state &= (~RUNNING);
@@ -169,10 +135,6 @@ void ccSimpleSectionTool::addPointToPolylineExt(int x, int y, bool allowClicksOu
 	assert(m_segmentationPoly);
 	unsigned vertCount = m_polyVertices->size();
 
-	//particular case: we close the rectangular selection by a 2nd click
-	if (m_rectangularSelection && vertCount == 4 && (m_state & RUNNING))
-		return;
-
 	//new point
 	QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(x, y);
 	CCVector3 P(static_cast<PointCoordinateType>(pos2D.x()),
@@ -180,13 +142,13 @@ void ccSimpleSectionTool::addPointToPolylineExt(int x, int y, bool allowClicksOu
 				0);
 
 	//CTRL key pressed at the same time?
-	bool ctrlKeyPressed = m_rectangularSelection || ((QApplication::keyboardModifiers() & Qt::ControlModifier) == Qt::ControlModifier);
+	bool ctrlKeyPressed = ((QApplication::keyboardModifiers() & Qt::ControlModifier) == Qt::ControlModifier);
 
 	//start new polyline?
 	if (((m_state & RUNNING) == 0) || vertCount == 0 || ctrlKeyPressed)
 	{
 		//reset state
-		m_state = (ctrlKeyPressed ? RECTANGLE : POLYLINE);
+		m_state = POLYLINE;
 		m_state |= STARTED;
 		run();
 
