@@ -25,7 +25,7 @@
 #include <ccPolyline.h>
 #include <ccPointCloud.h>
 //qCC_gl
-#include <ccGLWindow.h>
+#include <ccGLWindowInterface.h>
 
 //Qt
 #include <QtGui>
@@ -57,7 +57,7 @@
 static const QString s_stepDurationKey("StepDurationSec");
 static const QString s_stepEnabledKey("StepEnabled");
 
-qAnimationDlg::qAnimationDlg(ccGLWindow* view3d, QWidget* parent)
+qAnimationDlg::qAnimationDlg(ccGLWindowInterface* view3d, QWidget* parent)
 	: QDialog(parent, Qt::Tool)
 	, Ui::AnimationDialog()
 	, m_view3d(view3d)
@@ -674,8 +674,50 @@ void qAnimationDlg::onSmoothRatioChanged(double ratio)
 
 ccPolyline* qAnimationDlg::getTrajectory()
 {
-	//TODO
-	return nullptr;
+	const Trajectory& trajectory = smoothTrajectoryGroupBox->isChecked() ? m_smoothVideoSteps : m_videoSteps;
+	if (trajectory.size() < 2)
+	{
+		ccLog::Error("Not enough steps");
+		return nullptr;
+	}
+
+	ccPointCloud* vertices = new ccPointCloud("vertices");
+	if (!vertices->reserve(static_cast<unsigned>(trajectory.size())))
+	{
+		ccLog::Error("Not enough memory");
+		delete vertices;
+		return nullptr;
+	}
+
+	for (const Step& step : trajectory)
+	{
+		CCVector3 C = step.cameraCenter.toPC();
+
+		if (vertices->size() != 0)
+		{
+			// check that the camera has moved
+			if (!CCCoreLib::GreaterThanEpsilon((*vertices->getPoint(vertices->size() - 1) - C).norm()))
+			{
+				continue;
+			}
+		}
+		vertices->addPoint(C);
+	}
+	vertices->shrinkToFit();
+
+	ccPolyline* polyline = new ccPolyline(vertices);
+	polyline->addChild(vertices);
+	vertices->setVisible(false);
+	if (!polyline->addPointIndex(0, static_cast<unsigned>(vertices->size())))
+	{
+		ccLog::Error("Not enough memory");
+		delete vertices;
+		return nullptr;
+	}
+	polyline->setClosed(loopCheckBox->isChecked());
+	polyline->setDisplay_recursive(m_videoSteps.front().viewport->getDisplay()); // warning the smoothed version has no valid 'viewport'
+
+	return polyline;
 }
 
 bool qAnimationDlg::exportTrajectoryOnExit()
@@ -1218,7 +1260,7 @@ void qAnimationDlg::render(bool asSeparateFrames)
 					customSize.setWidth((originalViewSize.width() / 8 + 1) * 8);
 				if (originalViewSize.height() % 8)
 					customSize.setHeight((originalViewSize.height() / 8 + 1) * 8);
-				m_view3d->resize(customSize);
+				m_view3d->doResize(customSize);
 				QApplication::processEvents();
 			}
 		}
@@ -1359,7 +1401,7 @@ void qAnimationDlg::render(bool asSeparateFrames)
 		encoder->close();
 
 		//hack: restore original size
-		m_view3d->resize(originalViewSize);
+		m_view3d->doResize(originalViewSize);
 		QApplication::processEvents();
 	}
 #endif
