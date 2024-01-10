@@ -99,7 +99,7 @@ void qAnimation::doAction()
 		return;
 
 	//get active GL window
-	ccGLWindow* glWindow = m_app->getActiveGLWindow();
+	ccGLWindowInterface* glWindow = m_app->getActiveGLWindow();
 	if (!glWindow)
 	{
 		m_app->dispToConsole("No active 3D view!", ccMainAppInterface::ERR_CONSOLE_MESSAGE);
@@ -123,18 +123,14 @@ void qAnimation::doAction()
 	videoDlg.exec();
 
 	//Export trajectory (for debug)
-	if (videoDlg.exportTrajectoryOnExit() && videoDlg.getTrajectory())
+	if (videoDlg.exportTrajectoryOnExit())
 	{
-		ccPolyline* trajectory = new ccPolyline(*videoDlg.getTrajectory());
-		if (!trajectory)
+		ccPolyline* trajectory = videoDlg.getTrajectory();
+		if (trajectory)
 		{
-			ccLog::Error("Not enough memory");
-		}
-		else
-		{
-			trajectory->setColor(ccColor::yellow);
-			trajectory->showColors(true);
+			trajectory->setTempColor(ccColor::red);
 			trajectory->setWidth(2);
+			//trajectory->prepareDisplayForRefresh();
 
 			getMainAppInterface()->addToDB(trajectory);
 		}
