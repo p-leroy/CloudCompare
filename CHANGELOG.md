@@ -128,6 +128,10 @@ v2.13.beta (???) - (??/??/2024)
 		- A 3D graph-based individual-tree isolator (treeiso) from Terrestrial Laser Scanning point clouds
 		- by Zhouxin Xi and Chris Hopkinson, Artemis Lab, Department of Geography & Environment, University of Lethbridge (Canada)
 
+	- New menu entry: Save project
+		- File > Save project (or CTRL+SHIFT+S)
+		- Saves all entitites in the DB as a bin file
+
 - Improvements:
 
 	- The ASCII file loading dialog has been improved:
@@ -337,6 +341,9 @@ v2.13.beta (???) - (??/??/2024)
 
 	- Animation plugin:
 		- option to export the trajectory as a polyline
+		- the Animation plugin will now restore the custom light position (and activation state) if the viewports are saved
+			with this version of CloudCompare. This allows to render animations of still objects but with a moving light source
+			for instance.
 
 	- ICP and Align tools:
 		- when using a reference entity having a defined Global Shift & Scale the registration matrix
