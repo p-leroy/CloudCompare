@@ -613,6 +613,15 @@ void qM3C2Tools::ComputeStatistics(CCCoreLib::DgmOctree::NeighboursSet& set, Dis
 		uncer = prctile95 - prctile5;
 		break;
 	}
+	case USE_MIN_AND_PRCTILE5_MINUS_MIN:
+	{
+		//sort neighbors by distance
+		std::sort(set.begin(), set.end(), CCCoreLib::DgmOctree::PointDescriptor::distComp);
+		double prctile5 = Percentile(set, 5.);
+		dist = set.begin()->squareDistd; // min
+		uncer = prctile5 - dist;
+		break;
+	}
 	default:
 		dist = CCCoreLib::NAN_VALUE;
 		uncer = 0;
