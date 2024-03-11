@@ -185,7 +185,7 @@ namespace LasDetails
 		return VersionsArray;
 	}
 
-	LasVersion SelectBestVersion(const ccPointCloud& cloud)
+	LasVersion SelectBestVersion(const ccPointCloud& cloud, int previousMinorVersion /*=0*/)
 	{
 		// These are exclusive to 'extended' point formats (>= 6)
 		bool hasOverlapFlag    = cloud.getScalarFieldIndexByName(LasNames::OverlapFlag) != -1;
@@ -213,7 +213,7 @@ namespace LasDetails
 			if (returnNumberIdx != -1)
 			{
 				const CCCoreLib::ScalarField* returnNumber = cloud.getScalarField(returnNumberIdx);
-				if (returnNumber->getMax() > LasScalarField::ValueRange(LasScalarField::LasScalarField::ReturnNumber).max)
+				if (returnNumber->getMax() > LasScalarField::ValueRange(LasScalarField::ReturnNumber).max)
 				{
 					isExtendedRequired = true;
 				}
@@ -233,7 +233,7 @@ namespace LasDetails
 		bool hasRGB      = cloud.hasColors();
 		bool hasWaveform = cloud.hasFWF();
 
-		if (isExtendedRequired)
+		if (isExtendedRequired || previousMinorVersion >= 4)
 		{
 			int pointFormat = 6;
 			if (hasWaveform)
@@ -258,20 +258,24 @@ namespace LasDetails
 					pointFormat = 7;
 				}
 			}
-			return {pointFormat, 4};
+			return {pointFormat, previousMinorVersion};
 		}
 		else
 		{
 			bool hasGpsTime   = cloud.getScalarFieldIndexByName(LasNames::GpsTime) != -1;
 			int  pointFormat  = 0;
 			int  minorVersion = 2;
-			if (hasWaveform)
+			if (hasWaveform || previousMinorVersion >= 3)
 			{
 				minorVersion = 3;
 				if (hasGpsTime)
+				{
 					pointFormat = 4;
+				}
 				else if (hasRGB)
+				{
 					pointFormat = 5;
+				}
 			}
 			else
 			{

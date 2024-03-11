@@ -507,6 +507,7 @@ void MainWindow::connectActions()
 	//"File" menu
 	connect(m_UI->actionOpen,						&QAction::triggered, this, &MainWindow::doActionLoadFile);
 	connect(m_UI->actionSave,						&QAction::triggered, this, &MainWindow::doActionSaveFile);
+	connect(m_UI->actionSaveProject,				&QAction::triggered, this, &MainWindow::doActionSaveProject);
 	connect(m_UI->actionGlobalShiftSettings,		&QAction::triggered, this, &MainWindow::doActionGlobalShiftSeetings);
 	connect(m_UI->actionPrimitiveFactory,			&QAction::triggered, this, &MainWindow::doShowPrimitiveFactory);
 	connect(m_UI->actionCloseAll,					&QAction::triggered, this, &MainWindow::closeAll);
@@ -3938,7 +3939,9 @@ void MainWindow::doAction4pcsRegister()
 		ccPointCloud* newDataCloud = data->isA(CC_TYPES::POINT_CLOUD) ? static_cast<ccPointCloud*>(data)->cloneThis() : ccPointCloud::From(data, data);
 
 		if (data->getParent())
+		{
 			data->getParent()->addChild(newDataCloud);
+		}
 		newDataCloud->setName(data->getName() + QString(".registered"));
 		transform.apply(*newDataCloud);
 		newDataCloud->invalidateBoundingBox(); //invalidate bb
@@ -3973,7 +3976,7 @@ void MainWindow::doActionSubsample()
 	ScalarType sfMin = CCCoreLib::NAN_VALUE;
 	ScalarType sfMax = CCCoreLib::NAN_VALUE;
 	{
-		for ( ccHObject *entity : getSelectedEntities() )
+		for ( ccHObject* entity : getSelectedEntities() )
 		{
 			if (entity->isA(CC_TYPES::POINT_CLOUD))
 			{
@@ -4004,11 +4007,19 @@ void MainWindow::doActionSubsample()
 
 	//Display dialog
 	ccSubsamplingDlg sDlg(maxPointCount, maxCloudRadius, this);
+	sDlg.loadFromPersistentSettings();
+
 	bool hasValidSF = ccScalarField::ValidValue(sfMin) && ccScalarField::ValidValue(sfMax);
 	if (hasValidSF)
-		sDlg.enableSFModulation(sfMin,sfMax);
+	{
+		sDlg.enableSFModulation(sfMin, sfMax);
+	}
 	if (!sDlg.exec())
+	{
 		return;
+	}
+
+	sDlg.saveToPersistentSettings();
 
 	//process clouds
 	ccHObject::Container resultingClouds;
@@ -4375,10 +4386,13 @@ void MainWindow::doActionLabelConnectedComponents()
 
 void MainWindow::doActionSetSFAsCoord()
 {
-	if ( !ccEntityAction::sfSetAsCoord(m_selectedEntities, this) )
+	if (!ccEntityAction::sfSetAsCoord(m_selectedEntities, this))
+	{
 		return;
+	}
 
-	refreshAll();
+	zoomOnSelectedEntities();
+
 	updateUI();
 }
 
@@ -5672,7 +5686,7 @@ void MainWindow::doActionSORFilter()
 
 void MainWindow::doActionFilterNoise()
 {
-	PointCoordinateType kernelRadius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
+	double kernelRadius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
 
 	ccNoiseFilterDlg noiseDlg(this);
 
@@ -5701,7 +5715,7 @@ void MainWindow::doActionFilterNoise()
 		return;
 
 	//update semi-persistent/dynamic parameters
-	kernelRadius = static_cast<PointCoordinateType>(noiseDlg.radiusDoubleSpinBox->value());
+	kernelRadius = noiseDlg.radiusDoubleSpinBox->value();
 	s_noiseFilterUseKnn = noiseDlg.knnRadioButton->isChecked();
 	s_noiseFilterKnn = noiseDlg.knnSpinBox->value();
 	s_noiseFilterUseAbsError = noiseDlg.absErrorRadioButton->isChecked();
@@ -5729,7 +5743,7 @@ void MainWindow::doActionFilterNoise()
 
 		//computation
 		CCCoreLib::ReferenceCloud* selection = CCCoreLib::CloudSamplingTools::noiseFilter(	cloud,
-																							kernelRadius,
+																							static_cast<PointCoordinateType>(kernelRadius),
 																							s_noiseFilterNSigma,
 																							s_noiseFilterRemoveIsolatedPoints,
 																							s_noiseFilterUseKnn,
@@ -7115,6 +7129,17 @@ void MainWindow::doActionSaveViewportAsCamera()
 	viewportObject->setParameters(win->getViewportParameters());
 	viewportObject->setDisplay(win);
 
+	// Save the custom light position as well
+	{
+		bool customLightEnabled = win->customLightEnabled();
+		CCVector3f customLightPos = win->getCustomLightPosition();
+
+		viewportObject->setMetaData("CustomLightEnabled", customLightEnabled);
+		viewportObject->setMetaData("CustomLightPosX", customLightPos.x);
+		viewportObject->setMetaData("CustomLightPosY", customLightPos.y);
+		viewportObject->setMetaData("CustomLightPosZ", customLightPos.z);
+	}
+
 	addToDB(viewportObject);
 }
 
@@ -8366,7 +8391,7 @@ void MainWindow::doSphericalNeighbourhoodExtractionTest()
 		return;
 
 	//spherical neighborhood extraction radius
-	PointCoordinateType sphereRadius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
+	double sphereRadius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
 	if (sphereRadius < 0)
 	{
 		ccConsole::Error(tr("Invalid kernel size!"));
@@ -8374,10 +8399,10 @@ void MainWindow::doSphericalNeighbourhoodExtractionTest()
 	}
 
 	bool ok;
-	double val = QInputDialog::getDouble(this, tr("SNE test"), tr("Radius:"), static_cast<double>(sphereRadius), DBL_MIN, 1.0e9, 8, &ok);
+	double val = QInputDialog::getDouble(this, tr("SNE test"), tr("Radius:"), sphereRadius, DBL_MIN, 1.0e9, 8, &ok);
 	if (!ok)
 		return;
-	sphereRadius = static_cast<PointCoordinateType>(val);
+	sphereRadius = val;
 
 	QString sfName = tr("Spherical extraction test (%1)").arg(sphereRadius);
 
@@ -8423,7 +8448,7 @@ void MainWindow::doSphericalNeighbourhoodExtractionTest()
 		eTimer.start();
 
 		size_t extractedPoints = 0;
-		unsigned char level = octree->findBestLevelForAGivenNeighbourhoodSizeExtraction(sphereRadius);
+		unsigned char level = octree->findBestLevelForAGivenNeighbourhoodSizeExtraction(static_cast<PointCoordinateType>(sphereRadius));
 		std::random_device rd;   // non-deterministic generator
 		std::mt19937 gen(rd());  // to seed mersenne twister.
 		std::uniform_int_distribution<unsigned> dist(0, cloud->size() - 1);
@@ -8433,11 +8458,16 @@ void MainWindow::doSphericalNeighbourhoodExtractionTest()
 		{
 			unsigned randIndex = dist(gen);
 			CCCoreLib::DgmOctree::NeighboursSet neighbours;
-			octree->getPointsInSphericalNeighbourhood(*cloud->getPoint(randIndex), sphereRadius, neighbours, level);
+			octree->getPointsInSphericalNeighbourhood(	*cloud->getPoint(randIndex),
+														static_cast<PointCoordinateType>(sphereRadius),
+														neighbours,
+														level );
 			size_t neihgboursCount = neighbours.size();
 			extractedPoints += neihgboursCount;
 			for (size_t k = 0; k < neihgboursCount; ++k)
+			{
 				cloud->setPointScalarValue(neighbours[k].pointIndex, static_cast<ScalarType>(sqrt(neighbours[k].squareDistd)));
+			}
 		}
 		ccConsole::Print(tr("[SNE_TEST] Mean extraction time = %1 ms (radius = %2, mean (neighbours) = %3)").arg(eTimer.elapsed()).arg(sphereRadius).arg(extractedPoints / static_cast<double>(samples), 0, 'f', 1));
 
@@ -9082,7 +9112,7 @@ void MainWindow::doActionExportCloudInfo()
 					{
 						++validCount;
 						sfSum += val;
-						sfSum2 += val*val;
+						sfSum2 += static_cast<double>(val)*val;
 					}
 				}
 				csvStream << validCount << ';' /*"SF valid values;"*/;
@@ -9996,7 +10026,14 @@ void MainWindow::addToDB(	ccHObject* obj,
 		bool preserveCoordinateShift = true;
 		//here we must test that coordinates are not too big whatever the case because OpenGL
 		//really doesn't like big ones (even if we work with GLdoubles :( ).
-		if (ccGlobalShiftManager::Handle(P, diag, ccGlobalShiftManager::DIALOG_IF_NECESSARY, false, Pshift, &preserveCoordinateShift, &scale))
+		if (ccGlobalShiftManager::Handle(	P,
+											diag,
+											ccGlobalShiftManager::DIALOG_IF_NECESSARY,
+											false,
+											Pshift,
+											&preserveCoordinateShift,
+											&scale)
+			)
 		{
 			bool needRescale = (scale != 1.0);
 			bool needShift = (Pshift.norm2() > 0);
@@ -10193,7 +10230,7 @@ void MainWindow::handleNewLabel(ccHObject* entity)
 {
 	if (entity)
 	{
-		addToDB(entity);
+		addToDB(entity, false, true, false, false);
 	}
 	else
 	{
@@ -10336,7 +10373,7 @@ void MainWindow::doActionSaveFile()
 
 			assert(dest);
 
-			//we don't want double insertions if the user has clicked both the father and child
+			//we don't want double insertions if the user has highlighted both the father and the child
 			if (!dest->find(child->getUniqueID()))
 			{
 				dest->addChild(child, ccHObject::DP_NONE);
@@ -10367,7 +10404,7 @@ void MainWindow::doActionSaveFile()
 	//entities type (cloud, mesh, etc.).
 	QStringList fileFilters;
 	{
-		for ( const FileIOFilter::Shared &filter : FileIOFilter::GetFilters() )
+		for ( const FileIOFilter::Shared& filter : FileIOFilter::GetFilters() )
 		{
 			bool atLeastOneExclusive = false;
 
@@ -10483,7 +10520,7 @@ void MainWindow::doActionSaveFile()
 	{
 		//hierarchy objects have generally as name: 'filename.ext (fullpath)'
 		//so we must only take the first part! (otherwise this type of name
-		//with a path inside perturbs the QFileDialog a lot ;))
+		//with a path inside disturbs QFileDialog a lot ;))
 		QString defaultFileName(m_selectedEntities.front()->getName());
 		if (m_selectedEntities.front()->isA(CC_TYPES::HIERARCHY_OBJECT))
 		{
@@ -10606,6 +10643,100 @@ void MainWindow::doActionSaveFile()
 	//we update current file path
 	currentPath = QFileInfo(selectedFilename).absolutePath();
 	settings.setValue(ccPS::CurrentPath(),currentPath);
+	settings.endGroup();
+}
+
+void MainWindow::doActionSaveProject()
+{
+	if (!m_ccRoot || !m_ccRoot->getRootEntity())
+	{
+		assert(false);
+		return;
+	}
+
+	ccHObject* rootEntity = m_ccRoot->getRootEntity();
+	if (rootEntity->getChildrenNumber() == 0)
+	{
+		return;
+	}
+
+	//default output path (+ filename)
+	QSettings settings;
+	settings.beginGroup(ccPS::SaveFile());
+	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
+	ccLog::PrintDebug(currentPath);
+	QString fullPathName = currentPath;
+
+	static QString s_previousProjectName{ "project" };
+	QString defaultFileName = s_previousProjectName;
+	if (rootEntity->getChildrenNumber() == 1)
+	{
+		// If there's only on top entity, we can try to use its name as the project name.
+		ccHObject* topEntity = rootEntity->getChild(0);
+		defaultFileName = topEntity->getName();
+		if (topEntity->isA(CC_TYPES::HIERARCHY_OBJECT))
+		{
+			// Hierarchy objects have generally as name: 'filename.ext (fullpath)'
+			// so we must only take the first part! (otherwise this type of name
+			// with a path inside disturbs the QFileDialog a lot ;))
+			QStringList parts = defaultFileName.split(' ', QString::SkipEmptyParts);
+			if (!parts.empty())
+			{
+				defaultFileName = parts[0];
+			}
+		}
+
+		//we remove the extension
+		defaultFileName = QFileInfo(defaultFileName).completeBaseName();
+
+		if (!IsValidFileName(defaultFileName))
+		{
+			ccLog::Warning(tr("[I/O] Top entity's name would make an invalid filename! Can't use it..."));
+			defaultFileName = "project";
+		}
+	}
+	fullPathName += QString("/") + defaultFileName;
+
+	QString binFilter = BinFilter::GetFileFilter();
+
+	//ask the user for the output filename
+	QString selectedFilename = QFileDialog::getSaveFileName(this,
+		tr("Save file"),
+		fullPathName,
+		binFilter,
+		&binFilter,
+		CCFileDialogOptions());
+
+	if (selectedFilename.isEmpty())
+	{
+		//process cancelled by the user
+		return;
+	}
+
+	FileIOFilter::SaveParameters parameters;
+	{
+		parameters.alwaysDisplaySaveDialog = true;
+		parameters.parentWidget = this;
+	}
+
+	CC_FILE_ERROR result = FileIOFilter::SaveToFile(rootEntity->getChildrenNumber() == 1 ? rootEntity->getChild(0) : rootEntity, selectedFilename, parameters, binFilter);
+
+	if (result == CC_FERR_NO_ERROR)
+	{
+		//only for BIN files: display the compatible CC version
+		short fileVersion = BinFilter::GetLastSavedFileVersion();
+		if (0 != fileVersion)
+		{
+			QString minCCVersion = ccApplication::GetMinCCVersionForFileVersion(fileVersion);
+			ccLog::Print(QString("This file can be loaded by CloudCompare version %1 and later").arg(minCCVersion));
+		}
+	}
+
+	//we update the current 'save' path
+	QFileInfo fi(selectedFilename);
+	s_previousProjectName = fi.fileName();
+	currentPath = fi.absolutePath();
+	settings.setValue(ccPS::CurrentPath(), currentPath);
 	settings.endGroup();
 }
 
@@ -10910,6 +11041,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_UI->actionTracePolyline->setEnabled(!dbIsEmpty);
 	m_UI->actionZoomAndCenter->setEnabled(atLeastOneEntity && activeWindow);
 	m_UI->actionSave->setEnabled(atLeastOneEntity);
+	m_UI->actionSaveProject->setEnabled(!dbIsEmpty);
 	m_UI->actionClone->setEnabled(atLeastOneEntity);
 	m_UI->actionDelete->setEnabled(atLeastOneEntity);
 	m_UI->actionExportCoordToSF->setEnabled(atLeastOneEntity);

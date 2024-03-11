@@ -212,6 +212,10 @@ public:
 	void toggleCustomLight();
 	//! Returns whether custom light is enabled or not
 	inline bool customLightEnabled() const { return m_customLightEnabled; }
+	//! Returns the current position of the custom light
+	const CCVector3f getCustomLightPosition() const { return CCVector3f(m_customLightPos); }
+	//! Sets the position of the custom light
+	void setCustomLightPosition(const CCVector3f& pos);
 
 	//! Sets pivot visibility
 	void setPivotVisibility(PivotVisibility vis);
@@ -1361,7 +1365,7 @@ protected: //members
 	CCVector3d m_lockedRotationAxis;
 
 	//! Shared texture type
-	using SharedTexture = QSharedPointer< QOpenGLTexture>;
+	using SharedTexture = QSharedPointer<QOpenGLTexture>;
 
 	//! Reserved textures (for renderText)
 	QMap<uint16_t, SharedTexture> m_uniqueTextures;
