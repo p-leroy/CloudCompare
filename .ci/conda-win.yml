@@ -1,0 +1,13 @@
+name: CloudCompareDev
+channels:
+  - conda-forge
+dependencies:
+  - eigen=3.4.*
+  - ffmpeg=6.1.*
+  - ninja
+  - boost=1.84.*
+  - pcl=1.14.*
+  - qt=5.15.*
+  - xerces-c=3.2.*
+  - zlib=1.2.*
+  - laszip
