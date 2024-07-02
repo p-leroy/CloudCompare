@@ -181,8 +181,8 @@
      <addaction name="actionEnhanceRGBWithIntensities"/>
      <addaction name="actionRGBBilateralFilter"/>
      <addaction name="actionRGBGaussianFilter"/>
-	 <addaction name="actionRGBMeanFilter"/>
-	 <addaction name="actionRGBMedianFilter"/>
+     <addaction name="actionRGBMeanFilter"/>
+     <addaction name="actionRGBMedianFilter"/>
      <addaction name="separator"/>
      <addaction name="actionClearColor"/>
     </widget>
@@ -747,6 +747,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    </attribute>
    <addaction name="actionShowHistogram"/>
    <addaction name="actionComputeStatParams"/>
+   <addaction name="actionPlotSFvsSF"/>
    <addaction name="actionFilterByValue"/>
    <addaction name="actionDeleteScalarField"/>
    <addaction name="actionAddConstantSF"/>
@@ -1360,32 +1361,28 @@ QTreeView::branch:open:has-children:has-siblings  {
     <string>Compute bilateral filter</string>
    </property>
   </action>
-   <action name="actionRGBMeanFilter">
-	 <property name="icon">
-	 </property>
-	 <property name="text">
-	   <string>Mean filter</string>
-	 </property>
-	 <property name="toolTip">
-	   <string>Compute mean filter</string>
-	 </property>
-	 <property name="statusTip">
-	   <string>Compute mean filter</string>
-	 </property>
-   </action>
-   <action name="actionRGBMedianFilter">
-	 <property name="icon">
-	 </property>
-	 <property name="text">
-	   <string>Median filter</string>
-	 </property>
-	 <property name="toolTip">
-	   <string>Compute median filter</string>
-	 </property>
-	 <property name="statusTip">
-	   <string>Compute median filter</string>
-	 </property>
-   </action>
+  <action name="actionRGBMeanFilter">
+   <property name="text">
+    <string>Mean filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Compute mean filter</string>
+   </property>
+   <property name="statusTip">
+    <string>Compute mean filter</string>
+   </property>
+  </action>
+  <action name="actionRGBMedianFilter">
+   <property name="text">
+    <string>Median filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Compute median filter</string>
+   </property>
+   <property name="statusTip">
+    <string>Compute median filter</string>
+   </property>
+  </action>
   <action name="actionClearNormals">
    <property name="icon">
     <iconset resource="../icons.qrc">
@@ -3268,6 +3265,17 @@ The active scalar field should have integer values.</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionPlotSFvsSF">
+   <property name="text">
+    <string>Plot SF vs SF</string>
+   </property>
+   <property name="iconText">
+    <string>SFvsSF</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::NoRole</enum>
    </property>
   </action>
  </widget>
