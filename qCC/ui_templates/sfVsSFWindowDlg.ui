@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>sfVsSFWindowDlg</class>
+ <widget class="QDialog" name="sfVsSFWindowDlg">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>686</width>
+    <height>549</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1,0" columnminimumwidth="0,0,0">
+   <item row="3" column="2">
+    <widget class="QCheckBox" name="checkBoxShowDensityMap">
+     <property name="text">
+      <string>Show density map</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="2">
+    <widget class="QCheckBox" name="checkBoxShowGraph">
+     <property name="text">
+      <string>Show graph</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>x</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="3">
+    <widget class="ccSFvsSFPlot" name="widget" native="true"/>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>y</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="comboBoxYAxis"/>
+   </item>
+   <item row="2" column="2">
+    <widget class="QCheckBox" name="checkBoxYLog">
+     <property name="text">
+      <string>log scale</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QComboBox" name="comboBoxXAxis"/>
+   </item>
+   <item row="1" column="2">
+    <widget class="QCheckBox" name="checkBoxXLog">
+     <property name="text">
+      <string>log scale</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="2">
+    <widget class="QCheckBox" name="checkBoxLogScaleDensityMap">
+     <property name="text">
+      <string>log scale</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ccSFvsSFPlot</class>
+   <extends>QWidget</extends>
+   <header location="global">ccSFvsSFWindowDlg.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

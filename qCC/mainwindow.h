@@ -241,6 +241,7 @@ private:
 	void setActiveSubWindow(QWidget* window);
 	void showDisplayOptions();
 	void showSelectedEntitiesHistogram();
+	void plotSelectedEntitySFvsSF();
 	void testFrameRate();
 	void toggleFullScreen(bool state);
 	void toggleVisualDebugTraces();

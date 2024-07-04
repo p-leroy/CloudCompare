@@ -121,6 +121,7 @@
 #include "ccWaveformDialog.h"
 #include "ccEntitySelectionDlg.h"
 #include "ccSmoothPolylineDlg.h"
+#include "ccSFvsSFWindowDlg.h"
 
 //other
 #include "ccCropTool.h"
@@ -603,6 +604,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionViewFromSensor,				&QAction::triggered, this, &MainWindow::doActionSetViewFromSensor);
 	//"Edit > Scalar fields" menu
 	connect(m_UI->actionShowHistogram,				&QAction::triggered, this, &MainWindow::showSelectedEntitiesHistogram);
+	connect(m_UI->actionPlotSFvsSF,					&QAction::triggered, this, &MainWindow::plotSelectedEntitySFvsSF);
 	connect(m_UI->actionComputeStatParams,			&QAction::triggered, this, &MainWindow::doActionComputeStatParams);
 	connect(m_UI->actionSFGradient,					&QAction::triggered, this, &MainWindow::doActionSFGradient);
 	connect(m_UI->actionGaussianFilter,				&QAction::triggered, this, &MainWindow::doActionSFGaussianFilter);
@@ -7816,6 +7818,22 @@ void MainWindow::showSelectedEntitiesHistogram()
 				}
 				hDlg->show();
 			}
+		}
+	}
+}
+
+void MainWindow::plotSelectedEntitySFvsSF()
+{
+	for ( ccHObject *entity : getSelectedEntities() )
+	{
+		//for "real" point clouds only
+		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud( entity );
+		if (cloud)
+		{
+			ccSFvsSFWindowDlg* dlg = new ccSFvsSFWindowDlg(cloud, this);
+			dlg->setAttribute(Qt::WA_DeleteOnClose, true);
+			dlg->setWindowTitle(tr("Cloud: [%1]").arg(cloud->getName()));
+			dlg->show();
 		}
 	}
 }
