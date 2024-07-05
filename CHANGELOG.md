@@ -48,6 +48,29 @@ Improvements:
 			- {original cloud name} + '_ground_points'
 			- {original cloud name} + '_offground_points'
 
+v2.13.2 (Kharkiv) - (05/26/2024)
+----------------------
+Improvements:
+	- substantial improvement of the cloud merge operation (thanks to Thomas Watson)
+
+	- symbolic link files (or shortcut or alias) should now be properly handled
+
+	- command line: increase the timestamp resolution of the registration matrix filename and best fit plane
+		information filename so as to avoid overwriting them if generated too quickly
+
+	- Korean translation updated (thanks to Yun-Ho Chung)
+
+	- The Animation plugin now uses ffmppeg 6.1
+
+	- The 'Normals computation' dialog should remember whether normals 'orientation' should be resolved or not
+
+Bug fix:
+	- The LAS dialog could be be wrongly initialized with a point format of 0 in some cases (with FWF data).
+		In command line this could result in missing waveforms when saving. Thanks to Paul Leroy for the fix ;)
+	- The Rasterize tool was not letting the user use '0' as the max edge length parameter for the Delaunay-based
+		raster interpolation mode (forcing the user to set a high value to keep all triangles)
+
+
 v2.13.1 (Kharkiv) - (03/20/2024)
 ----------------------
 Improvements:
