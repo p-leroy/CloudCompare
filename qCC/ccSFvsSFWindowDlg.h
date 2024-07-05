@@ -16,10 +16,18 @@ class ccSFvsSFPlot : public QCustomPlot
 public:
 	explicit ccSFvsSFPlot(QWidget *parent=0);
 
+	enum modeType{
+		MOVE,
+		SELECT
+	} m_mode;
+
 	void rescale();
+	void setMode(modeType mode){m_mode = mode;}
+	void selectionChanged();
+	void autoscale();
 
 	void mousePressEvent(QMouseEvent *event) override;
-	void mouseDoubleClickEvent(QMouseEvent *event) override;
+	void wheelEvent(QWheelEvent *event) override;
 };
 
 class ccSFvsSFWindowDlg : public QDialog
@@ -45,6 +53,8 @@ public:
 
 	void densityMap();
 
+	void linearFit();
+
 	void showGraph(bool state){ m_graph->setVisible(state); m_plot->replot(); }
 
 	void showMap(bool state){ m_colorMap->setVisible(state); m_plot->replot(); }
@@ -59,7 +69,11 @@ protected:
 
 	QCPGraph* m_graph;
 
-	QCPColorMap *m_colorMap;
+	QCPGraph* m_fit;
+
+	QCPColorMap* m_colorMap;
+
+	QCPColorScale* m_colorScale;
 
 	enum {
 		GRAPH,
