@@ -51,13 +51,27 @@ public:
 
 	void setColorScaleType();
 
+	void setNStepX();
+
+	void setNStepY();
+
+	void setMarkerSize(int size);
+
+	void setMarkerStyle(int style);
+
+	void setInterpolateColorMap(bool state);
+
 	void densityMap();
+
+	void densityMapAlt();
 
 	void linearFit();
 
 	void showGraph(bool state){ m_graph->setVisible(state); m_plot->replot(); }
 
 	void showMap(bool state){ m_colorMap->setVisible(state); m_plot->replot(); }
+
+	void showSLR(bool state){ m_slr->setVisible(state); m_plot->replot(); }
 
 protected:
 
@@ -69,11 +83,15 @@ protected:
 
 	QCPGraph* m_graph;
 
-	QCPGraph* m_fit;
+	QCPGraph* m_slr; // simple linear regression
 
 	QCPColorMap* m_colorMap;
 
 	QCPColorScale* m_colorScale;
+
+	int m_nStepsX;
+
+	int m_nStepsY;
 
 	enum {
 		GRAPH,
