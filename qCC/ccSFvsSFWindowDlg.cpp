@@ -1,6 +1,15 @@
 #include "ccSFvsSFWindowDlg.h"
 #include "ui_sfVsSFWindowDlg.h"
 
+// CCPluginAPI
+#include <ccPersistentSettings.h>
+
+// qCC_db
+#include <ccFileUtils.h>
+
+// qCC_IO
+#include <ImageFileFilter.h>
+
 #include <QSettings>
 #include <QPushButton>
 
@@ -113,10 +122,56 @@ QCPScatterStyle::ScatterShape getShape(int index)
 	case 7:
 		return QCPScatterStyle::ssDiamond;
 		break;
-	case 18:
+	case 8:
 		return QCPScatterStyle::ssStar;
 		break;
 	default:
+		return QCPScatterStyle::ssDisc;
+		break;
+	}
+}
+
+QCPColorGradient::GradientPreset getGradient(int index)
+{
+	switch (index) {
+	case 0:
+		return QCPColorGradient::gpGrayscale;
+		break;
+	case 1:
+		return QCPColorGradient::gpHot;
+		break;
+	case 2:
+		return QCPColorGradient::gpCold;
+		break;
+	case 3:
+		return QCPColorGradient::gpNight;
+		break;
+	case 4:
+		return QCPColorGradient::gpCandy;
+		break;
+	case 5:
+		return QCPColorGradient::gpGeography;
+		break;
+	case 6:
+		return QCPColorGradient::gpIon;
+		break;
+	case 7:
+		return QCPColorGradient::gpThermal;
+		break;
+	case 8:
+		return QCPColorGradient::gpPolar;
+		break;
+	case 9:
+		return QCPColorGradient::gpSpectrum;
+		break;
+	case 10:
+		return QCPColorGradient::gpJet;
+		break;
+	case 11:
+		return QCPColorGradient::gpHues;
+		break;
+	default:
+		return QCPColorGradient::gpSpectrum;
 		break;
 	}
 }
@@ -125,12 +180,12 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 	: QDialog(parent)
 	, m_cloud(cloud)
 	, ui(new Ui::sfVsSFWindowDlg)
-{
+{	
 	assert(cloud);
 
 	ui->setupUi(this);
 
-	m_plot = this->ui->widget;
+	m_plot = ui->widget;
 
 	m_plot->clearGraphs();
 
@@ -147,7 +202,7 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 	QCPScatterStyle::ScatterShape shape = getShape(ui->comboBoxScatterStyle->currentIndex());
 	scatterStyle.setShape(shape);
 	scatterStyle.setPen(QPen(Qt::blue));
-	scatterStyle.setBrush(Qt::blue);
+	scatterStyle.setBrush(Qt::white);
 	scatterStyle.setSize(5);
 	m_graph->setScatterStyle(scatterStyle);
 
@@ -163,61 +218,94 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 	m_plot->plotLayout()->addElement(0, 1, m_colorScale); // add it to the right of the main axis rect
 	m_colorScale->setType(QCPAxis::atRight); // scale shall be vertical bar with tick/axis labels right (actually atRight is already the default)
 	m_colorMap->setColorScale(m_colorScale); // associate the color map with the color scale
-	m_colorScale->axis()->setLabel("Density");
-	QCPColorGradient colorGradient(QCPColorGradient::gpPolar);
-	colorGradient.setColorStopAt(0, QColorConstants::White);
-	m_colorMap->setGradient(colorGradient); // set the color gradient of the color map to one of the presets
+	m_colorScale->axis()->setLabel("Density [pts / cell]");
 
-	setComboBoxes();
-
+	// recover configuration
 	QSettings settings("OSUR", "ccSFvsSFWindowDlg");
-	this->ui->checkBoxXLog->setChecked(settings.value("xLog", false).toBool());
-	this->ui->checkBoxYLog->setChecked(settings.value("yLog", false).toBool());
-	this->ui->checkBoxShowGraph->setChecked(settings.value("showGraph", true).toBool());
-	this->ui->checkBoxShowDensityMap->setChecked(settings.value("showDensityMap", false).toBool());
+	ui->checkBoxXLog->setChecked(settings.value("xLog", false).toBool());
+	ui->checkBoxYLog->setChecked(settings.value("yLog", false).toBool());
+	ui->checkBoxShowGraph->setChecked(settings.value("showGraph", true).toBool());
+	ui->checkBoxShowDensityMap->setChecked(settings.value("showDensityMap", false).toBool());
 	m_nStepsX = settings.value("nbStepsX", 10).toInt();
 	m_nStepsY = settings.value("nbStepsY", 10).toInt();
-	this->ui->spinBoxNbStepsX->setValue(m_nStepsX);
-	this->ui->spinBoxNbStepsY->setValue(m_nStepsY);
-	this->ui->spinBoxMarkerSize->setValue(settings.value("markerSize", 5).toInt());
-	this->ui->comboBoxScatterStyle->setCurrentIndex(settings.value("markerStyle", 1).toInt());
-	this->ui->checkBoxInterpolateColorMap->setChecked(settings.value("interpolateColorMap", false).toBool());
+	ui->spinBoxNbStepsX->setValue(m_nStepsX);
+	ui->spinBoxNbStepsY->setValue(m_nStepsY);
+	ui->spinBoxMarkerSize->setValue(settings.value("markerSize", 5).toInt());
+	ui->comboBoxScatterStyle->setCurrentIndex(settings.value("markerStyle", 5).toInt());
+	ui->checkBoxInterpolateColorMap->setChecked(settings.value("interpolateColorMap", false).toBool());
+	ui->comboBoxGradient->setCurrentIndex(settings.value("gradient", QCPColorGradient::gpGrayscale).toInt());
+
+	ui->checkBoxLabelBold->setChecked(settings.value("labelBold", 0).toBool());
+	ui->checkBoxTickBold->setChecked(settings.value("tickBold", 0).toBool());
+	ui->spinBoxFontSize->setValue(settings.value("fontSize", 10).toUInt());
+	ui->spinBoxTickLabelSize->setValue(settings.value("tickSize", 10).toUInt());
+	ui->checkBoxWhiteBackground->setChecked(settings.value("whiteBackground", true).toBool());
+
+	restoreGeometry(settings.value("geometry").toByteArray());
+
+	setComboBoxes();
 
 	refresh();
 
 	showGraph(ui->checkBoxShowGraph->isChecked());
 	showMap(ui->checkBoxShowDensityMap->isChecked());
 
-	connect(this->ui->checkBoxXLog, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setXScaleType);
-	connect(this->ui->checkBoxYLog, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setYScaleType);
-	connect(this->ui->checkBoxLogScaleDensityMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setColorScaleType);
-	connect(this->ui->checkBoxShowGraph, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showGraph);
-	connect(this->ui->checkBoxShowDensityMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showMap);
-	connect(this->ui->checkBoxShowSLR, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showSLR);
-	connect(this->ui->pushButtonAutoscale, &QAbstractButton::pressed, m_plot, &ccSFvsSFPlot::autoscale);
-	connect(this->ui->pushButtonLineaFit, &QAbstractButton::pressed, this, &ccSFvsSFWindowDlg::linearFit);
-	connect(this->ui->spinBoxNbStepsX, &QAbstractSpinBox::editingFinished, this, &ccSFvsSFWindowDlg::setNStepX);
-	connect(this->ui->spinBoxNbStepsY, &QAbstractSpinBox::editingFinished, this, &ccSFvsSFWindowDlg::setNStepY);
-	connect(this->ui->spinBoxMarkerSize, qOverload<int>(&QSpinBox::valueChanged), this, &ccSFvsSFWindowDlg::setMarkerSize);
-	connect(this->ui->comboBoxScatterStyle, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::setMarkerStyle);
-	connect(this->ui->checkBoxInterpolateColorMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setInterpolateColorMap);
+	m_colorMap->setInterpolate(ui->checkBoxInterpolateColorMap->isChecked());
+	setScatterStyle();
+	setLabelFont();
+	setTickFont();
+	setXScaleType();
+	setYScaleType();
+	setGradient();
+
+	connect(ui->checkBoxXLog, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setXScaleTypeAndReplot);
+	connect(ui->checkBoxYLog, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setYScaleTypeAndReplot);
+	connect(ui->checkBoxLogScaleDensityMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setColorScaleType);
+	connect(ui->checkBoxShowGraph, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showGraph);
+	connect(ui->checkBoxShowDensityMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showMap);
+	connect(ui->checkBoxShowSLR, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showSLR);
+	connect(ui->pushButtonAutoscale, &QAbstractButton::pressed, m_plot, &ccSFvsSFPlot::autoscale);
+	connect(ui->pushButtonLineaFit, &QAbstractButton::pressed, this, &ccSFvsSFWindowDlg::simpleLinearRegression);
+	connect(ui->spinBoxNbStepsX, &QAbstractSpinBox::editingFinished, this, &ccSFvsSFWindowDlg::setNStepX);
+	connect(ui->spinBoxNbStepsY, &QAbstractSpinBox::editingFinished, this, &ccSFvsSFWindowDlg::setNStepY);
+	connect(ui->spinBoxMarkerSize, qOverload<int>(&QSpinBox::valueChanged), this, &ccSFvsSFWindowDlg::setScatterStyle);
+	connect(ui->comboBoxScatterStyle, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::setScatterStyle);
+	connect(ui->checkBoxInterpolateColorMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setInterpolateColorMap);
+	connect(ui->spinBoxFontSize, qOverload<int>(&QSpinBox::valueChanged), this, &ccSFvsSFWindowDlg::setLabelFont);
+	connect(ui->spinBoxTickLabelSize, qOverload<int>(&QSpinBox::valueChanged), this, &ccSFvsSFWindowDlg::setTickFont);
+	connect(ui->checkBoxLabelBold, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setLabelFont);
+	connect(ui->checkBoxTickBold, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setTickFont);
+	connect(ui->exportCSVToolButton, &QAbstractButton::clicked, this, &ccSFvsSFWindowDlg::onExportToCSV);
+	connect(ui->exportImageToolButton, &QAbstractButton::clicked, this, &ccSFvsSFWindowDlg::onExportToImage);
+	connect(ui->comboBoxGradient, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::setGradient);
+	connect(ui->checkBoxWhiteBackground, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setGradient);
+	connect(ui->checkBoxReverseScale, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setGradient);
 }
 
 ccSFvsSFWindowDlg::~ccSFvsSFWindowDlg()
 {
 	// save configuration
 	QSettings settings("OSUR", "ccSFvsSFWindowDlg");
-	settings.setValue("xIndex", this->ui->comboBoxXAxis->currentIndex());
-	settings.setValue("yIndex", this->ui->comboBoxYAxis->currentIndex());
-	settings.setValue("xLog", this->ui->checkBoxXLog->isChecked());
-	settings.setValue("yLog", this->ui->checkBoxYLog->isChecked());
-	settings.setValue("showGraph", this->ui->checkBoxShowGraph->isChecked());
-	settings.setValue("showDensityMap", this->ui->checkBoxShowDensityMap->isChecked());
-	settings.setValue("nbStepsX", this->ui->spinBoxNbStepsX->value());
-	settings.setValue("nbStepsY", this->ui->spinBoxNbStepsY->value());
-	settings.setValue("markerSize", this->ui->spinBoxMarkerSize->value());
-	settings.setValue("markerStyle", this->ui->comboBoxScatterStyle->currentIndex());
-	settings.setValue("interpolateColorMap", this->ui->checkBoxInterpolateColorMap->isChecked());
+	settings.setValue("xIndex", ui->comboBoxXAxis->currentIndex());
+	settings.setValue("yIndex", ui->comboBoxYAxis->currentIndex());
+	settings.setValue("xLog", ui->checkBoxXLog->isChecked());
+	settings.setValue("yLog", ui->checkBoxYLog->isChecked());
+	settings.setValue("showGraph", ui->checkBoxShowGraph->isChecked());
+	settings.setValue("showDensityMap", ui->checkBoxShowDensityMap->isChecked());
+	settings.setValue("nbStepsX", ui->spinBoxNbStepsX->value());
+	settings.setValue("nbStepsY", ui->spinBoxNbStepsY->value());
+	settings.setValue("markerSize", ui->spinBoxMarkerSize->value());
+	settings.setValue("markerStyle", ui->comboBoxScatterStyle->currentIndex());
+	settings.setValue("interpolateColorMap", ui->checkBoxInterpolateColorMap->isChecked());
+	settings.setValue("gradient", ui->comboBoxScatterStyle->currentIndex());
+
+	settings.setValue("labelBold", ui->checkBoxLabelBold->isChecked());
+	settings.setValue("tickBold", ui->checkBoxTickBold->isChecked());
+	settings.setValue("fontSize", ui->spinBoxFontSize->value());
+	settings.setValue("tickSize", ui->spinBoxTickLabelSize->value());
+	settings.setValue("whiteBackground", ui->checkBoxWhiteBackground->isChecked());
+
+	settings.setValue("geometry", saveGeometry());
 
 	delete ui;
 }
@@ -228,31 +316,31 @@ void ccSFvsSFWindowDlg::setComboBoxes()
 
 	for (unsigned int index = 0; index < numberOfScalarFields; index++)
 	{
-		this->ui->comboBoxXAxis->addItem(m_cloud->getScalarFieldName(index));
-		this->ui->comboBoxYAxis->addItem(m_cloud->getScalarFieldName(index));
+		ui->comboBoxXAxis->addItem(m_cloud->getScalarFieldName(index));
+		ui->comboBoxYAxis->addItem(m_cloud->getScalarFieldName(index));
 	}
 
 	// try to restore previous confirguration
 	QSettings settings("OSUR", "ccSFvsSFWindowDlg");
 	int previousXIndex = settings.value("xIndex", 0).toInt();
 	int previousYIndex = settings.value("yIndex", 0).toInt();
-	if (previousXIndex <= this->ui->comboBoxXAxis->count())
+	if (previousXIndex <= ui->comboBoxXAxis->count())
 	{
-		this->ui->comboBoxXAxis->setCurrentIndex(previousXIndex);
+		ui->comboBoxXAxis->setCurrentIndex(previousXIndex);
 	}
-	if (previousYIndex <= this->ui->comboBoxYAxis->count())
+	if (previousYIndex <= ui->comboBoxYAxis->count())
 	{
-		this->ui->comboBoxYAxis->setCurrentIndex(previousYIndex);
+		ui->comboBoxYAxis->setCurrentIndex(previousYIndex);
 	}
 
-	connect(this->ui->comboBoxXAxis, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::refresh);
-	connect(this->ui->comboBoxYAxis, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::refresh);
+	connect(ui->comboBoxXAxis, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::refresh);
+	connect(ui->comboBoxYAxis, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::refresh);
 }
 
 void ccSFvsSFWindowDlg::refresh()
 {
-	int xIndex = this->ui->comboBoxXAxis->currentIndex();
-	int yIndex = this->ui->comboBoxYAxis->currentIndex();
+	int xIndex = ui->comboBoxXAxis->currentIndex();
+	int yIndex = ui->comboBoxYAxis->currentIndex();
 
 	// get data from scalar fields
 	QVector<double> x;
@@ -287,36 +375,84 @@ void ccSFvsSFWindowDlg::refresh()
 	m_plot->replot();
 
 	densityMap();
+
+	if (ui->checkBoxShowSLR->isChecked())
+	{
+		// update simple linear regression
+		simpleLinearRegression();
+	}
 }
 
 void ccSFvsSFWindowDlg::setXScaleType()
 {
 	if (ui->checkBoxXLog->isChecked())
 	{
-		m_plot->xAxis->setScaleType(QCPAxis::stLogarithmic);
-		m_plot->xAxis->setTicker(QSharedPointer<QCPAxisTickerLog>(new QCPAxisTickerLog));
+		// check that all values are > 0
+		QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
+		bool foundKeyRange;
+		QCPRange keyRange = container->keyRange(foundKeyRange);
+		if (foundKeyRange && (keyRange.lower > 0) && (keyRange.upper > 0))
+		{
+			m_plot->xAxis->setScaleType(QCPAxis::stLogarithmic);
+			m_plot->xAxis->setTicker(QSharedPointer<QCPAxisTickerLog>(new QCPAxisTickerLog));
+		}
+		else
+		{
+			ccLog::Error("[ccSFvsSFWindowDlg] impossible to change X scale, negative values in the data");
+			ui->checkBoxXLog->setChecked(false);
+		}
 	}
 	else
 	{
 		m_plot->xAxis->setScaleType(QCPAxis::stLinear);
 		m_plot->xAxis->setTicker(QSharedPointer<QCPAxisTicker>(new QCPAxisTicker));
 	}
+}
+
+void ccSFvsSFWindowDlg::setXScaleTypeAndReplot()
+{
+	setXScaleType();
+
 	densityMap();
+
+	if (ui->checkBoxShowSLR->isChecked())
+		simpleLinearRegression();
 }
 
 void ccSFvsSFWindowDlg::setYScaleType()
 {
 	if (ui->checkBoxYLog->isChecked())
 	{
-		m_plot->yAxis->setScaleType(QCPAxis::stLogarithmic);
-		m_plot->yAxis->setTicker(QSharedPointer<QCPAxisTickerLog>(new QCPAxisTickerLog));
+		// check that all values are > 0
+		QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
+		bool foundValueRange;
+		QCPRange valueRange = container->valueRange(foundValueRange);
+		if (foundValueRange && (valueRange.lower > 0) && (valueRange.upper > 0))
+		{
+			m_plot->yAxis->setScaleType(QCPAxis::stLogarithmic);
+			m_plot->yAxis->setTicker(QSharedPointer<QCPAxisTickerLog>(new QCPAxisTickerLog));
+		}
+		else
+		{
+			ccLog::Error("[ccSFvsSFWindowDlg] impossible to change Y scale, negative values in the data");
+			ui->checkBoxXLog->setChecked(false);
+		}
 	}
 	else
 	{
 		m_plot->yAxis->setScaleType(QCPAxis::stLinear);
 		m_plot->yAxis->setTicker(QSharedPointer<QCPAxisTicker>(new QCPAxisTicker));
 	}
+}
+
+void ccSFvsSFWindowDlg::setYScaleTypeAndReplot()
+{
+	setYScaleType();
+
 	densityMap();
+
+	if (ui->checkBoxShowSLR->isChecked())
+		simpleLinearRegression();
 }
 
 void ccSFvsSFWindowDlg::setColorScaleType()
@@ -356,25 +492,86 @@ void ccSFvsSFWindowDlg::setNStepY()
 	}
 }
 
-void ccSFvsSFWindowDlg::setMarkerSize(int size)
+void ccSFvsSFWindowDlg::setScatterStyle()
 {
 	QCPScatterStyle scatterStyle = m_graph->scatterStyle();
-	scatterStyle.setSize(size);
+	scatterStyle.setSize(ui->spinBoxMarkerSize->value());
+	scatterStyle.setShape(getShape(ui->comboBoxScatterStyle->currentIndex()));
 	m_graph->setScatterStyle(scatterStyle);
 	m_plot->replot();
 }
 
-void ccSFvsSFWindowDlg::setMarkerStyle(int style)
+void ccSFvsSFWindowDlg::setGradient()
 {
-	QCPScatterStyle scatterStyle = m_graph->scatterStyle();
-	scatterStyle.setShape(getShape(style));
-	m_graph->setScatterStyle(scatterStyle);
+	QCPColorGradient::GradientPreset gradientPreset = getGradient(ui->comboBoxGradient->currentIndex());
+
+	QCPColorGradient colorGradient(gradientPreset);
+
+	QMap<double, QColor> map;
+
+	if (ui->checkBoxReverseScale->isChecked())
+	{
+		QMap<double, QColor> reversedMap;
+		map = colorGradient.colorStops();
+		QMapIterator<double, QColor> i(map);
+		while (i.hasNext()) {
+			i.next();
+			reversedMap[1.0 - i.key()] = i.value();
+		}
+		colorGradient.setColorStops(reversedMap);
+	}
+
+	if (ui->checkBoxWhiteBackground->isChecked())
+	{
+		map = colorGradient.colorStops();
+		// add a step with the same color as the first one
+		colorGradient.setColorStopAt(0.001, map.first());
+		// set the first step to white
+		colorGradient.setColorStopAt(0., QColorConstants::White);
+	}
+
+	m_colorMap->setGradient(colorGradient); // set the color gradient of the color map
+
 	m_plot->replot();
 }
 
 void ccSFvsSFWindowDlg::setInterpolateColorMap(bool state)
 {
 	m_colorMap->setInterpolate(state);
+	m_plot->replot();
+}
+
+void ccSFvsSFWindowDlg::setLabelFont()
+{
+	QFont serifFont;
+	int size = ui->spinBoxFontSize->value();
+
+	if (ui->checkBoxLabelBold->isChecked())
+		serifFont = QFont("Times", size, QFont::Bold);
+	else
+		serifFont = QFont("Times", size);
+
+	m_plot->xAxis->setLabelFont(serifFont);
+	m_plot->yAxis->setLabelFont(serifFont);
+	m_colorScale->axis()->setLabelFont(serifFont);
+
+	m_plot->replot();
+}
+
+void ccSFvsSFWindowDlg::setTickFont()
+{
+	QFont serifFont;
+	int size = ui->spinBoxTickLabelSize->value();
+
+	if (ui->checkBoxTickBold->isChecked())
+		serifFont = QFont("Times", size, QFont::Bold);
+	else
+		serifFont = QFont("Times", size);
+
+	m_plot->xAxis->setTickLabelFont(serifFont);
+	m_plot->yAxis->setTickLabelFont(serifFont);
+	m_colorScale->axis()->setTickLabelFont(serifFont);
+
 	m_plot->replot();
 }
 
@@ -436,7 +633,11 @@ void ccSFvsSFWindowDlg::densityMap()
 	QCPRange keyRange = container->keyRange(foundKeyRange);
 	QCPRange valueRange = container->valueRange(foundValueRange);
 
-	assert(foundKeyRange && foundValueRange);
+	if (!foundKeyRange || !foundValueRange)
+	{
+		// ranges not found, impossible to plot
+		return;
+	}
 
 	double xRange = keyRange.size();
 	double xMin = keyRange.lower;
@@ -524,7 +725,7 @@ void ccSFvsSFWindowDlg::densityMap()
 	m_plot->autoscale();
 }
 
-void ccSFvsSFWindowDlg::linearFit()
+void ccSFvsSFWindowDlg::simpleLinearRegression()
 {
 	double sum_x = 0;
 	double sum_x2 = 0;
@@ -537,8 +738,27 @@ void ccSFvsSFWindowDlg::linearFit()
 	/* Calculating Required Sum */
 	for (auto item : *container)
 	{
-		float x = item.key;
-		float y = item.value;
+		float x;
+		float y;
+
+		if (ui->checkBoxXLog->isChecked())
+		{
+			x = log10(item.key);
+		}
+		else
+		{
+			x = item.key;
+		}
+
+		if (ui->checkBoxYLog->isChecked())
+		{
+			y = log10(item.value);
+		}
+		else
+		{
+			y = item.value;
+		}
+
 		if (!isnan(x) && !isnan(y))
 		{
 			sum_x += x;
@@ -552,8 +772,7 @@ void ccSFvsSFWindowDlg::linearFit()
 		}
 	}
 
-
-	/* Calculating a and b */
+	/* Calculating alpha and beta */
 	// The slope of the fitted line is equal to the correlation between y and x corrected by the ratio of standard deviations of these variables.
 	// The intercept of the fitted line is such that the line passes through the center of mass (x, y) of the data points.
 	double den = (n * sum_x2 - sum_x * sum_x);
@@ -562,22 +781,163 @@ void ccSFvsSFWindowDlg::linearFit()
 
 	// add the fit to the plot
 	bool foundRange;
-	double xMin = container->keyRange(foundRange).lower;
-	double xMax = container->keyRange(foundRange).upper;
+	double xMinLin = container->keyRange(foundRange).lower;
+	double xMaxLin = container->keyRange(foundRange).upper;
+	double xMin;
+	double xMax;
 
 	QVector<double> x_slr(2);
 	QVector<double> y_slr(2);
-	x_slr[0] = xMin;
-	y_slr[0] = alpha + beta * xMin;
-	x_slr[1] = xMax;
-	y_slr[1] = alpha + beta * xMax;
+
+	if (!ui->checkBoxXLog->isChecked() && ui->checkBoxYLog->isChecked())
+	{
+		x_slr[0] = xMinLin;
+		x_slr[1] = xMaxLin;
+		y_slr[0] = exp((alpha + beta * xMinLin) * log(10));
+		y_slr[1] = exp((alpha + beta * xMaxLin) * log(10));
+	}
+	else if(ui->checkBoxXLog->isChecked() && !ui->checkBoxYLog->isChecked())
+	{
+		x_slr[0] = xMinLin;
+		x_slr[1] = xMaxLin;
+		y_slr[0] = alpha + beta * log10(xMinLin);
+		y_slr[1] = alpha + beta * log10(xMaxLin);
+	}
+	else if(ui->checkBoxXLog->isChecked() && ui->checkBoxYLog->isChecked())
+	{
+		x_slr[0] = xMinLin;
+		x_slr[1] = xMaxLin;
+		y_slr[0] = exp((alpha + beta * log10(xMinLin)) * log(10));
+		y_slr[1] = exp((alpha + beta * log10(xMaxLin)) * log(10));
+	}
+	else
+	{
+		xMin = xMinLin;
+		xMax = xMaxLin;
+		x_slr[0] = xMin;
+		x_slr[1] = xMax;
+		y_slr[0] = alpha + beta * xMin;
+		y_slr[1] = alpha + beta * xMax;
+	}
+
 	m_slr->setData(x_slr, y_slr);
 
 	m_plot->rescaleAxes();
 	m_plot->replot();
 
-	this->ui->checkBoxShowSLR->setChecked(true);
-	this->ui->labelAlpha->setText(QString::number(alpha));
-	this->ui->labelBeta->setText(QString::number(beta));
+	ui->checkBoxShowSLR->setChecked(true);
+	ui->labelAlpha->setText(QString::number(alpha));
+	ui->labelBeta->setText(QString::number(beta));
+}
+
+bool ccSFvsSFWindowDlg::exportToCSV(QString filename) const
+{
+	if (!m_graph || (m_graph->dataCount() == 0))
+	{
+		ccLog::Warning("[SF/SF] Plot has no associated values (can't save file)");
+		return false;
+	}
+
+	QFile file(filename);
+	if (!file.open(QFile::WriteOnly | QFile::Text))
+	{
+		ccLog::Warning(QString("[SF/SF] Failed to save plot to file '%1'").arg(filename));
+		return false;
+	}
+
+	QTextStream stream(&file);
+	stream.setRealNumberPrecision(12);
+	stream.setRealNumberNotation(QTextStream::FixedNotation);
+
+	//header
+	stream << ui->comboBoxXAxis->currentText() << ", "
+		   << ui->comboBoxYAxis->currentText() << endl;
+
+	//data
+	{
+		QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
+
+		for (auto item : *container)
+		{
+			stream << item.key << " " << item.value << endl;
+		}
+	}
+
+	file.close();
+
+	ccLog::Print(QString("[SF/SF] File '%1' saved").arg(filename));
+
+	return true;
+}
+
+void ccSFvsSFWindowDlg::onExportToCSV()
+{
+	if (!m_plot)
+	{
+		assert(false);
+		return;
+	}
+
+	//persistent settings
+	QSettings settings;
+	settings.beginGroup(ccPS::SaveFile());
+	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
+
+	currentPath += QString("/") + m_plot->windowTitle() + ".csv";
+
+	//ask for a filename
+	QString filename = QFileDialog::getSaveFileName(this, "Select output file", currentPath, "*.csv");
+	if (filename.isEmpty())
+	{
+		//process cancelled by user
+		return;
+	}
+
+	//save last saving location
+	settings.setValue(ccPS::CurrentPath(), QFileInfo(filename).absolutePath());
+	settings.endGroup();
+
+	//save file
+	exportToCSV(filename);
+}
+
+void ccSFvsSFWindowDlg::onExportToImage()
+{
+	if (!m_plot)
+	{
+		assert(false);
+		return;
+	}
+
+	//persistent settings
+	QSettings settings;
+	settings.beginGroup(ccPS::SaveFile());
+	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
+
+	QString outputFilename = ImageFileFilter::GetSaveFilename("Select output file",
+															  m_plot->windowTitle(),
+															  currentPath,
+															  this);
+
+	if (outputFilename.isEmpty())
+	{
+		//process cancelled by user (or error)
+		return;
+	}
+
+	//save current export path to persistent settings
+	settings.setValue(ccPS::CurrentPath(), QFileInfo(outputFilename).absolutePath());
+	settings.endGroup();
+
+	//save the widget as an image file
+	QPixmap image = m_plot->grab();
+	if (image.save(outputFilename))
+	{
+		ccLog::Print(QString("[SF/SF] Image '%1' successfully saved").arg(outputFilename));
+	}
+	else
+	{
+		ccLog::Error(QString("Failed to save file '%1'").arg(outputFilename));
+	}
 }
 

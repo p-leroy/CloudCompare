@@ -3272,7 +3272,7 @@ The active scalar field should have integer values.</string>
     <string>Plot SF vs SF</string>
    </property>
    <property name="iconText">
-    <string>SFvsSF</string>
+    <string>SF/SF</string>
    </property>
    <property name="menuRole">
     <enum>QAction::NoRole</enum>

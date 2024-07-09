@@ -47,7 +47,11 @@ public:
 
 	void setXScaleType();
 
+	void setXScaleTypeAndReplot();
+
 	void setYScaleType();
+
+	void setYScaleTypeAndReplot();
 
 	void setColorScaleType();
 
@@ -55,17 +59,29 @@ public:
 
 	void setNStepY();
 
-	void setMarkerSize(int size);
+	void setScatterStyle();
 
-	void setMarkerStyle(int style);
+	void setGradient();
 
 	void setInterpolateColorMap(bool state);
+
+	void setLabelFont();
+
+	void setTickFont();
+
+	void replot();
 
 	void densityMap();
 
 	void densityMapAlt();
+	
+	void simpleLinearRegression();
 
-	void linearFit();
+	bool exportToCSV(QString filename) const;
+
+	void onExportToCSV();
+
+	void onExportToImage();
 
 	void showGraph(bool state){ m_graph->setVisible(state); m_plot->replot(); }
 
