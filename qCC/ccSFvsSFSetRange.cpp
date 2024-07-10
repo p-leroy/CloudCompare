@@ -1,12 +1,14 @@
 #include "ccSFvsSFSetRange.h"
 #include "ui_sfVsSFSetRange.h"
 
+#include <ccLog.h>
+
 ccSFvsSFSetRange::ccSFvsSFSetRange(QCPAxis* axis, QWidget *parent)
 	: QWidget(parent)
 	, ui(new Ui::sfVsSFSetRange)
 	, m_axis(axis)
 {
-	this->setFocusPolicy(Qt::StrongFocus);
+	this->setFocusPolicy(Qt::ClickFocus);
 
 	ui->setupUi(this);
 
@@ -35,10 +37,23 @@ void ccSFvsSFSetRange::setUpper(double upper)
 
 void ccSFvsSFSetRange::emitSetRange()
 {
-	emit setRange(m_axis, ui->doubleSpinBoxMin->value(), ui->doubleSpinBoxMax->value());
+	if ( ui->doubleSpinBoxMin->value() > ui->doubleSpinBoxMax->value())
+	{
+		ccLog::Warning("[SF/SF] lower and upper bounds are not coherent");
+	}
+	else
+	{
+		emit setRange(m_axis, ui->doubleSpinBoxMin->value(), ui->doubleSpinBoxMax->value());
+	}
 }
 
-void ccSFvsSFSetRange::focusOutEvent(QFocusEvent* event)
+void ccSFvsSFSetRange::changeEvent(QEvent* event)
 {
-	delete this;
+	if(event->type() == QEvent::ActionChanged)
+	{
+		if (!this->hasFocus())
+		{
+			this->deleteLater();
+		}
+	}
 }

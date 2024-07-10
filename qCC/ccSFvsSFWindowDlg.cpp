@@ -28,7 +28,9 @@ ccSFvsSFPlot::ccSFvsSFPlot(QWidget *parent)
 
 	setSelectionRectMode(QCP::srmNone);
 
-//	connect(this, SIGNAL(selectionChangedByUser()), this, SLOT(selectionChanged()));
+	xAxis->grid()->setSubGridVisible(true);
+	yAxis->grid()->setSubGridVisible(true);
+
 	connect(this, &QCustomPlot::selectionChangedByUser, this, &ccSFvsSFPlot::selectionChanged);
 	connect(this, &QCustomPlot::axisDoubleClick, this, &ccSFvsSFPlot::onAxisDoubleClick);
 }
@@ -60,24 +62,20 @@ void ccSFvsSFPlot::selectionChanged()
 	}
 }
 
-void ccSFvsSFPlot::autoscale()
-{
-	rescaleAxes();
-	replot();
-}
-
 void ccSFvsSFPlot::onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part)
 {
 	ccSFvsSFSetRange* setRange = new ccSFvsSFSetRange(axis);
 	setRange->setLower(axis->range().lower);
 	setRange->setUpper(axis->range().upper);
 	setRange->show();
+	setRange->setFocus();
 	connect(setRange, &ccSFvsSFSetRange::setRange, this, &ccSFvsSFPlot::setAxisRange);
 }
 
 void ccSFvsSFPlot::setAxisRange(QCPAxis *axis, double lower, double upper)
 {
 	axis->setRange(QCPRange(lower, upper));
+	replot();
 }
 
 void ccSFvsSFPlot::mousePressEvent(QMouseEvent *event)
@@ -91,6 +89,9 @@ void ccSFvsSFPlot::mousePressEvent(QMouseEvent *event)
 		axisRect()->setRangeDrag(yAxis->orientation());
 	else
 		axisRect()->setRangeDrag(Qt::Horizontal|Qt::Vertical);
+
+	// hide density map when dragging
+	emit hideDensityMap(false);
 
 	QCustomPlot::mousePressEvent(event); // forward event to QCustomPlot event handler
 }
@@ -235,10 +236,11 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 
 	// add a color scale:
 	m_colorScale = new QCPColorScale(m_plot);
-	m_plot->plotLayout()->addElement(0, 1, m_colorScale); // add it to the right of the main axis rect
 	m_colorScale->setType(QCPAxis::atRight); // scale shall be vertical bar with tick/axis labels right (actually atRight is already the default)
-	m_colorMap->setColorScale(m_colorScale); // associate the color map with the color scale
+	m_plot->plotLayout()->addElement(0, 1, m_colorScale); // add it to the right of the main axis rect
 	m_colorScale->axis()->setLabel("Density [pts / cell]");
+
+	m_colorMap->setColorScale(m_colorScale); // associate the color map with the color scale
 
 	// recover configuration
 	QSettings settings("OSUR", "ccSFvsSFWindowDlg");
@@ -284,7 +286,7 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 	connect(ui->checkBoxShowGraph, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showGraph);
 	connect(ui->checkBoxShowDensityMap, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showMap);
 	connect(ui->checkBoxShowSLR, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::showSLR);
-	connect(ui->pushButtonAutoscale, &QAbstractButton::pressed, m_plot, &ccSFvsSFPlot::autoscale);
+	connect(ui->pushButtonAutoscale, &QAbstractButton::pressed, this, &ccSFvsSFWindowDlg::autoscale);
 	connect(ui->pushButtonLineaFit, &QAbstractButton::pressed, this, &ccSFvsSFWindowDlg::simpleLinearRegression);
 	connect(ui->spinBoxNbStepsX, &QAbstractSpinBox::editingFinished, this, &ccSFvsSFWindowDlg::setNStepX);
 	connect(ui->spinBoxNbStepsY, &QAbstractSpinBox::editingFinished, this, &ccSFvsSFWindowDlg::setNStepY);
@@ -318,7 +320,7 @@ ccSFvsSFWindowDlg::~ccSFvsSFWindowDlg()
 	settings.setValue("markerSize", ui->spinBoxMarkerSize->value());
 	settings.setValue("markerStyle", ui->comboBoxScatterStyle->currentIndex());
 	settings.setValue("interpolateColorMap", ui->checkBoxInterpolateColorMap->isChecked());
-	settings.setValue("gradient", ui->comboBoxScatterStyle->currentIndex());
+	settings.setValue("gradient", ui->comboBoxGradient->currentIndex());
 
 	settings.setValue("labelBold", ui->checkBoxLabelBold->isChecked());
 	settings.setValue("tickBold", ui->checkBoxTickBold->isChecked());
@@ -596,19 +598,19 @@ void ccSFvsSFWindowDlg::setTickFont()
 	m_plot->replot();
 }
 
+void ccSFvsSFWindowDlg::autoscale()
+{
+	m_plot->rescaleAxes();
+	if (ui->checkBoxShowDensityMap->isChecked())
+	{
+		densityMap();
+	}
+}
+
 void ccSFvsSFWindowDlg::densityMap()
 {
-	QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
-	bool foundKeyRange;
-	bool foundValueRange;
-	QCPRange keyRange = container->keyRange(foundKeyRange);
-	QCPRange valueRange = container->valueRange(foundValueRange);
-
-	if (!foundKeyRange || !foundValueRange)
-	{
-		// ranges not found, impossible to plot
-		return;
-	}
+	QCPRange keyRange = m_plot->xAxis->range();
+	QCPRange valueRange = m_plot->yAxis->range();
 
 	double xRange = keyRange.size();
 	double xMin = keyRange.lower;
@@ -640,31 +642,40 @@ void ccSFvsSFWindowDlg::densityMap()
 		stepY = yRange / m_nStepsY;
 	}
 
-	// set up the QCPColorMap:
+	// fill the color map
 	m_colorMap->data()->clear();
 	m_colorMap->data()->setSize(m_nStepsX + 1, m_nStepsY + 1); // we want the color map to have nx * ny data points
 	m_colorMap->data()->fill(0);
+	QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
 	for (auto item : *container) // fill the colorMap data
 	{
 		int keyIdx;
 		int valueIdx;
 
+		if (item.key < keyRange.lower
+			|| item.key > keyRange.upper
+			|| item.value < valueRange.lower
+			|| item.value > valueRange.upper)
+		{ // the item is outside the displayed range
+			continue;
+		}
+
 		if (ui->checkBoxXLog->isChecked())
 		{
-			keyIdx = floor((log10(item.key) - xMinLog) / stepX);
+			keyIdx = floor((log10(item.key) - xMinLog + stepX / 2) / stepX);
 		}
 		else
 		{
-			keyIdx = floor((item.key - keyRange.lower) / stepX);
+			keyIdx = floor((item.key - keyRange.lower + stepX / 2) / stepX);
 		}
 
 		if (ui->checkBoxYLog->isChecked())
 		{
-			valueIdx = floor((log10(item.value) - yMinLog) / stepY);
+			valueIdx = floor((log10(item.value) - yMinLog + stepY / 2) / stepY);
 		}
 		else
 		{
-			valueIdx = floor((item.value - valueRange.lower) / stepY);
+			valueIdx = floor((item.value - valueRange.lower + stepY / 2) / stepY);
 		}
 
 		double cell =  m_colorMap->data()->cell(keyIdx, valueIdx);
@@ -672,20 +683,6 @@ void ccSFvsSFWindowDlg::densityMap()
 	}
 
 	// range handling
-	double lower;
-	double upper;
-	if (ui->checkBoxXLog->isChecked())
-	{
-		lower = keyRange.lower;
-		upper = keyRange.upper;
-		keyRange = QCPRange(lower, upper);
-	}
-	if (ui->checkBoxYLog->isChecked())
-	{
-		lower = log10(valueRange.lower);
-		upper = log10(valueRange.upper);
-		valueRange = QCPRange(lower, upper);
-	}
 	m_colorMap->data()->setRange(keyRange, valueRange);
 
 	// rescale the data dimension (color) such that all data points lie in the span visualized by the color gradient:
@@ -696,8 +693,21 @@ void ccSFvsSFWindowDlg::densityMap()
 	m_plot->axisRect()->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
 	m_colorScale->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
 
-	// rescale the key (x) and value (y) axes so the whole color map is visible:
-	m_plot->autoscale();
+	m_plot->xAxis2->setRange(m_plot->xAxis->range());
+	m_plot->yAxis2->setRange(m_plot->yAxis->range());
+
+	/// update plot
+	m_plot->replot();
+}
+
+void ccSFvsSFWindowDlg::showMap(bool state)
+{
+	m_colorMap->setVisible(state);
+	showColorScale(state);
+	if (state)
+	{
+		densityMap();
+	}
 }
 
 void ccSFvsSFWindowDlg::simpleLinearRegression()
@@ -840,8 +850,6 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	}
 
 	m_slr->setData(x_slr, y_slr);
-
-	m_plot->rescaleAxes();
 	m_plot->replot();
 
 	ui->checkBoxShowSLR->setChecked(true);
@@ -959,5 +967,28 @@ void ccSFvsSFWindowDlg::onExportToImage()
 	{
 		ccLog::Error(QString("Failed to save file '%1'").arg(outputFilename));
 	}
+}
+
+void ccSFvsSFWindowDlg::showColorScale(bool state)
+{
+	m_colorScale->setVisible(state);
+	if (state)
+	{
+		if (m_plot->plotLayout()->elementCount() == 2)
+		{
+			// nothing to do, the color scale is already on the plot
+		}
+		else
+		{
+			m_plot->plotLayout()->addElement(0, 1, m_colorScale); // add it to the right of the main axis rect
+		}
+	}
+	else
+	{
+		m_plot->plotLayout()->take(m_colorScale);
+		m_plot->plotLayout()->simplify();
+	}
+
+	m_plot->replot();
 }
 

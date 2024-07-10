@@ -20,7 +20,7 @@ public:
 	void setUpper(double upper);
 	void emitSetRange();
 
-	void focusOutEvent(QFocusEvent* event);
+	void changeEvent(QEvent* event);
 
 signals:
 	void setRange(QCPAxis *axis, double lower, double upper);

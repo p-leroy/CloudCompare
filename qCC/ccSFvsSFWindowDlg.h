@@ -23,10 +23,8 @@ public:
 		SELECT
 	} m_mode;
 
-	void rescale();
 	void setMode(modeType mode){m_mode = mode;}
 	void selectionChanged();
-	void autoscale();
 	void onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part);
 	void setAxisRange(QCPAxis *axis, double lower, double upper);
 
@@ -76,9 +74,11 @@ public:
 
 	void setTickFont();
 
-	void replot();
+	void autoscale();
 
 	void densityMap();
+
+	void showMap(bool state);
 
 	void refreshDensityMapDisplay();
 
@@ -92,9 +92,9 @@ public:
 
 	void showGraph(bool state){ m_graph->setVisible(state); m_plot->replot(); }
 
-	void showMap(bool state){ m_colorMap->setVisible(state); m_plot->replot(); }
-
 	void showSLR(bool state){ m_slr->setVisible(state); m_plot->replot(); }
+
+	void showColorScale(bool state);
 
 protected:
 
