@@ -1,6 +1,8 @@
 #include "ccSFvsSFWindowDlg.h"
 #include "ui_sfVsSFWindowDlg.h"
 
+#include "ccSFvsSFSetRange.h"
+
 // CCPluginAPI
 #include <ccPersistentSettings.h>
 
@@ -28,6 +30,7 @@ ccSFvsSFPlot::ccSFvsSFPlot(QWidget *parent)
 
 //	connect(this, SIGNAL(selectionChangedByUser()), this, SLOT(selectionChanged()));
 	connect(this, &QCustomPlot::selectionChangedByUser, this, &ccSFvsSFPlot::selectionChanged);
+	connect(this, &QCustomPlot::axisDoubleClick, this, &ccSFvsSFPlot::onAxisDoubleClick);
 }
 
 void ccSFvsSFPlot::selectionChanged()
@@ -45,8 +48,8 @@ void ccSFvsSFPlot::selectionChanged()
 	if (xAxis->selectedParts().testFlag(QCPAxis::spAxis) || xAxis->selectedParts().testFlag(QCPAxis::spTickLabels) ||
 		xAxis2->selectedParts().testFlag(QCPAxis::spAxis) || xAxis2->selectedParts().testFlag(QCPAxis::spTickLabels))
 	{
-		xAxis2->setSelectedParts(QCPAxis::spAxis|QCPAxis::spTickLabels);
-		xAxis->setSelectedParts(QCPAxis::spAxis|QCPAxis::spTickLabels);
+		xAxis2->setSelectedParts(QCPAxis::spAxis | QCPAxis::spTickLabels);
+		xAxis->setSelectedParts(QCPAxis::spAxis | QCPAxis::spTickLabels);
 	}
 	// make left and right axes be selected synchronously, and handle axis and tick labels as one selectable object:
 	if (yAxis->selectedParts().testFlag(QCPAxis::spAxis) || yAxis->selectedParts().testFlag(QCPAxis::spTickLabels) ||
@@ -61,6 +64,20 @@ void ccSFvsSFPlot::autoscale()
 {
 	rescaleAxes();
 	replot();
+}
+
+void ccSFvsSFPlot::onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part)
+{
+	ccSFvsSFSetRange* setRange = new ccSFvsSFSetRange(axis);
+	setRange->setLower(axis->range().lower);
+	setRange->setUpper(axis->range().upper);
+	setRange->show();
+	connect(setRange, &ccSFvsSFSetRange::setRange, this, &ccSFvsSFPlot::setAxisRange);
+}
+
+void ccSFvsSFPlot::setAxisRange(QCPAxis *axis, double lower, double upper)
+{
+	axis->setRange(QCPRange(lower, upper));
 }
 
 void ccSFvsSFPlot::mousePressEvent(QMouseEvent *event)
@@ -89,6 +106,9 @@ void ccSFvsSFPlot::wheelEvent(QWheelEvent *event)
 		axisRect()->setRangeZoom(yAxis->orientation());
 	else
 		axisRect()->setRangeZoom(Qt::Horizontal|Qt::Vertical);
+
+	// hide density map when wheeling
+	emit hideDensityMap(false);
 
 	QCustomPlot::wheelEvent(event); // forward event to QCustomPlot event handler
 }
@@ -280,6 +300,7 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 	connect(ui->comboBoxGradient, qOverload<int>(&QComboBox::currentIndexChanged), this, &ccSFvsSFWindowDlg::setGradient);
 	connect(ui->checkBoxWhiteBackground, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setGradient);
 	connect(ui->checkBoxReverseScale, &QCheckBox::stateChanged, this, &ccSFvsSFWindowDlg::setGradient);
+	connect(m_plot, &ccSFvsSFPlot::hideDensityMap, ui->checkBoxShowDensityMap, &QCheckBox::setChecked);
 }
 
 ccSFvsSFWindowDlg::~ccSFvsSFWindowDlg()
@@ -398,7 +419,7 @@ void ccSFvsSFWindowDlg::setXScaleType()
 		}
 		else
 		{
-			ccLog::Error("[ccSFvsSFWindowDlg] impossible to change X scale, negative values in the data");
+			ccLog::Error("[ccSFvsSFWindowDlg] impossible to change X scale, values <= 0 in the data");
 			ui->checkBoxXLog->setChecked(false);
 		}
 	}
@@ -434,7 +455,7 @@ void ccSFvsSFWindowDlg::setYScaleType()
 		}
 		else
 		{
-			ccLog::Error("[ccSFvsSFWindowDlg] impossible to change Y scale, negative values in the data");
+			ccLog::Error("[ccSFvsSFWindowDlg] impossible to change Y scale, values <= 0 in the data");
 			ui->checkBoxXLog->setChecked(false);
 		}
 	}
@@ -575,56 +596,6 @@ void ccSFvsSFWindowDlg::setTickFont()
 	m_plot->replot();
 }
 
-void ccSFvsSFWindowDlg::densityMapAlt()
-{
-	QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
-	bool foundKeyRange;
-	bool foundValueRange;
-	QCPRange keyRange = container->keyRange(foundKeyRange);
-	QCPRange valueRange = container->valueRange(foundValueRange);
-
-	assert(foundKeyRange && foundValueRange);
-
-	double stepX = keyRange.size() / m_nStepsX;
-	double stepY = valueRange.size() / m_nStepsY;
-
-	// set up the QCPColorMap:
-	m_colorMap->data()->clear();
-	m_colorMap->data()->setSize(m_nStepsX + 1, m_nStepsY + 1); // we want the color map to have nx * ny data points
-	m_colorMap->data()->setRange(keyRange, valueRange);
-	m_colorMap->data()->fill(0);
-
-	// assign data to the color map
-	for (auto item : *container)
-	{
-		int keyIdx = floor((item.key - keyRange.lower) / stepX);
-		int valueIdx = floor((item.value - valueRange.lower) / stepY);
-		double cell =  m_colorMap->data()->cell(keyIdx, valueIdx);
-		m_colorMap->data()->setCell(keyIdx, valueIdx, cell + 1);
-	}
-
-	// normalize data
-//	for (int keyIdx = 0; keyIdx < m_colorMap->data()->keySize(); keyIdx++)
-//	{
-//		for (int valueIdx = 0; valueIdx < m_colorMap->data()->valueSize(); valueIdx++)
-//		{
-//			double cell =  m_colorMap->data()->cell(keyIdx, valueIdx);
-//			m_colorMap->data()->setCell(keyIdx, valueIdx, cell / m_graph->dataCount() * 100);
-//		}
-//	}
-
-	// rescale the data dimension (color) such that all data points lie in the span visualized by the color gradient:
-	m_colorMap->rescaleDataRange(true);
-
-	// make sure the axis rect and color scale synchronize their bottom and top margins (so they line up):
-	QCPMarginGroup *marginGroup = new QCPMarginGroup(m_plot);
-	m_plot->axisRect()->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
-	m_colorScale->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
-
-	// rescale the key (x) and value (y) axes so the whole color map is visible:
-	m_plot->autoscale();
-}
-
 void ccSFvsSFWindowDlg::densityMap()
 {
 	QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
@@ -649,7 +620,7 @@ void ccSFvsSFWindowDlg::densityMap()
 	double yMinLog = log10(yMin);
 	double yRangeLog = log10(valueRange.upper) - log10(valueRange.lower);
 
-
+	// compute the x and y steps of the map
 	double stepX;
 	if (ui->checkBoxXLog->isChecked())
 	{
@@ -659,7 +630,6 @@ void ccSFvsSFWindowDlg::densityMap()
 	{
 		stepX = xRange / m_nStepsX;
 	}
-
 	double stepY;
 	if (ui->checkBoxYLog->isChecked())
 	{
@@ -673,10 +643,8 @@ void ccSFvsSFWindowDlg::densityMap()
 	// set up the QCPColorMap:
 	m_colorMap->data()->clear();
 	m_colorMap->data()->setSize(m_nStepsX + 1, m_nStepsY + 1); // we want the color map to have nx * ny data points
-	m_colorMap->data()->setRange(keyRange, valueRange);
 	m_colorMap->data()->fill(0);
-
-	for (auto item : *container)
+	for (auto item : *container) // fill the colorMap data
 	{
 		int keyIdx;
 		int valueIdx;
@@ -703,15 +671,22 @@ void ccSFvsSFWindowDlg::densityMap()
 		m_colorMap->data()->setCell(keyIdx, valueIdx, cell + 1);
 	}
 
-	// normalize data
-//	for (int keyIdx = 0; keyIdx < m_colorMap->data()->keySize(); keyIdx++)
-//	{
-//		for (int valueIdx = 0; valueIdx < m_colorMap->data()->valueSize(); valueIdx++)
-//		{
-//			double cell =  m_colorMap->data()->cell(keyIdx, valueIdx);
-//			m_colorMap->data()->setCell(keyIdx, valueIdx, cell / m_graph->dataCount() * 100);
-//		}
-//	}
+	// range handling
+	double lower;
+	double upper;
+	if (ui->checkBoxXLog->isChecked())
+	{
+		lower = keyRange.lower;
+		upper = keyRange.upper;
+		keyRange = QCPRange(lower, upper);
+	}
+	if (ui->checkBoxYLog->isChecked())
+	{
+		lower = log10(valueRange.lower);
+		upper = log10(valueRange.upper);
+		valueRange = QCPRange(lower, upper);
+	}
+	m_colorMap->data()->setRange(keyRange, valueRange);
 
 	// rescale the data dimension (color) such that all data points lie in the span visualized by the color gradient:
 	m_colorMap->rescaleDataRange(true);
@@ -732,6 +707,7 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	double sum_y = 0;
 	double sum_xy = 0;
 	int n = m_graph->dataCount();
+	int validCount = 0;
 
 	QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
 
@@ -765,6 +741,7 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 			sum_x2 += x * x;
 			sum_y += y;
 			sum_xy += x * y;
+			validCount++;
 		}
 		else
 		{
@@ -778,6 +755,48 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	double den = (n * sum_x2 - sum_x * sum_x);
 	double alpha = (sum_y * sum_x2 - sum_x * sum_xy) / den;
 	double beta  = (    n * sum_xy - sum_x * sum_y)  / den;
+
+	// compute the coefficient of determination
+	double sumOfSquaresOfResiduals = 0;
+	double totalSumOfSquares = 0;
+	double coefficientOfDetermination;
+	double meanY = sum_y / validCount;
+	double f;
+	for (auto item : *container)
+	{
+		float x;
+		float y;
+
+		if (ui->checkBoxXLog->isChecked())
+		{
+			x = log10(item.key);
+		}
+		else
+		{
+			x = item.key;
+		}
+
+		if (ui->checkBoxYLog->isChecked())
+		{
+			y = log10(item.value);
+		}
+		else
+		{
+			y = item.value;
+		}
+
+		if (!isnan(x) && !isnan(y))
+		{
+			f = alpha + beta * x;
+			sumOfSquaresOfResiduals += pow(y - f, 2);
+			totalSumOfSquares += pow(y - meanY, 2);
+		}
+		else
+		{
+			ccLog::Print("NaN detected");
+		}
+	}
+	coefficientOfDetermination = 1 - sumOfSquaresOfResiduals / totalSumOfSquares;
 
 	// add the fit to the plot
 	bool foundRange;
@@ -828,6 +847,7 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	ui->checkBoxShowSLR->setChecked(true);
 	ui->labelAlpha->setText(QString::number(alpha));
 	ui->labelBeta->setText(QString::number(beta));
+	ui->doubleSpinBoxCoefficientOfDetermination->setValue(coefficientOfDetermination);
 }
 
 bool ccSFvsSFWindowDlg::exportToCSV(QString filename) const

@@ -13,6 +13,8 @@ class sfVsSFWindowDlg;
 
 class ccSFvsSFPlot : public QCustomPlot
 {
+	Q_OBJECT
+
 public:
 	explicit ccSFvsSFPlot(QWidget *parent=0);
 
@@ -25,9 +27,14 @@ public:
 	void setMode(modeType mode){m_mode = mode;}
 	void selectionChanged();
 	void autoscale();
+	void onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part);
+	void setAxisRange(QCPAxis *axis, double lower, double upper);
 
 	void mousePressEvent(QMouseEvent *event) override;
 	void wheelEvent(QWheelEvent *event) override;
+
+signals:
+	void hideDensityMap(bool state);
 };
 
 class ccSFvsSFWindowDlg : public QDialog
@@ -73,8 +80,8 @@ public:
 
 	void densityMap();
 
-	void densityMapAlt();
-	
+	void refreshDensityMapDisplay();
+
 	void simpleLinearRegression();
 
 	bool exportToCSV(QString filename) const;
