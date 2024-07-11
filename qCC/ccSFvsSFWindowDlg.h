@@ -27,6 +27,7 @@ public:
 	void selectionChanged();
 	void onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part);
 	void setAxisRange(QCPAxis *axis, double lower, double upper);
+	void onReplot(){replot();}
 
 	void mousePressEvent(QMouseEvent *event) override;
 	void wheelEvent(QWheelEvent *event) override;

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>232</width>
-    <height>104</height>
+    <width>262</width>
+    <height>134</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -42,7 +42,10 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="0">
+   <item row="2" column="0" colspan="2">
+    <widget class="QLineEdit" name="lineEditAxisLabel"/>
+   </item>
+   <item row="3" column="0">
     <widget class="QPushButton" name="pushButtonApply">
      <property name="text">
       <string>Apply</string>

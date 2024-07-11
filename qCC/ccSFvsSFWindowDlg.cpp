@@ -64,12 +64,12 @@ void ccSFvsSFPlot::selectionChanged()
 
 void ccSFvsSFPlot::onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part)
 {
-	ccSFvsSFSetRange* setRange = new ccSFvsSFSetRange(axis);
+	ccSFvsSFSetRange* setRange = new ccSFvsSFSetRange(axis, this);
 	setRange->setLower(axis->range().lower);
 	setRange->setUpper(axis->range().upper);
 	setRange->show();
 	setRange->setFocus();
-	connect(setRange, &ccSFvsSFSetRange::setRange, this, &ccSFvsSFPlot::setAxisRange);
+	connect(setRange, &ccSFvsSFSetRange::replot, this, &ccSFvsSFPlot::onReplot);
 }
 
 void ccSFvsSFPlot::setAxisRange(QCPAxis *axis, double lower, double upper)

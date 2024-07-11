@@ -3268,11 +3268,15 @@ The active scalar field should have integer values.</string>
    </property>
   </action>
   <action name="actionPlotSFvsSF">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/scatter-plot.png</normaloff>:/CC/images/scatter-plot.png</iconset>
+   </property>
    <property name="text">
     <string>Plot SF vs SF</string>
    </property>
    <property name="iconText">
-    <string>SF/SF</string>
+    <string>Plot SF vs SF</string>
    </property>
    <property name="menuRole">
     <enum>QAction::NoRole</enum>

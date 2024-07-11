@@ -8,16 +8,18 @@ ccSFvsSFSetRange::ccSFvsSFSetRange(QCPAxis* axis, QWidget *parent)
 	, ui(new Ui::sfVsSFSetRange)
 	, m_axis(axis)
 {
-	this->setFocusPolicy(Qt::ClickFocus);
-
 	ui->setupUi(this);
 
 	ui->doubleSpinBoxMin->setMinimum(std::numeric_limits<double>::min());
 	ui->doubleSpinBoxMin->setMaximum(std::numeric_limits<double>::max());
 	ui->doubleSpinBoxMax->setMinimum(std::numeric_limits<double>::min());
 	ui->doubleSpinBoxMax->setMaximum(std::numeric_limits<double>::max());
+	ui->lineEditAxisLabel->setText(axis->label());
 
-	connect(ui->pushButtonApply, &QAbstractButton::pressed, this, &ccSFvsSFSetRange::emitSetRange);
+	this->setWindowFlag(Qt::Window, true);
+	this->setWindowTitle("Edit [" + axis->label() + "]");
+
+	connect(ui->pushButtonApply, &QAbstractButton::pressed, this, &ccSFvsSFSetRange::applyChanges);
 }
 
 ccSFvsSFSetRange::~ccSFvsSFSetRange()
@@ -35,7 +37,7 @@ void ccSFvsSFSetRange::setUpper(double upper)
 	ui->doubleSpinBoxMax->setValue(upper);
 }
 
-void ccSFvsSFSetRange::emitSetRange()
+void ccSFvsSFSetRange::applyChanges()
 {
 	if ( ui->doubleSpinBoxMin->value() > ui->doubleSpinBoxMax->value())
 	{
@@ -43,15 +45,17 @@ void ccSFvsSFSetRange::emitSetRange()
 	}
 	else
 	{
-		emit setRange(m_axis, ui->doubleSpinBoxMin->value(), ui->doubleSpinBoxMax->value());
+		m_axis->setRange(QCPRange(ui->doubleSpinBoxMin->value(), ui->doubleSpinBoxMax->value()));
+		m_axis->setLabel(ui->lineEditAxisLabel->text());
+		emit replot();
 	}
 }
 
 void ccSFvsSFSetRange::changeEvent(QEvent* event)
 {
-	if(event->type() == QEvent::ActionChanged)
+	if(event->type() == QEvent::ActivationChange)
 	{
-		if (!this->hasFocus())
+		if (!this->isActiveWindow())
 		{
 			this->deleteLater();
 		}

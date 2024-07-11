@@ -11224,6 +11224,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_UI->actionComputeStatParams->setEnabled(atLeastOneSF);
 	m_UI->actionComputeStatParams2->setEnabled(atLeastOneSF);
 	m_UI->actionShowHistogram->setEnabled(atLeastOneSF);
+	m_UI->actionPlotSFvsSF->setEnabled(atLeastOneCloud);
 	m_UI->actionGaussianFilter->setEnabled(atLeastOneSF);
 	m_UI->actionBilateralFilter->setEnabled(atLeastOneSF);
 	m_UI->actionDeleteScalarField->setEnabled(atLeastOneSF);

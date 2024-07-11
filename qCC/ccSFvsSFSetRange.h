@@ -18,12 +18,12 @@ public:
 	~ccSFvsSFSetRange();
 	void setLower(double lower);
 	void setUpper(double upper);
-	void emitSetRange();
+	void applyChanges();
 
 	void changeEvent(QEvent* event);
 
 signals:
-	void setRange(QCPAxis *axis, double lower, double upper);
+	void replot();
 
 private:
 	Ui::sfVsSFSetRange *ui;
