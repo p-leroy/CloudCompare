@@ -447,6 +447,8 @@ qM3C2Tools::DistAndUncerMethod qM3C2Dialog::getDistAndUncerMethod() const
 		method = qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN;
 	else if (usePrctileRadioButton->isChecked())
 		method = qM3C2Tools::USE_PERCENTILES;
+	else if (useMinPrctile5RadioButton->isChecked())
+		method = qM3C2Tools::USE_MIN_AND_PRCTILE5_MINUS_MIN;
 
 	return method;
 }

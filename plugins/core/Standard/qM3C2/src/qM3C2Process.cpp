@@ -1668,9 +1668,13 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			{
 				prefix = "MAX-MIN";
 			}
-			else if (s_M3C2Params.distAndUncerMethod == qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN)
+			else if (s_M3C2Params.distAndUncerMethod == qM3C2Tools::USE_PERCENTILES)
 			{
 				prefix = "PRCT";
+			}
+			else if (s_M3C2Params.distAndUncerMethod == qM3C2Tools::USE_MIN_AND_PRCTILE5_MINUS_MIN)
+			{
+				prefix = "MIN_PRCT";
 			}
 			//allocate cloud #1 std. dev. SF
 			QString stdDevSFName1 = QString(STD_DEV_CLOUD1_SF_NAME).arg(prefix);

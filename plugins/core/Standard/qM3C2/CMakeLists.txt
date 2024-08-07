@@ -4,7 +4,7 @@ if( PLUGIN_STANDARD_QM3C2 )
 
 	project( QM3C2_PLUGIN )
 
-        set(M3C2_PLUGIN_VERSION "0.1+")
+		set(M3C2_PLUGIN_VERSION "0.2")
         AddPlugin( NAME ${PROJECT_NAME} )
 
         target_include_directories( ${PROJECT_NAME} PRIVATE
