@@ -239,7 +239,7 @@ std::vector<LasScalarField> LasScalarField::ForPointFormat(unsigned pointFormatI
 	std::vector<LasScalarField> scalarFields;
 	scalarFields.reserve(16);
 
-	if (pointFormatId >= 0 && pointFormatId <= 5)
+	if (pointFormatId <= 5)
 	{
 		scalarFields.emplace_back(LasScalarField::Id::Intensity);
 		scalarFields.emplace_back(LasScalarField::Id::ReturnNumber);
@@ -281,8 +281,6 @@ std::vector<LasScalarField> LasScalarField::ForPointFormat(unsigned pointFormatI
 	{
 		scalarFields.emplace_back(LasScalarField::Id::NearInfrared);
 	}
-
-	scalarFields.shrink_to_fit();
 
 	return scalarFields;
 }

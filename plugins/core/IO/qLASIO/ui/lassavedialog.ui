@@ -21,7 +21,7 @@
      </property>
      <widget class="QWidget" name="basicParamTab">
       <attribute name="title">
-       <string>Basic Params</string>
+       <string>Basic Parameters</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
@@ -261,10 +261,10 @@ font: italic;</string>
      </widget>
      <widget class="QWidget" name="scalarFieldsMappingTab">
       <attribute name="title">
-       <string>Scalarfields Mapping</string>
+       <string>Standard LAS fields</string>
       </attribute>
       <attribute name="whatsThis">
-       <string>Select for each LAS dimension, the PointColoud Scalarfield to use</string>
+       <string>Select the point cloud's scalar field to use for each LAS dimension</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_6">
        <item>
@@ -287,25 +287,56 @@ font: italic;</string>
          <layout class="QHBoxLayout" name="horizontalLayout_5">
           <item>
            <widget class="QCheckBox" name="rgbCheckBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
              <string>RGB</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="normalsCheckBox">
-            <property name="toolTip">
-             <string>Saves normals as extra scalar field using the names &quot;NormalX&quot;, &quot;NormalY&quot; and &quot;NormalZ&quot;.</string>
+           <widget class="QCheckBox" name="waveformCheckBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
             <property name="text">
-             <string>Normals (As Extra Scalarfield)</string>
+             <string>Waveform</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="waveformCheckBox">
+           <widget class="QCheckBox" name="normalsCheckBox">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Saves normals as Extra fields (VLRs) using the names &quot;NormalX&quot;, &quot;NormalY&quot; and &quot;NormalZ&quot;.</string>
+            </property>
             <property name="text">
-             <string>Waveform</string>
+             <string>Normals (as Extra fields / VLRs)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="saveLeftoverSFsAsExtraVLRCheckBox">
+            <property name="toolTip">
+             <string>If checked, all scalar fields that are not assigned to a standard LAS field will be saved as extra fields (VLRs)</string>
+            </property>
+            <property name="text">
+             <string>Save remaining scalar fields as Extra fields / VLRs</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
@@ -329,7 +360,7 @@ font: italic;</string>
      </widget>
      <widget class="QWidget" name="extraScalarFieldsTab">
       <attribute name="title">
-       <string>Extra Scalarfields</string>
+       <string>Extra fields (VLRs)</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_7">
        <item>
@@ -342,8 +373,8 @@ font: italic;</string>
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>98</width>
-            <height>28</height>
+            <width>620</width>
+            <height>292</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_9">

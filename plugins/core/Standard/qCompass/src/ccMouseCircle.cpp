@@ -44,6 +44,8 @@ static Circle s_unitCircle;
 
 ccMouseCircle::ccMouseCircle(ccGLWindowInterface* owner, QString name) 
 	: cc2DViewportObject(name.isEmpty() ? "label" : name)
+	, m_owner(nullptr)
+	, m_pixelSize(0.0f)
 	, m_radius(50)
 	, m_radiusStep(4)
 {
@@ -107,7 +109,7 @@ void ccMouseCircle::draw(CC_DRAW_CONTEXT& context)
 	//test viewport parameters
 	const ccViewportParameters& params = context.display->getViewportParameters();
 
-	ccLog::Print(QString("WidthAtFocalDist = %1 (= %2 x %3)").arg(params.computeWidthAtFocalDist()).arg(params.computeDistanceToWidthRatio()).arg(params.getFocalDistance()));
+	//ccLog::Print(QString("WidthAtFocalDist = %1 (= %2 x %3)").arg(params.computeWidthAtFocalDist()).arg(params.computeDistanceToWidthRatio()).arg(params.getFocalDistance()));
 	m_pixelSize = (context.glW != 0 ? params.computeWidthAtFocalDist() / context.glW : 0);
 
 	//get mouse position

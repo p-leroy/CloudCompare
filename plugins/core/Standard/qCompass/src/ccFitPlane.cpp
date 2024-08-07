@@ -17,15 +17,16 @@
 
 #include "ccFitPlane.h"
 #include "ccCompass.h"
+
 ccFitPlane::ccFitPlane(ccPlane* p)
 	: ccPlane(p->getXWidth(), p->getYWidth(), &p->getTransformation(), p->getName()) //create an identical plane
 {
 	p->clone();
 
 	//add metadata tag defining the ccCompass class type
-	QVariantMap* map = new QVariantMap();
-	map->insert("ccCompassType", "FitPlane");
-	setMetaData(*map, true);
+	QVariantMap map;
+	map.insert("ccCompassType", "FitPlane");
+	setMetaData(map, true);
 
 	//update name
 	CCVector3 N(getNormal());
@@ -36,7 +37,7 @@ ccFitPlane::ccFitPlane(ccPlane* p)
 	float dip = 0.0f;
 	float dipdir = 0.0f;
 	ccNormalVectors::ConvertNormalToDipAndDipDir(N, dip, dipdir);
-	QString dipAndDipDirStr = QString("%1/%2").arg((int)dip, 2, 10, QChar('0')).arg((int)dipdir, 3, 10, QChar('0'));
+	QString dipAndDipDirStr = QString("%1/%2").arg(static_cast<int>(dip), 2, 10, QChar('0')).arg(static_cast<int>(dipdir), 3, 10, QChar('0'));
 
 	setName(dipAndDipDirStr);
 
@@ -90,13 +91,13 @@ void ccFitPlane::updateAttributes(float rms, float search_r)
 	CCVector3 C = getCenter();
 
 	//store attributes (centroid, strike, dip, RMS) on plane
-	QVariantMap* map = new QVariantMap();
-	map->insert("Cx", C.x); map->insert("Cy", C.y); map->insert("Cz", C.z); //centroid
-	map->insert("Nx", N.x); map->insert("Ny", N.y); map->insert("Nz", N.z); //normal
-	map->insert("Strike", strike); map->insert("Dip", dip); map->insert("DipDir", dipdir); //strike & dip
-	map->insert("RMS", rms); //rms
-	map->insert("Radius", search_r); //search radius
-	setMetaData(*map, true);
+	QVariantMap map;
+	map.insert("Cx", C.x); map.insert("Cy", C.y); map.insert("Cz", C.z); //centroid
+	map.insert("Nx", N.x); map.insert("Ny", N.y); map.insert("Nz", N.z); //normal
+	map.insert("Strike", strike); map.insert("Dip", dip); map.insert("DipDir", dipdir); //strike & dip
+	map.insert("RMS", rms); //rms
+	map.insert("Radius", search_r); //search radius
+	setMetaData(map, true);
 }
 
 bool ccFitPlane::isFitPlane(ccHObject* object)

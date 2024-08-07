@@ -104,8 +104,8 @@ ccComparisonDlg::ccComparisonDlg(	ccHObject* compEntity,
 	split3DCheckBox->setEnabled(false);
 	okButton->setEnabled(false);
 
-	compName->setText(m_compEnt->getName());
-	refName->setText(m_refEnt->getName());
+	compName->setText(m_compEnt ? m_compEnt->getName() : QString());
+	refName->setText(m_refEnt ? m_refEnt->getName() : QString());
 	preciseResultsTabWidget->setCurrentIndex(0);
 
 	m_refVisibility = (m_refEnt ? m_refEnt->isVisible() : false);
@@ -664,7 +664,10 @@ int ccComparisonDlg::determineBestOctreeLevel(double maxSearchDist)
 			theBestOctreeLevel = level;
 		}
 
-		nProgress.oneStep();
+		if (!nProgress.oneStep())
+		{
+			break;
+		}
 	}
 
 	ccLog::PrintDebug("[Distances] Best level: %i (maxSearchDist = %f)", theBestOctreeLevel, maxSearchDist);
@@ -695,6 +698,7 @@ bool ccComparisonDlg::computeDistances()
 	//options
 	bool signedDistances = signedDistCheckBox->isEnabled() && signedDistCheckBox->isChecked();
 	bool flipNormals = (signedDistances ? flipNormalsCheckBox->isChecked() : false);
+	bool robust = (signedDistances ? robustCheckBox->isChecked() : true);
 	bool split3D = split3DCheckBox->isEnabled() && split3DCheckBox->isChecked();
     bool mergeXY = compute2DCheckBox->isChecked();
 
@@ -863,6 +867,7 @@ bool ccComparisonDlg::computeDistances()
 			c2mParams.signedDistances = signedDistances;
 			c2mParams.flipNormals = flipNormals;
 			c2mParams.multiThread = multiThread;
+			c2mParams.robust = robust;
 		}
 		
 		result = CCCoreLib::DistanceComputationTools::computeCloud2MeshDistances(	m_compCloud,

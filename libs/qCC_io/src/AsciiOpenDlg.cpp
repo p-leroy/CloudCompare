@@ -110,6 +110,7 @@ AsciiOpenDlg::AsciiOpenDlg(QWidget* parent)
 	, m_ui(new Ui_AsciiOpenDialog)
 	, m_separator(' ')
 	, m_averageLineSize(-1.0)
+	, m_stream(nullptr)
 	, m_columnsCount(0)
 {
 	m_ui->setupUi(this);
@@ -1475,7 +1476,7 @@ void AsciiOpenDlg::setSeparator(QChar sep)
 
 unsigned AsciiOpenDlg::getMaxCloudSize() const
 {
-	return static_cast<unsigned>(floor(m_ui->maxCloudSizeDoubleSpinBox->value() * 1.0e6));
+	return static_cast<unsigned>(m_ui->maxCloudSizeDoubleSpinBox->value() * 1.0e6); //static_cast is equivalent to floor if value >= 0
 }
 
 bool AsciiOpenDlg::showLabelsIn2D() const

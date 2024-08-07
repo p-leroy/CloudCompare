@@ -1,3 +1,5 @@
+#pragma once
+
 //#######################################################################################
 //#                                                                                     #
 //#                              CLOUDCOMPARE PLUGIN: qCSF                              #
@@ -28,9 +30,6 @@
 
 // A mex version for programming in Matlab is at File Exchange of Mathworks website:
 // http://www.mathworks.com/matlabcentral/fileexchange/58139-csf--ground-filtering-of-point-cloud-based-on-cloth-simulation
-
-#ifndef QCSF_PLUGIN_COMMANDS_HEADER
-#define QCSF_PLUGIN_COMMANDS_HEADER
 
 //CloudCompare
 #include "ccCommandLineInterface.h"
@@ -129,7 +128,7 @@ struct CommandCSF : public ccCommandLineInterface::Command
 				{
 					return cmd.error(QObject::tr("Invalid parameter: value after \"-%1\"").arg(COMMAND_CSF_MAX_ITERATION));
 				}
-				cmd.print(QString("Custom max iteration set: %").arg(maxIteration));
+				cmd.print(QString("Custom max iteration set: %1").arg(maxIteration));
 			}
 			else if (ccCommandLineInterface::IsCommand(ARGUMENT, COMMAND_CSF_CLASS_THRESHOLD))
 			{
@@ -203,6 +202,7 @@ struct CommandCSF : public ccCommandLineInterface::Command
 			//store ground subset
 			if (groundCloud)
 			{
+				groundCloud->setName(desc.basename + QString("_ground_points"));
 				//add cloud to the pool of new clouds
 				CLCloudDesc groundDesc(groundCloud, desc.basename + QString("_ground_points"), desc.path, -1);
 				newClouds.push_back(groundDesc);
@@ -220,6 +220,7 @@ struct CommandCSF : public ccCommandLineInterface::Command
 			//store off-ground subset
 			if (offGroundCloud)
 			{
+				offGroundCloud->setName(desc.basename + QString("_offground_points"));
 				CLCloudDesc offgroundDesc(offGroundCloud, desc.basename + QString("_offground_points"), desc.path, -1);
 				newClouds.push_back(offgroundDesc);
 				if (exportOffground)
@@ -240,5 +241,3 @@ struct CommandCSF : public ccCommandLineInterface::Command
 		return true;
 	}
 };
-
-#endif //QCSF_PLUGIN_COMMANDS_HEADER
