@@ -919,7 +919,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 	}
 }
 
-bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPointCloud*& outputCloud, ccPointCloud *&outputCloud2/*=nullptr*/, bool allowDialogs, QWidget* parentWidget/*=nullptr*/, ccMainAppInterface* app/*=nullptr*/)
+bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPointCloud*& outputCloud, ccPointCloud*& outputCloud2/*=nullptr*/, bool allowDialogs, QWidget* parentWidget/*=nullptr*/, ccMainAppInterface* app/*=nullptr*/)
 {
 	errorMessage.clear();
 	outputCloud = nullptr;
