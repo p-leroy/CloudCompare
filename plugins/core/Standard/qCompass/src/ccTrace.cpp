@@ -29,60 +29,74 @@ ccTrace::ccTrace(ccPointCloud* associatedCloud) : ccPolyline(associatedCloud)
 }
 
 ccTrace::ccTrace(ccPolyline* obj)
-	: ccPolyline(obj->getAssociatedCloud())
+	: ccPolyline(obj ? obj->getAssociatedCloud() : nullptr)
 {
-	ccPointCloud* cld = dynamic_cast<ccPointCloud*>(obj->getAssociatedCloud());
-	assert(cld != nullptr); //should never be null
-	init(cld);
-
-	//load waypoints from metadata
-	if (obj->hasMetaData("waypoints"))
+	if (obj)
 	{
-		QString waypoints = obj->getMetaData("waypoints").toString();
-		for (QString str : waypoints.split(","))
+		ccPointCloud* cld = dynamic_cast<ccPointCloud*>(obj->getAssociatedCloud());
+		if (cld != nullptr)
 		{
-			if (str != "")
-			{
-				int pID = str.toInt();
-				m_waypoints.push_back(pID); //add waypoint
-			}
+			init(cld);
+		}
+		else
+		{
+			assert(false);
 		}
 
-		//store waypoints metadata
-		QVariantMap* map = new QVariantMap();
-		map->insert("waypoints", waypoints);
-		setMetaData(*map, true);
-	}
+		//load waypoints from metadata
+		if (obj->hasMetaData("waypoints"))
+		{
+			QString waypoints = obj->getMetaData("waypoints").toString();
+			for (QString str : waypoints.split(","))
+			{
+				if (!str.isEmpty())
+				{
+					int pID = str.toInt();
+					m_waypoints.push_back(pID); //add waypoint
+				}
+			}
 
-	//load cost function from metadata
-	if (obj->hasMetaData("cost_function"))
+			//store waypoints metadata
+			QVariantMap map;
+			map.insert("waypoints", waypoints);
+			setMetaData(map, true);
+		}
+
+		//load cost function from metadata
+		if (obj->hasMetaData("cost_function"))
+		{
+			ccTrace::COST_MODE = obj->getMetaData("cost_function").toInt();
+		}
+
+		setName(obj->getName());
+
+		//recalculate trace if polyline data somehow lost [redundancy thing..]
+		if (obj->size() == 0)
+		{
+			optimizePath(); //[slooooow...!]
+		}
+		else
+		{
+			//copy polyline into trace points
+			std::deque<int> seg;
+			for (unsigned i = 0; i < obj->size(); i++)
+			{
+				//copy into "trace" object
+				int pId = obj->getPointGlobalIndex(i); //get global point ID
+				seg.push_back(pId);
+
+				//also copy into polyline object
+				addPointIndex(pId);
+			}
+			m_trace.push_back(seg);
+		}
+
+		//load SNE data from metadata (TODO)
+	}
+	else
 	{
-		ccTrace::COST_MODE = obj->getMetaData("cost_function").toInt();
+		assert(false);
 	}
-
-	setName(obj->getName());
-
-	//copy polyline into trace points
-	std::deque<int> seg;
-	for (unsigned i = 0; i < obj->size(); i++)
-	{
-		//copy into "trace" object
-		int pId = obj->getPointGlobalIndex(i); //get global point ID
-		seg.push_back(pId);
-
-		//also copy into polyline object
-		addPointIndex(pId);
-	}
-	m_trace.push_back(seg);
-
-	//recalculate trace if polyline data somehow lost [redundancy thing..]
-	if (obj->size() == 0)
-	{
-		m_trace.clear();
-		optimizePath(); //[slooooow...!]
-	}
-
-	//load SNE data from metadata (TODO)
 
 	invalidateBoundingBox(); //update bounding box (for picking)
 }
@@ -99,14 +113,14 @@ void ccTrace::init(ccPointCloud* associatedCloud)
 
 void ccTrace::updateMetadata()
 {
-	QVariantMap* map = new QVariantMap();
-	map->insert("ccCompassType", "Trace");
-	map->insert("search_r", m_search_r);
-	map->insert("cost_function", ccTrace::COST_MODE);
+	QVariantMap map;
+	map.insert("ccCompassType", "Trace");
+	map.insert("search_r", m_search_r);
+	map.insert("cost_function", ccTrace::COST_MODE);
 
 	//TODO - write metadata for structure normal estimates
 
-	setMetaData(*map, true);
+	setMetaData(map, true);
 }
 
 int ccTrace::insertWaypoint(int pointId)
@@ -231,16 +245,20 @@ bool ccTrace::optimizePath(int maxIterations)
 	#endif
 
 	//write control points to property (for reloading)
-	QVariantMap* map = new QVariantMap();
-	QString waypoints = "";
+	QVariantMap map;
+	QString waypoints;
 
 	for (unsigned i = 0; i < m_waypoints.size(); i++)
 	{
-		waypoints += QString::number(m_waypoints[i]) + ",";
+		if (i != 0)
+		{
+			waypoints += ',';
+		}
+		waypoints += QString::number(m_waypoints[i]);
 	}
 
-	map->insert("waypoints", waypoints);
-	setMetaData(*map, true);
+	map.insert("waypoints", waypoints);
+	setMetaData(map, true);
 
 	//push points onto underlying polyline object (for picking & save/load)
 	finalizePath();
@@ -254,7 +272,7 @@ void ccTrace::finalizePath()
 	clear();
 
 	//push trace buffer to said polyline (for save/export etc.)
-	for (std::deque<int> seg : m_trace)
+	for (const std::deque<int>& seg : m_trace)
 	{
 		for (int p : seg)
 		{
@@ -639,15 +657,24 @@ int ccTrace::getSegmentCostScalar(int p1, int p2)
 {
 	//m_cloud->getCurrentDisplayedScalarFieldIndex();
 	ccScalarField* sf = static_cast<ccScalarField*>(m_cloud->getCurrentDisplayedScalarField());
+	if (!sf)
+	{
+		assert(false);
+		return 0;
+	}
 	return (sf->getValue(p2)-sf->getMin()) * (765 / (sf->getMax()-sf->getMin())); //return scalar field value mapped to range 0 - 765
 }
 
 int ccTrace::getSegmentCostScalarInv(int p1, int p2)
 {
 	ccScalarField* sf = static_cast<ccScalarField*>(m_cloud->getCurrentDisplayedScalarField());
+	if (!sf)
+	{
+		assert(false);
+		return 0;
+	}
 	return (sf->getMax() - sf->getValue(p2)) * (765 / (sf->getMax() - sf->getMin())); //return inverted scalar field value mapped to range 0 - 765
 }
-
 
 //functions for calculating cost SFs
 void ccTrace::buildGradientCost(QWidget* parent)

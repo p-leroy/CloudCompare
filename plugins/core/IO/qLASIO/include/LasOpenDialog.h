@@ -51,7 +51,7 @@ class LasOpenDialog : public QDialog
 	/// Default constructor
 	explicit LasOpenDialog(QWidget* parent = nullptr);
 
-	/// Set some informations about the file
+	/// Sets some pieces of information about the file
 	/// to be displayed to the user.
 	void setInfo(int versionMinor, int pointFormatId, qulonglong numPoints);
 
@@ -67,7 +67,7 @@ class LasOpenDialog : public QDialog
 	                         std::vector<LasExtraScalarField>& extraScalarFields);
 
 	/// Returns the array of extra scalar fields to be used as normals
-	std::array<LasExtraScalarField, 3> getExtraFieldsToBeLoadedAsNormals(const std::vector<LasExtraScalarField>& extraScalarFields) const ;
+	std::array<LasExtraScalarField, 3> getExtraFieldsToBeLoadedAsNormals(const std::vector<LasExtraScalarField>& extraScalarFields) const;
 
 	/// Returns whether the user wants to ignore (not load)
 	/// fields for which values are all default values.
@@ -76,6 +76,10 @@ class LasOpenDialog : public QDialog
 	/// Returns whether the user wants to treat the
 	/// rgb from the file as 8-bit components.
 	bool shouldForce8bitColors() const;
+
+	/// Returns whether the user wants to decompose the classification field
+	/// according to what the LAS standard says.
+	bool shouldDecomposeClassification() const;
 
 	/// Returns quiet_NaN if the time shift value should be
 	/// automatically found.
@@ -120,6 +124,11 @@ class LasOpenDialog : public QDialog
 	void onBrowseTilingOutputDir();
 
 	void onCurrentTabChanged(int index);
+
+	void decomposeClassificationFields(bool decompose, bool autoUpdateCheckSate);
+
+	/// Hides or un-hides the checkboxes that corresponds to the flag fields
+	void onDecomposeClassificationToggled(bool state);
 
   private:
 	bool m_shouldSkipDialog{false};

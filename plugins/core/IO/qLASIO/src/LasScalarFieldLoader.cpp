@@ -56,8 +56,17 @@ CC_FILE_ERROR LasScalarFieldLoader::handleScalarFields(ccPointCloud&       point
 			error = handleScalarField(lasScalarField, pointCloud, currentPoint.edge_of_flight_line);
 			break;
 		case LasScalarField::Classification:
-			error = handleScalarField(lasScalarField, pointCloud, currentPoint.classification);
+		{
+			laszip_U8 classification = currentPoint.classification;
+			if (!m_decomposeClassification)
+			{
+				classification |= (currentPoint.synthetic_flag << 5);
+				classification |= (currentPoint.keypoint_flag << 6);
+				classification |= (currentPoint.withheld_flag << 7);
+			}
+			error = handleScalarField(lasScalarField, pointCloud, classification);
 			break;
+		}
 		case LasScalarField::SyntheticFlag:
 			error = handleScalarField(lasScalarField, pointCloud, currentPoint.synthetic_flag);
 			break;
@@ -263,14 +272,10 @@ LasScalarFieldLoader::handleGpsTime(LasScalarField& sfInfo, ccPointCloud& pointC
 			return CC_FERR_NOT_ENOUGH_MEMORY;
 		}
 
-		double timeShift;
+		double timeShift = m_manualTimeShiftValue;
 		if (std::isnan(m_manualTimeShiftValue))
 		{
 			timeShift = static_cast<int64_t>(currentValue / 10000.0) * 10000.0;
-		}
-		else
-		{
-			timeShift = m_manualTimeShiftValue;
 		}
 
 		double shiftedValue = currentValue - timeShift;
@@ -291,7 +296,7 @@ LasScalarFieldLoader::handleGpsTime(LasScalarField& sfInfo, ccPointCloud& pointC
 		newSf->setGlobalShift(timeShift);
 		for (unsigned j = 0; j < pointCloud.size() - 1; ++j)
 		{
-			newSf->addElement(static_cast<ScalarType>(timeShift));
+			newSf->addElement(-static_cast<ScalarType>(timeShift));
 		}
 	}
 

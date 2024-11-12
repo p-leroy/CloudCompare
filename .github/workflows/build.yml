@@ -44,7 +44,6 @@ jobs:
           activate-environment: CloudCompareDev
           auto-activate-base: false
           environment-file: ${{ matrix.config.conda_dep_file }}
-          mamba-version: "*"
 
       - name: Configure MSVC console (Windows)
         if: matrix.config.os == 'windows-latest'
@@ -103,6 +102,7 @@ jobs:
             -DPLUGIN_STANDARD_QRANSAC_SD=ON \
             -DPLUGIN_STANDARD_QPCL=ON \
             -DPLUGIN_STANDARD_QCLOUDLAYERS=ON \
+            -DPLUGIN_STANDARD_QVOXFALL=ON \
             .
 
       - name: Build
@@ -201,6 +201,7 @@ jobs:
           -DPLUGIN_STANDARD_QRANSAC_SD=ON
           -DPLUGIN_STANDARD_QPCL=ON
           -DPLUGIN_STANDARD_QCLOUDLAYERS=ON
+          -DPLUGIN_STANDARD_QVOXFALL=ON
           -DBUILD_TESTING=ON
 
       - name: Build

@@ -1,9 +1,9 @@
 CloudCompare Version History
 ============================
+
 v2.14.alpha (???) - (??/??/202?)
 ----------------------
-
-New Feature:
+New features:
 	- Edit > Color > Gaussian filter
 	- Edit > Color > Bilateral filter
 	- Edit > Color > Median filter
@@ -41,22 +41,103 @@ New Feature:
 		- New SF_OP suboption: -NOT_IN_PLACE
 			- to create new scalar field during the operation.
 
+	- New option to discard the confirmation popup dialog when exiting CloudCompare
+		- one can choose to discard it the first time it appears
+		- it can then be restored via the 'Display > Display options' menu entry
+		
+	- 3DMASC: add verticality (VERT) to the neighborhood features (PCA1, PCA2, PCA3, SPHER, LINEA, etc.)
+
+New plugin
+
+	- VoxFall: non-parametric volumetric change detection for rockfalls
+		- computes volume differences between 2 meshes, with some visual representation
+
 Improvements:
+
+	- Global Shift:
+		- CC will now understand that when clicking on 'Apply all' while the shift is not sufficient to make the point coordinates small enough,
+			this means the user really wants to apply the input Global shift to all the entities (instead of showing the dialog again and again)
+
 	- Command line:
 		- the -SF_OP command now supports MIN/DISP_MIN/SAT_MIN/N_SIGMA_MIN/MAX/DISP_MAX/SAT_MAX/N_SIGMA_MAX as input values
 		- Rename -CSF command's resulting clouds to be able to select them later:
 			- {original cloud name} + '_ground_points'
 			- {original cloud name} + '_offground_points'
+		- set the default PCD output file format: -PCD_OUTPUT_FORMAT {format}
+			- format can be one of 'COMPRESSED_BINARY', 'BINARY' or 'ASCII'
+			- default format is 'COMPRESSED_BINARY'
+		- the C_EXPORT_FMT or M_EXPORT_FMT can now be used with secondary extensions (e.g. LAZ instead of LAS)
+			- The secondary extension will also be used when automatically generating output filenames (i.e. when the 'FILE' sub-option is not used)
 
-v2.13.2 (Kharkiv) - (05/26/2024)
+	- LAS file loading dialog
+		- Option to decompose the classification fields into Classification, Synthetic, Key Point and Withheld sub-fields
+		- Smarter restoration of the previous scalar fields loading pattern
+		- Maximum GPS time shift increased to 10^10
+	- LAS file saving dialog
+		- CC will now automatically assign scalar fields with non 'LAS-standard' names to Extra fields (Extra-bytes VLRs)
+		- if the 'Save all remaining scalar fields as Extra fields / EB-VLRs' checkbox is checked (default state),
+			some entries are automatically created in the 3rd tab 'Extra fields (Extra Bytes VLRs)'. This is updated automatically
+			if the point format is changed.
+		- Saving normals or non-standard scalar fields is now explicitly allowed for version 1.2 and 1.3
+		- CC will now explicitly display and let the user choose the 'LAS offset' among up to 4 options
+			- Current global shift (if any), original LAS offset (if any), the cloud minimum bounding-box corner, or a custom offset
+			- by default, the following priority order is now used for selecting the default option:
+				1) a previously 'custom LAS offset' already input by the user
+				2) the current Global Shift, if any and if different from the original LAS offset (XY only)
+				3) (0, 0, 0) if no Global Shift is set, and a non-null LAS offset was present (XY only) [GUI version only]
+				4) the original LAS offset, if any
+				5) the cloud minimum bounding-box corner (if applicable)
+			- note that the command line option will never use (option 3) so as to not lose the original LAS offset inadvertently
+
+	- E57 files
+		- when loading E57 files, CC will now store more information about sensors
+		- it will then restore these pieces of information when saving the clouds and images back as an E57 file, effectively
+			preserving the image sensor definition
+		- CC will now properly handle the case when a reflective transformation has been applied to a cloud (see bug fixes)
+
+	- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
+
+	- PLY files:
+		- loading dialog: new 'Add all' button to add all the unused standard properties to be loaded as scalar fields
+		- at saving time, CC will not change the internal name of scalar fields that were already present in the input PLY file
+
+	- PCD format:
+		- a new dialog will appear when saving PCD file, to choose the output format (between compressed binary, binary and ASCII/text)
+		- this dialog can be hidden once and for all by clicking on the 'Yes to all' button
+		- the default output format can also be set via the command line (see above)
+
+	- Animation plugin:
+		- improved/fixed video file generation process to reduce the occurrence of invalid videos
+		- the output file extension will now be automatically updated when changing the codec
+
+Bug fixes:
+	- editing the Global Shift & Scale information of a polyline would make CC crash
+	- the Ransac Shape Detection plugin dialog was not properly initialzing the min and max radii of the detected shapes,
+		preventing from detecting some or all instances of these shapes if not explicitly defined by the user
+	- CC will now consider infinite SF values as 'invalid' (just as NaN values currently) so as to avoid various types of issues
+	- the STEP file loader was behaving strangely when loading files a second time (or more). For instance, the scale was divided by
+		1000 the second time a file was loaded.
+	- The display could be broken, and CC could crash, when segmenting a polyline based on a cloud with more points than the number
+		of polyline vertices
+	- When specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
+	- E57/PCD: when saving a cloud after having applied a 'reflection' transformation (e.g. inverting a single axis), the saved
+		sensor pose was truncated due to the internal representation of these formats (as a quaternion)
+	- M3C2: 
+		- force the vertical mode in CLI call when NormalMode=3 is requested (needed in case of multiple calls in the same command line)
+
+v2.13.2 (Kharkiv) - (06/30/2024)
 ----------------------
 Improvements:
 	- substantial improvement of the cloud merge operation (thanks to Thomas Watson)
 
 	- symbolic link files (or shortcut or alias) should now be properly handled
 
-	- command line: increase the timestamp resolution of the registration matrix filename and best fit plane
-		information filename so as to avoid overwriting them if generated too quickly
+	- command line:
+		- increase the timestamp resolution of the registration matrix filename and best fit plane
+			information filename so as to avoid overwriting them if generated too quickly
+		- new sub-option -NO_LABEL after -O
+			- prevents any label from being loaded/created automatically (in case text columns are present in the input file)
+			- for ASCCI files only
 
 	- Korean translation updated (thanks to Yun-Ho Chung)
 
@@ -64,12 +145,23 @@ Improvements:
 
 	- The 'Normals computation' dialog should remember whether normals 'orientation' should be resolved or not
 
+	- PCD files can now be loaded or saved with local characters. PCD files will also be saved as compressed files by default.
+
 Bug fix:
 	- The LAS dialog could be be wrongly initialized with a point format of 0 in some cases (with FWF data).
 		In command line this could result in missing waveforms when saving. Thanks to Paul Leroy for the fix ;)
 	- The Rasterize tool was not letting the user use '0' as the max edge length parameter for the Delaunay-based
 		raster interpolation mode (forcing the user to set a high value to keep all triangles)
-
+	- The scale value in the bottom right corner of the 3D view (orthographic mode) was wrong if the screen height was larger than the width
+	- After the -FEATURE command line command was run, the automatically exported filename of clouds was containing some duplicated contents
+	- The Poisson Reconstruction progress dialog 'cancel' button was ineffective (the process cannot be canceled). It is now hidden.
+	- Per-vertex colors were never saved in a Maya (MA) file
+	- Loading a corrupted STL filter could result in a corrupted mesh or a crash
+	- The Compass plugin had some minor but numerous memory leaks
+	- The torus primitive mesh topology was broken
+	- LAS files: the synthetic flag could be mistakenly set at save time if some non-zero classification values were present
+	- The envelope/contour extraction routine of the Cross Section tool could fail or crash in some cases
+	- Canupo: some scalar fields were not properly removed/cleaned in some cases
 
 v2.13.1 (Kharkiv) - (03/20/2024)
 ----------------------
@@ -171,7 +263,7 @@ v2.13.0 (Kharkiv) - (02/14/2024)
 		- based on LASzip
 		- should work on all platforms (Windows, Linux, macOS)
 		- manages all versions of LAS files (1.0 to 1.4)
-		- gives much more control over extended fields (EVLR) as well as custom mapping between
+		- gives much more control over extended fields (Extra-bytes VLR) as well as custom mapping between
 			the existing fields of a cloud and their destination in the LAS file
 
 	- New plugin: q3DMASC

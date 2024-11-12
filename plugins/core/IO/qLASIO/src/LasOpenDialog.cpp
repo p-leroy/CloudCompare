@@ -25,11 +25,11 @@
 
 constexpr int TILLING_TAB_INDEX = 1;
 
-static QListWidgetItem* CreateItem(const char* name)
+static QListWidgetItem* CreateItem(const char* name, bool checked = true)
 {
 	auto item = new QListWidgetItem(name);
 	item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-	item->setCheckState(Qt::Checked);
+	item->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
 	return item;
 }
 
@@ -95,6 +95,7 @@ LasOpenDialog::LasOpenDialog(QWidget* parent)
 	        (void (QComboBox::*)(const QString&))(&QComboBox::currentIndexChanged),
 	        this,
 	        &LasOpenDialog::onNormalComboBoxChanged);
+	connect(decomposeClassificationCheckBox, &QCheckBox::toggled, this, &LasOpenDialog::onDecomposeClassificationToggled);
 
 	// reload the last tiling output path
 	{
@@ -149,11 +150,23 @@ void LasOpenDialog::setInfo(int versionMinor, int pointFormatId, qulonglong numP
 
 	force8bitColorsCheckBox->setEnabled(LasDetails::HasRGB(pointFormatId));
 	timeShiftLayout->setEnabled(LasDetails::HasGpsTime(pointFormatId));
+
+	decomposeClassificationCheckBox->setHidden(pointFormatId >= 6);
 }
 
 void LasOpenDialog::setAvailableScalarFields(const std::vector<LasScalarField>&      scalarFields,
                                              const std::vector<LasExtraScalarField>& extraScalarFields)
 {
+	// remember previous state
+	QMap<QString, bool> previousScalarFields;
+	{
+		for (int i = 0; i < availableScalarFields->count(); ++i)
+		{
+			auto item                          = availableScalarFields->item(i);
+			previousScalarFields[item->text()] = (item->checkState() == Qt::Checked);
+		}
+	}
+
 	availableScalarFields->clear();
 	availableExtraScalarFields->clear();
 
@@ -162,8 +175,14 @@ void LasOpenDialog::setAvailableScalarFields(const std::vector<LasScalarField>& 
 		scalarFieldFrame->show();
 		for (const LasScalarField& lasScalarField : scalarFields)
 		{
-			availableScalarFields->addItem(CreateItem(lasScalarField.name()));
+			bool checked = true;
+			if (previousScalarFields.contains(lasScalarField.name()))
+			{
+				checked = previousScalarFields[lasScalarField.name()];
+			}
+			availableScalarFields->addItem(CreateItem(lasScalarField.name(), checked));
 		}
+		decomposeClassificationFields(decomposeClassificationCheckBox->isChecked(), false);
 	}
 	else
 	{
@@ -266,6 +285,11 @@ bool LasOpenDialog::shouldIgnoreFieldsWithDefaultValues() const
 bool LasOpenDialog::shouldForce8bitColors() const
 {
 	return force8bitColorsCheckBox->isChecked();
+}
+
+bool LasOpenDialog::shouldDecomposeClassification() const
+{
+	return decomposeClassificationCheckBox->isChecked();
 }
 
 double LasOpenDialog::timeShiftValue() const
@@ -400,4 +424,31 @@ void LasOpenDialog::onCurrentTabChanged(int index)
 		applyButton->setText(APPLY_TEXT);
 		applyAllButton->setText(APPLY_ALL_TEXT);
 	}
+}
+
+void LasOpenDialog::decomposeClassificationFields(bool decompose, bool autoUpdateCheckSate)
+{
+	static constexpr std::array<const char*, 3> FlagNames{LasNames::SyntheticFlag, LasNames::KeypointFlag, LasNames::WithheldFlag};
+
+	for (const char* flagName : FlagNames)
+	{
+		for (int i = 0; i < availableScalarFields->count(); ++i)
+		{
+			QListWidgetItem* item = availableScalarFields->item(i);
+			if (item->text() == flagName)
+			{
+				item->setHidden(!decompose);
+				if (autoUpdateCheckSate)
+				{
+					item->setCheckState(decompose ? Qt::CheckState::Checked : Qt::CheckState::Unchecked);
+				}
+				break;
+			}
+		}
+	}
+}
+
+void LasOpenDialog::onDecomposeClassificationToggled(bool checked)
+{
+	decomposeClassificationFields(checked, true);
 }

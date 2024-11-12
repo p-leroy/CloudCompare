@@ -51,9 +51,10 @@ constexpr char COMMAND_ASCII_EXPORT_ADD_COL_HEADER[]	= "ADD_HEADER";
 constexpr char COMMAND_ASCII_EXPORT_ADD_PTS_COUNT[]		= "ADD_PTS_COUNT";
 constexpr char COMMAND_MESH_EXPORT_FORMAT[]				= "M_EXPORT_FMT";
 constexpr char COMMAND_HIERARCHY_EXPORT_FORMAT[]		= "H_EXPORT_FMT";
-constexpr char COMMAND_OPEN[]							= "O";				//+file name
-constexpr char COMMAND_OPEN_SKIP_LINES[]				= "SKIP";			//+number of lines to skip
-constexpr char COMMAND_COMMAND_FILE[]					= "COMMAND_FILE";	//+file name
+constexpr char COMMAND_OPEN[]							= "O";				//+ file name
+constexpr char COMMAND_OPEN_SKIP_LINES[]				= "SKIP";			//+ number of lines to skip
+constexpr char COMMAND_OPEN_NO_LABEL[]					= "NO_LABEL";
+constexpr char COMMAND_COMMAND_FILE[]					= "COMMAND_FILE";	//+ file name
 constexpr char COMMAND_SUBSAMPLE[]						= "SS";				//+ method (RANDOM/SPATIAL/OCTREE) + parameter (resp. point count / spatial step / octree level)
 constexpr char COMMAND_EXTRACT_CC[]						= "EXTRACT_CC";
 constexpr char COMMAND_CURVATURE[]						= "CURV";			//+ curvature type (MEAN/GAUSS)
@@ -324,14 +325,15 @@ QString CommandChangeOutputFormat::getFileFormatFilter(ccCommandLineInterface& c
 	if (!cmd.arguments().isEmpty())
 	{
 		//test if the specified format corresponds to a known file type
-		QString extension = cmd.arguments().front().toUpper();
+		QString extension = cmd.arguments().front();
+		QString upperExtension = extension.toUpper();
 		cmd.arguments().pop_front();
 
 		const FileIOFilter::FilterContainer& filters = FileIOFilter::GetFilters();
 		
-		for (const auto & filter : filters)
+		for (const auto& filter : filters)
 		{
-			if (extension == filter->getDefaultExtension().toUpper())
+			if (upperExtension == filter->getDefaultExtension().toUpper())
 			{
 				//found a matching filter
 				fileFilter = filter->getFileFilters(false).first();
@@ -341,6 +343,33 @@ QString CommandChangeOutputFormat::getFileFormatFilter(ccCommandLineInterface& c
 		}
 
 		//haven't found anything?
+		if (fileFilter.isEmpty())
+		{
+			ccLog::Warning(QString("Extension '%1' was not identified as a primary extension. Let's look for secondary ones...").arg(extension));
+			// let's look for secondary formats
+			for (const auto& filter : filters)
+			{
+				QStringList outputFilters = filter->getFileFilters(false);
+				for (const QString& outputFilter : outputFilters)
+				{
+					int index = outputFilter.toUpper().indexOf(upperExtension);
+					if (index >= 2 && outputFilter.mid(index - 2, 2) == "*.")
+					{
+						ccLog::Print(QString("Extension '%1' found in the output formats supported by the '%2' filter").arg(extension).arg(filter->getDefaultExtension().toUpper()));
+						fileFilter = outputFilter;
+						defaultExt = extension;
+						break;
+					}
+				}
+
+				if (!fileFilter.isEmpty())
+				{
+					break;
+				}
+			}
+		}
+
+		//still haven't found anything?
 		if (fileFilter.isEmpty())
 		{
 			cmd.error(QObject::tr("Unhandled format specifier (%1)").arg(extension));
@@ -596,10 +625,20 @@ bool CommandLoad::process(ccCommandLineInterface& cmd)
 	//optional parameters
 	int skipLines = 0;
 	ccCommandLineInterface::GlobalShiftOptions globalShiftOptions;
+	bool doNotCreateLabels = false;
 
 	while (!cmd.arguments().empty())
 	{
 		QString argument = cmd.arguments().front();
+		if (ccCommandLineInterface::IsCommand(argument, COMMAND_OPEN_NO_LABEL))
+		{
+			//local option confirmed, we can move on
+			cmd.arguments().pop_front();
+
+			cmd.print(QObject::tr("Will not load labels"));
+
+			doNotCreateLabels = true;
+		}
 		if (ccCommandLineInterface::IsCommand(argument, COMMAND_OPEN_SKIP_LINES))
 		{
 			//local option confirmed, we can move on
@@ -640,6 +679,7 @@ bool CommandLoad::process(ccCommandLineInterface& cmd)
 	{
 		AsciiFilter::SetDefaultSkippedLineCount(skipLines);
 	}
+	AsciiFilter::SetNoLabelCreated(doNotCreateLabels);
 	
 	//open specified file
 	QString filename(cmd.arguments().takeFirst());
@@ -1342,7 +1382,7 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 				//replace current cloud by this one
 				delete desc.pc;
 				desc.pc = result;
-				desc.basename += QObject::tr("_SUBSAMPLED");
+				desc.basename += "_RANDOM_SUBSAMPLED";
 			}
 			else
 			{
@@ -1492,9 +1532,7 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 				//replace current cloud by this one
 				delete desc.pc;
 				desc.pc = result;
-				desc.basename += QObject::tr("_SUBSAMPLED");
-				//delete result;
-				//result = 0;
+				desc.basename += "_SPATIAL_SUBSAMPLED";
 			}
 			else
 			{
@@ -1687,15 +1725,14 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 				octreeLevel = -1;
 			}
 
-
-			
 			if (result)
 			{
 				result->setName(desc.pc->getName() + QObject::tr(".subsampled"));
+				QString suffix = QObject::tr("OCTREE_LEVEL_%1_SUBSAMPLED").arg(octreeLevel);
 				if (cmd.autoSaveMode())
 				{
 					CLCloudDesc newDesc(result, desc.basename, desc.path, desc.indexInFile);
-					QString errorStr = cmd.exportEntity(newDesc, QObject::tr("OCTREE_LEVEL_%1_SUBSAMPLED").arg(octreeLevel));
+					QString errorStr = cmd.exportEntity(newDesc, suffix);
 					if (!errorStr.isEmpty())
 					{
 						delete result;
@@ -1707,7 +1744,7 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 					//replace current cloud by subsampled one if it was changed
 					delete desc.pc;
 					desc.pc = result;
-					desc.basename += QObject::tr("_SUBSAMPLED");
+					desc.basename += '_' + suffix;
 				}
 			}
 			else
@@ -3790,49 +3827,57 @@ bool CommandMatchBestFitPlane::process(ccCommandLineInterface& cmd)
 				cmd.warning(errorStr);
 			}
 			
-			//open text file to save plane related information
-			QString txtFilename = QObject::tr("%1/%2_BEST_FIT_PLANE_INFO").arg(desc.path, desc.basename);
-			if (cmd.addTimestamp())
-			{
-				QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm_ss_zzz");
-				txtFilename += QObject::tr("_%1").arg(timestamp);
-			}
-			txtFilename += QObject::tr(".txt");
-			QFile txtFile(txtFilename);
-			txtFile.open(QIODevice::WriteOnly | QIODevice::Text);
-			QTextStream txtStream(&txtFile);
-			
-			txtStream << QObject::tr("Filename: %1").arg(outputFilename) << endl;
-			txtStream << QObject::tr("Fitting RMS: %1").arg(rms) << endl;
-			
-			//We always consider the normal with a positive 'Z' by default!
-			if (N.z < 0.0)
-			{
-				N *= -1.0;
-			}
-			
-			int precision = cmd.numericalPrecision();
-			txtStream << QObject::tr("Normal: (%1,%2,%3)").arg(N.x, 0, 'f', precision).arg(N.y, 0, 'f', precision).arg(N.z, 0, 'f', precision) << endl;
-			
-			//we compute strike & dip by the way
-			{
-				PointCoordinateType dip = 0;
-				PointCoordinateType dipDir = 0;
-				ccNormalVectors::ConvertNormalToDipAndDipDir(N, dip, dipDir);
-				txtStream << ccNormalVectors::ConvertDipAndDipDirToString(dip, dipDir) << endl;
-			}
-			
 			//compute the transformation matrix that would make this normal points towards +Z
 			ccGLMatrix makeZPosMatrix = ccGLMatrix::FromToRotation(N, CCVector3(0, 0, CCCoreLib::PC_ONE));
 			CCVector3 Gt = C;
 			makeZPosMatrix.applyRotation(Gt);
 			makeZPosMatrix.setTranslation(C - Gt);
-			
-			txtStream << "Orientation matrix:" << endl;
-			txtStream << makeZPosMatrix.toString(precision, ' ') << endl;
-			
-			//close the text file
-			txtFile.close();
+
+			//open text file to save plane related information
+			{
+				QString txtFilename = QObject::tr("%1/%2_BEST_FIT_PLANE_INFO").arg(desc.path, desc.basename);
+				if (cmd.addTimestamp())
+				{
+					QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm_ss_zzz");
+					txtFilename += QObject::tr("_%1").arg(timestamp);
+				}
+				txtFilename += QObject::tr(".txt");
+				QFile txtFile(txtFilename);
+				if (txtFile.open(QIODevice::WriteOnly | QIODevice::Text))
+				{
+					QTextStream txtStream(&txtFile);
+
+					txtStream << QObject::tr("Filename: %1").arg(outputFilename) << endl;
+					txtStream << QObject::tr("Fitting RMS: %1").arg(rms) << endl;
+
+					//We always consider the normal with a positive 'Z' by default!
+					if (N.z < 0.0)
+					{
+						N *= -1.0;
+					}
+
+					int precision = cmd.numericalPrecision();
+					txtStream << QObject::tr("Normal: (%1,%2,%3)").arg(N.x, 0, 'f', precision).arg(N.y, 0, 'f', precision).arg(N.z, 0, 'f', precision) << endl;
+
+					//we compute strike & dip by the way
+					{
+						PointCoordinateType dip = 0;
+						PointCoordinateType dipDir = 0;
+						ccNormalVectors::ConvertNormalToDipAndDipDir(N, dip, dipDir);
+						txtStream << ccNormalVectors::ConvertDipAndDipDirToString(dip, dipDir) << endl;
+					}
+
+					txtStream << "Orientation matrix:" << endl;
+					txtStream << makeZPosMatrix.toString(precision, ' ') << endl;
+
+					//close the text file
+					txtFile.close();
+				}
+				else
+				{
+					cmd.warning("Failed to open file " + txtFilename + " for writing");
+				}
+			}
 			
 			if (keepLoaded)
 			{
@@ -4223,6 +4268,11 @@ bool CommandRemoveDuplicatePoints::process(ccCommandLineInterface& cmd)
 		if (!filteredCloud)
 		{
 			return cmd.error(QObject::tr("Process failed (see log)"));
+		}
+		if (filteredCloud == desc.pc)
+		{
+			// nothing to do
+			continue;
 		}
 
 		//replace current cloud by filtered one
@@ -4630,10 +4680,10 @@ bool CommandSFToCoord::process(ccCommandLineInterface& cmd)
 					}
 				}
 			}
-		}
-		else
-		{
-			return cmd.error(QObject::tr("Failed to set SF %1 as coord %2 on cloud '%3'!").arg(sfName).arg(dimStr).arg(desc.pc->getName()));
+			else
+			{
+				return cmd.error(QObject::tr("Failed to set SF %1 as coord %2 on cloud '%3'!").arg(sfName).arg(dimStr).arg(desc.pc->getName()));
+			}
 		}
 	}
 
@@ -5710,8 +5760,7 @@ bool CommandDelaunayTri::process(ccCommandLineInterface& cmd)
 			maxEdgeLength = cmd.arguments().takeFirst().toDouble(&ok);
 			if (!ok)
 			{
-				return cmd.error(QObject::tr("Invalid value for max edge length! (after %1)").arg(COMMAND_DELAUNAY_MAX_EDGE_LENGTH));
-				cmd.print(QObject::tr("Max edge length: %1").arg(maxEdgeLength));
+				return cmd.error(QObject::tr("Invalid value for max edge length (%1)! (after %2)").arg(maxEdgeLength).arg(COMMAND_DELAUNAY_MAX_EDGE_LENGTH));
 			}
 		}
 		else
@@ -6331,7 +6380,7 @@ bool CommandFilter::process(ccCommandLineInterface& cmd)
 			break;
 		}
 	}
-	if(!applyToRGB && !applyToSF)
+	if (!applyToRGB && !applyToSF)
 	{
 		return cmd.error(QObject::tr("Missing parameter -%1 and/or -%2 need to be set.").arg(OPTION_RGB).arg(OPTION_SF));
 	}
@@ -6948,7 +6997,7 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 	if (dataWeightsSFIndex >= 0 || !dataWeightsSFIndexName.isEmpty())
 	{
 		ccPointCloud* dataAsCloud = ccHObjectCaster::ToPointCloud(dataAndModel[0]->getEntity());
-		if (!dataAsCloud)
+		if (dataAsCloud)
 		{
 			dataWeightsSFIndex = GetScalarFieldIndex(dataAsCloud, dataWeightsSFIndex, dataWeightsSFIndexName, true);
 			if (dataWeightsSFIndex >= 0)
@@ -6962,7 +7011,7 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 	if (modelWeightsSFIndex >= 0 || !modelWeightsSFIndexName.isEmpty())
 	{
 		ccPointCloud* modelAsCloud = ccHObjectCaster::ToPointCloud(dataAndModel[1]->getEntity());
-		if (!modelAsCloud)
+		if (modelAsCloud)
 		{
 			modelWeightsSFIndex = GetScalarFieldIndex(modelAsCloud, modelWeightsSFIndex, modelWeightsSFIndexName, true);
 			if (modelWeightsSFIndex >= 0)
@@ -7017,14 +7066,20 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 			if (cmd.addTimestamp())
 			{
 				QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm_ss_zzz");
-				txtFilename += QObject::tr("_%1").arg(timestamp);
+				txtFilename += QString("_%1").arg(timestamp);
 			}
-			txtFilename += QObject::tr(".txt");
+			txtFilename += ".txt";
 			QFile txtFile(txtFilename);
-			txtFile.open(QIODevice::WriteOnly | QIODevice::Text);
-			QTextStream txtStream(&txtFile);
-			txtStream << transMat.toString(cmd.numericalPrecision(), ' ') << endl;
-			txtFile.close();
+			if (txtFile.open(QIODevice::WriteOnly | QIODevice::Text))
+			{
+				QTextStream txtStream(&txtFile);
+				txtStream << transMat.toString(cmd.numericalPrecision(), ' ') << endl;
+				txtFile.close();
+			}
+			else
+			{
+				cmd.warning("Failed to save the registration matrix to file " + txtFilename);
+			}
 		}
 		
 		dataAndModel[0]->basename += QObject::tr("_REGISTERED");
@@ -7163,7 +7218,7 @@ bool CommandSaveClouds::process(ccCommandLineInterface& cmd)
 			cmd.arguments().pop_front();
 			allAtOnce = true;
 		}
-		else if (argument.left(sizeof(OPTION_FILE_NAMES) - 1).toUpper() == OPTION_FILE_NAMES)
+		else if (argument.startsWith(OPTION_FILE_NAMES))
 		{
 			cmd.arguments().pop_front();
 			setFileNames = true;
@@ -7760,26 +7815,36 @@ bool CommandFeature::process(ccCommandLineInterface& cmd)
 		return cmd.error(QObject::tr("No point cloud on which to compute feature! (be sure to open one with \"-%1 [cloud filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_FEATURE));
 	}
 
-	//Call MainWindow generic method
+	//Call MainWindow generic method on all available clouds
 	ccHObject::Container entities;
-	entities.resize(cmd.clouds().size());
+	{
+		entities.resize(cmd.clouds().size());
+		for (size_t i = 0; i < cmd.clouds().size(); ++i)
+		{
+			entities[i] = cmd.clouds()[i].pc;
+		}
+	}
+
+	if (!ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Feature, featureType, kernelSize, entities, nullptr, cmd.widgetParent()))
+	{
+		return cmd.error(QObject::tr("The computation of some geometric features failed."));
+	}
+
+	// on success, update the cloud names
 	QString fileNameExt = QObject::tr("%1_FEATURE_KERNEL_%2").arg(featureTypeStr).arg(kernelSize);
 	for (size_t i = 0; i < cmd.clouds().size(); ++i)
 	{
 		CLCloudDesc& desc = cmd.clouds()[i];
-		entities[i] = desc.pc;
 		desc.basename += "_" + fileNameExt;
-		entities[i]->setName(entities[i]->getName() + "_" + fileNameExt);
+		desc.pc->setName(entities[i]->getName() + QObject::tr(".%1_feature(%2)").arg(featureTypeStr.toLower()).arg(kernelSize));
 	}
 
-	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::Feature, featureType, kernelSize, entities, nullptr, cmd.widgetParent()))
+	//save output
+	if (cmd.autoSaveMode() && !cmd.saveClouds())
 	{
-		//save output
-		if (cmd.autoSaveMode() && !cmd.saveClouds(fileNameExt))
-		{
-			return false;
-		}
+		return false;
 	}
+
 	return true;
 }
 
