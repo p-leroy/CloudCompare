@@ -90,7 +90,7 @@ static bool exportSearchDepth = false;
 static bool computeWelch = false;
 static bool sharpMean = false;
 
-static void RemoveScalarField(ccPointCloud* cloud, const char sfName[])
+static void RemoveScalarField(ccPointCloud* cloud, const std::string& sfName)
 {
 	int sfIdx = cloud ? cloud->getScalarFieldIndexByName(sfName) : -1;
 	if (sfIdx >= 0)
@@ -1678,7 +1678,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			}
 			//allocate cloud #1 std. dev. SF
 			QString stdDevSFName1 = QString(STD_DEV_CLOUD1_SF_NAME).arg(prefix);
-			s_M3C2Params.stdDevCloud1SF = new ccScalarField(qPrintable(stdDevSFName1));
+			s_M3C2Params.stdDevCloud1SF = new ccScalarField(stdDevSFName1.toStdString());
 			s_M3C2Params.stdDevCloud1SF->link();
 			if (!s_M3C2Params.stdDevCloud1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
@@ -1689,7 +1689,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			}
 			//allocate cloud #2 std. dev. SF
 			QString stdDevSFName2 = QString(STD_DEV_CLOUD2_SF_NAME).arg(prefix);
-			s_M3C2Params.stdDevCloud2SF = new ccScalarField(qPrintable(stdDevSFName2));
+			s_M3C2Params.stdDevCloud2SF = new ccScalarField(stdDevSFName2.toStdString());
 			s_M3C2Params.stdDevCloud2SF->link();
 			if (!s_M3C2Params.stdDevCloud2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{

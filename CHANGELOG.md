@@ -54,6 +54,29 @@ New plugin
 
 Improvements:
 
+	- Rasterize tool > Contour plot generation
+		- the individual polylines should now be properly named (with the real iso-value)
+		- they should be properly ordered
+		- they should be 'closed' when possible
+
+	- BIN file loading
+		- when loading a corrupted/truncated BIN file, or if not enough memory, CloudCompare will give the user
+			the option to proceed and load the entities completely or partly loaded (at risk)
+		- some verbose logs have been added (if the 'Verbose' log level is set in the Display Settings - see below)
+
+	- Scalar fields now natively handle large values
+		- for instance: no need to define a GPS time shift anymore when loading LAS files
+
+	- Scalar fields name can now be longer than 256 characters
+
+	- Point pair-based alignment tool:
+		- CC will now use the Umeyama algorithm instead of Horn's method (supposed to be more robust to mirroring)
+		- required CC to be compiled with the CC_USE_EIGEN CMake option on
+		
+	- Global Shift:
+		- CC will now understand that when clicking on 'Apply all' while the shift is not sufficient to make the point coordinates small enough,
+			this means the user really wants to apply the input Global shift to all the entities (instead of showing the dialog again and again)
+
 	- Command line:
 		- the -SF_OP command now supports MIN/DISP_MIN/SAT_MIN/N_SIGMA_MIN/MAX/DISP_MAX/SAT_MAX/N_SIGMA_MAX as input values
 		- Rename -CSF command's resulting clouds to be able to select them later:
@@ -64,6 +87,10 @@ Improvements:
 			- default format is 'COMPRESSED_BINARY'
 		- the C_EXPORT_FMT or M_EXPORT_FMT can now be used with secondary extensions (e.g. LAZ instead of LAS)
 			- The secondary extension will also be used when automatically generating output filenames (i.e. when the 'FILE' sub-option is not used)
+		- the CROP2D command has new options
+			- Option -GLOBAL_SHIFT (must be placed just after the orthogonal dimension setting)
+				- this allows to apply a Global Shift to the polyline vertices. Similar syntax to the -GLOBAL_SHIFT option of the -O command.
+			- The orthogonal dimension can now be Xflip, Yflip or Zflip to reverse the order in whcih CC expects the coordinates
 
 	- LAS file loading dialog
 		- Option to decompose the classification fields into Classification, Synthetic, Key Point and Withheld sub-fields
@@ -85,6 +112,12 @@ Improvements:
 				5) the cloud minimum bounding-box corner (if applicable)
 			- note that the command line option will never use (option 3) so as to not lose the original LAS offset inadvertently
 
+	- E57 files
+		- when loading E57 files, CC will now store more information about sensors
+		- it will then restore these pieces of information when saving the clouds and images back as an E57 file, effectively
+			preserving the image sensor definition
+		- CC will now properly handle the case when a reflective transformation has been applied to a cloud (see bug fixes)
+
 	- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
 
 	- PLY files:
@@ -95,6 +128,13 @@ Improvements:
 		- a new dialog will appear when saving PCD file, to choose the output format (between compressed binary, binary and ASCII/text)
 		- this dialog can be hidden once and for all by clicking on the 'Yes to all' button
 		- the default output format can also be set via the command line (see above)
+
+	- Animation plugin:
+		- improved/fixed video file generation process to reduce the occurrence of invalid videos
+		- the output file extension will now be automatically updated when changing the codec
+
+	- Display > Display settings
+		- new option to set the logs verbosity level (Verbose/Standard/Important/Warning & Errors)
 
 Bug fixes:
 	- editing the Global Shift & Scale information of a polyline would make CC crash
@@ -108,6 +148,11 @@ Bug fixes:
 	- When specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
 	- E57/PCD: when saving a cloud after having applied a 'reflection' transformation (e.g. inverting a single axis), the saved
 		sensor pose was truncated due to the internal representation of these formats (as a quaternion)
+	- M3C2: 
+		- force the vertical mode in CLI call when NormalMode=3 is requested (needed in case of multiple calls in the same command line)
+	- Waveform
+		- each LAS point with missing waveform data was triggering a warning message
+		- the Waveform picking dialog could display an annoying error message each time a new point was picked
 
 v2.13.2 (Kharkiv) - (06/30/2024)
 ----------------------
