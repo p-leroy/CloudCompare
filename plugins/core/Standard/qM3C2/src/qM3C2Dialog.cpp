@@ -91,8 +91,6 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 {
 	setupUi(this);
 
-	requestedNormMode = -1;
-
 	static int MaxThreadCount = QThread::idealThreadCount();
 	maxThreadCountSpinBox->setRange(1, MaxThreadCount);
 	maxThreadCountSpinBox->setSuffix(QString(" / %1").arg(MaxThreadCount));
@@ -524,7 +522,6 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	//read out parameters
 	double normalScale = settings.value("NormalScale", normalScaleDoubleSpinBox->value()).toDouble();
 	int normModeInt = settings.value("NormalMode", static_cast<int>(getNormalsComputationMode())).toInt();
-    requestedNormMode = normModeInt;
 	double normMinScale = settings.value("NormalMinScale", minScaleDoubleSpinBox->value()).toDouble();
 	double normStep = settings.value("NormalStep", stepScaleDoubleSpinBox->value()).toDouble();
 	double normMaxScale = settings.value("NormalMaxScale", maxScaleDoubleSpinBox->value()).toDouble();
@@ -830,5 +827,5 @@ void qM3C2Dialog::guessParams(bool fastMode/*=false*/)
 
 int qM3C2Dialog::getRequestedNormMode(void) const
 {
-    return requestedNormMode;
+	return m_requestedComputationMode;
 }
