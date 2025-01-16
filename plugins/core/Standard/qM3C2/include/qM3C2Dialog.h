@@ -67,6 +67,8 @@ public:
 
 	bool exportSearchDepth() const;
 
+	void setExportSearchDepth(bool state);
+
 	bool computeWelch() const;
 
 	bool getSharpMean() const;

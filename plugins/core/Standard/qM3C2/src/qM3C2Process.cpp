@@ -711,7 +711,7 @@ void ComputeM3C2DistForPoint(unsigned index)
 				// compute the angle between the normal of the neighbour set and the current normal
 				CCVector3 N2 = computeNormal(cn2.neighbours, s_M3C2Params.cloud2Octree->associatedCloud());
 				// the case N2 = (0, 0, 0) is handle by angle_rad
-				auto angle = acos(N2.angle_rad(cn2.dir)) * 180 / M_PI;
+				auto angle = N2.angle_rad(cn2.dir) * 180 / M_PI;
 				s_M3C2Params.normalsAngleSF->setValue(index, angle);
 				sector2 = computeSector(cn2, index);
 				s_M3C2Params.sector2SF->setValue(index, sector2);

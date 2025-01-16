@@ -501,6 +501,11 @@ bool qM3C2Dialog::exportSearchDepth() const
     return checkBox_exportSearchDepth->isChecked();
 }
 
+void qM3C2Dialog::setExportSearchDepth(bool state)
+{
+    checkBox_exportSearchDepth->setChecked(state);
+}
+
 bool qM3C2Dialog::computeWelch() const
 {
     return checkBox_computeWelch->isChecked();
@@ -559,6 +564,8 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	double pm1Scale = settings.value("PM1Scale", pm1ScaleDoubleSpinBox->value()).toDouble();
 	double pm2Scale = settings.value("PM2Scale", pm2ScaleDoubleSpinBox->value()).toDouble();
 
+	bool sectorGap = settings.value("sectorGap", checkBox_exportSearchDepth->isChecked()).toBool();
+
 	//apply parameters
 	normalScaleDoubleSpinBox->setValue(normalScale);
     applyNormalModeParameter(normModeInt);
@@ -602,6 +609,8 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	precisionMapsGroupBox->setChecked(usePrecisionMaps);
 	pm1ScaleDoubleSpinBox->setValue(pm1Scale);
 	pm2ScaleDoubleSpinBox->setValue(pm2Scale);
+
+	setExportSearchDepth(sectorGap);
 }
 
 void qM3C2Dialog::applyNormalModeParameter(int normModeInt)
