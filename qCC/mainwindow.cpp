@@ -38,6 +38,7 @@
 #include <cc2DViewportObject.h>
 #include <cc2DViewportLabel.h>
 #include <ccCameraSensor.h>
+#include <ccCircle.h>
 #include <ccColorScalesManager.h>
 #include <ccCylinder.h>
 #include <ccFacet.h>
@@ -71,7 +72,7 @@
 #include <ccPickingHub.h>
 //common dialogs
 #include <ccCameraParamEditDlg.h>
-#include <ccDisplayOptionsDlg.h>
+#include <ccDisplaySettingsDlg.h>
 #include <ccPickOneElementDlg.h>
 #include <ccStereoModeDlg.h>
 
@@ -589,6 +590,10 @@ void MainWindow::connectActions()
 	connect(m_UI->actionEditPlane,					&QAction::triggered, this, &MainWindow::doActionEditPlane);
 	connect(m_UI->actionFlipPlane,					&QAction::triggered, this, &MainWindow::doActionFlipPlane);
 	connect(m_UI->actionComparePlanes,				&QAction::triggered, this, &MainWindow::doActionComparePlanes);
+
+	//"Edit > Circle" menu
+	connect(m_UI->actionPromoteCircleToCylinder,	&QAction::triggered, this, &MainWindow::doActionPromoteCircleToCylinder);
+
 	//"Edit > Sensor > Ground-Based lidar" menu
 	connect(m_UI->actionShowDepthBuffer,			&QAction::triggered, this, &MainWindow::doActionShowDepthBuffer);
 	connect(m_UI->actionExportDepthBuffer,			&QAction::triggered, this, &MainWindow::doActionExportDepthBuffer);
@@ -725,7 +730,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionSaveViewportAsObject,			&QAction::triggered, this, &MainWindow::doActionSaveViewportAsCamera);
 
 	//"Display > Lights & Materials" menu
-	connect(m_UI->actionDisplayOptions,				&QAction::triggered, this, &MainWindow::showDisplayOptions);
+	connect(m_UI->actionDisplaySettings,			&QAction::triggered, this, &MainWindow::showDisplaySettings);
 	connect(m_UI->actionToggleSunLight,				&QAction::triggered, this, &MainWindow::toggleActiveWindowSunLight);
 	connect(m_UI->actionToggleCustomLight,			&QAction::triggered, this, &MainWindow::toggleActiveWindowCustomLight);
 	connect(m_UI->actionRenderToFile,				&QAction::triggered, this, &MainWindow::doActionRenderToFile);
@@ -2363,9 +2368,9 @@ void MainWindow::doActionProjectUncertainty()
 	{
 		// add scalar field
 		QString sfName = tr("[%1] Uncertainty (%2)").arg(sensor->getName()).arg(dimChar[d]);
-		int sfIdx = pointCloud->getScalarFieldIndexByName(qPrintable(sfName));
+		int sfIdx = pointCloud->getScalarFieldIndexByName(sfName.toStdString());
 		if (sfIdx < 0)
-			sfIdx = pointCloud->addScalarField(qPrintable(sfName));
+			sfIdx = pointCloud->addScalarField(sfName.toStdString());
 		if (sfIdx < 0)
 		{
 			ccLog::Error(tr("An error occurred! (see console)"));
@@ -2392,9 +2397,9 @@ void MainWindow::doActionProjectUncertainty()
 	// add scalar field
 	{
 		QString sfName = tr("[%1] Uncertainty (3D)").arg(sensor->getName());
-		int sfIdx = pointCloud->getScalarFieldIndexByName(qPrintable(sfName));
+		int sfIdx = pointCloud->getScalarFieldIndexByName(sfName.toStdString());
 		if (sfIdx < 0)
-			sfIdx = pointCloud->addScalarField(qPrintable(sfName));
+			sfIdx = pointCloud->addScalarField(sfName.toStdString());
 		if (sfIdx < 0)
 		{
 			ccLog::Error(tr("An error occurred! (see console)"));
@@ -3247,8 +3252,10 @@ void MainWindow::doActionOpenColorScalesManager()
 
 void MainWindow::doActionAddIdField()
 {
-	if ( !ccEntityAction::sfAddIdField(m_selectedEntities) )
+	if (!ccEntityAction::sfAddIdField(m_selectedEntities))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3506,10 +3513,12 @@ void MainWindow::doActionMerge()
 
 	try
 	{
-		for ( ccHObject *entity : getSelectedEntities() )
+		for (ccHObject* entity : getSelectedEntities())
 		{
 			if (!entity)
+			{
 				continue;
+			}
 
 			if (entity->isA(CC_TYPES::POINT_CLOUD))
 			{
@@ -7187,10 +7196,10 @@ void MainWindow::testFrameRate()
 		win->startFrameRateTest();
 }
 
-void MainWindow::showDisplayOptions()
+void MainWindow::showDisplaySettings()
 {
-	ccDisplayOptionsDlg displayOptionsDlg(this);
-	connect(&displayOptionsDlg, &ccDisplayOptionsDlg::aspectHasChanged, this, [=] () { redrawAll();	});
+	ccDisplaySettingsDlg displayOptionsDlg(this);
+	connect(&displayOptionsDlg, &ccDisplaySettingsDlg::aspectHasChanged, this, [=] () { redrawAll(); });
 			
 	displayOptionsDlg.exec();
 
@@ -7838,10 +7847,10 @@ void MainWindow::showSelectedEntitiesHistogram()
 					numberOfClasses = std::max<unsigned>(4, numberOfClasses);
 					numberOfClasses = std::min<unsigned>(256, numberOfClasses);
 
-					histogram->setTitle(tr("%1 (%2 values) ").arg(sf->getName()).arg(numberOfPoints));
+					histogram->setTitle(tr("%1 (%2 values) ").arg(QString::fromStdString(sf->getName())).arg(numberOfPoints));
 					bool showNaNValuesInGrey = sf->areNaNValuesShownInGrey();
 					histogram->fromSF(sf, numberOfClasses, true, showNaNValuesInGrey);
-					histogram->setAxisLabels(sf->getName(), tr("Count"));
+					histogram->setAxisLabels(QString::fromStdString(sf->getName()), tr("Count"));
 					histogram->refresh();
 				}
 				hDlg->show();
@@ -7981,6 +7990,14 @@ void MainWindow::doActionClone()
 		else if (entity->isA(CC_TYPES::POLY_LINE))
 		{
 			clone = ccHObjectCaster::ToPolyline(entity)->clone();
+			if (!clone)
+			{
+				ccConsole::Error(tr("An error occurred while cloning polyline %1").arg(entity->getName()));
+			}
+		}
+		else if (entity->isA(CC_TYPES::CIRCLE))
+		{
+			clone = ccHObjectCaster::ToCircle(entity)->clone();
 			if (!clone)
 			{
 				ccConsole::Error(tr("An error occurred while cloning polyline %1").arg(entity->getName()));
@@ -8142,7 +8159,7 @@ void MainWindow::doActionAddConstantSF()
 
 	QString defaultName = "Constant";
 	unsigned trys = 1;
-	while (cloud->getScalarFieldIndexByName(qPrintable(defaultName)) >= 0 || trys > 99)
+	while (cloud->getScalarFieldIndexByName(defaultName.toStdString()) >= 0 || trys > 99)
 	{
 		defaultName = tr("Constant #%1").arg(++trys);
 	}
@@ -8302,7 +8319,7 @@ void MainWindow::doActionFitCircle()
 			.arg(normal.z));
 
 		// create the circle representation as a polyline
-		ccPolyline* circle = ccPolyline::Circle(CCVector3(0, 0, 0), radius, 128);
+		ccCircle* circle = new ccCircle(radius, 128);
 		if (circle)
 		{
 			circle->setName(QObject::tr("Circle r=%1").arg(radius));
@@ -8313,8 +8330,7 @@ void MainWindow::doActionFitCircle()
 
 			ccGLMatrix trans = ccGLMatrix::FromToRotation(CCVector3(0, 0, 1), normal);
 			trans.setTranslation(center);
-			circle->applyGLTransformation_recursive(&trans);
-
+			circle->applyGLTransformation(trans);
 
 			addToDB(circle, false, false, false);
 		}
@@ -8580,9 +8596,9 @@ void MainWindow::doSphericalNeighbourhoodExtractionTest()
 		}
 		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(m_selectedEntities[i]);
 
-		int sfIdx = cloud->getScalarFieldIndexByName(qPrintable(sfName));
+		int sfIdx = cloud->getScalarFieldIndexByName(sfName.toStdString());
 		if (sfIdx < 0)
-			sfIdx = cloud->addScalarField(qPrintable(sfName));
+			sfIdx = cloud->addScalarField(sfName.toStdString());
 		if (sfIdx < 0)
 		{
 			ccConsole::Error(tr("Failed to create scalar field on cloud '%1' (not enough memory?)").arg(cloud->getName()));
@@ -9125,6 +9141,9 @@ void MainWindow::doActionExportPlaneInfo()
 	csvStream << "Cx;";
 	csvStream << "Cy;";
 	csvStream << "Cz;";
+	csvStream << "Cx_global;";
+	csvStream << "Cy_global;";
+	csvStream << "Cz_global;";
 	csvStream << "Nx;";
 	csvStream << "Ny;";
 	csvStream << "Nz;";
@@ -9140,6 +9159,7 @@ void MainWindow::doActionExportPlaneInfo()
 		ccPlane* plane = static_cast<ccPlane*>(ent);
 			
 		CCVector3 C = plane->getOwnBB().getCenter();
+		CCVector3d Cg = plane->toGlobal3d(C);
 		CCVector3 N = plane->getNormal();
 		PointCoordinateType dip_deg = 0;
 		PointCoordinateType dipDir_deg = 0;
@@ -9151,6 +9171,9 @@ void MainWindow::doActionExportPlaneInfo()
 		csvStream << C.x << separator;					//Cx
 		csvStream << C.y << separator;					//Cy
 		csvStream << C.z << separator;					//Cz
+		csvStream << Cg.x << separator;					//Cx
+		csvStream << Cg.y << separator;					//Cy
+		csvStream << Cg.z << separator;					//Cz
 		csvStream << N.x << separator;					//Nx
 		csvStream << N.y << separator;					//Ny
 		csvStream << N.z << separator;					//Nz
@@ -9234,6 +9257,9 @@ void MainWindow::doActionExportCloudInfo()
 	csvStream << "meanX;";
 	csvStream << "meanY;";
 	csvStream << "meanZ;";
+	csvStream << "meanX_global;";
+	csvStream << "meanY_global;";
+	csvStream << "meanZ_global;";
 	{
 		for (unsigned i = 0; i < maxSFCount; ++i)
 		{
@@ -9254,15 +9280,19 @@ void MainWindow::doActionExportCloudInfo()
 			ccPointCloud* cloud = static_cast<ccPointCloud*>(entity);
 
 			CCVector3 G = *CCCoreLib::Neighbourhood(cloud).getGravityCenter();
+			CCVector3d Gg = cloud->toGlobal3d(G);
 			csvStream << cloud->getName() << ';' /*"Name;"*/;
 			csvStream << cloud->size() << ';' /*"Points;"*/;
 			csvStream << G.x << ';' /*"meanX;"*/;
 			csvStream << G.y << ';' /*"meanY;"*/;
 			csvStream << G.z << ';' /*"meanZ;"*/;
+			csvStream << Gg.x << ';' /*"meanX_global;"*/;
+			csvStream << Gg.y << ';' /*"meanY_global;"*/;
+			csvStream << Gg.z << ';' /*"meanZ_global;"*/;
 			for (unsigned j = 0; j < cloud->getNumberOfScalarFields(); ++j)
 			{
 				CCCoreLib::ScalarField* sf = cloud->getScalarField(j);
-				csvStream << sf->getName() << ';' /*"SF name;"*/;
+				csvStream << QString::fromStdString(sf->getName()) << ';' /*"SF name;"*/;
 
 				unsigned validCount = 0;
 				double sfSum = 0.0;
@@ -9643,14 +9673,14 @@ void MainWindow::doActionCloudPrimitiveDist()
 			}
 		}
 
-		int _sfIdx = compEnt->getScalarFieldIndexByName(qPrintable(sfName));
+		int _sfIdx = compEnt->getScalarFieldIndexByName(sfName.toStdString());
 		if (_sfIdx >= 0)
 		{
 			compEnt->deleteScalarField(_sfIdx);
 			//we update sfIdx because indexes are all messed up after deletion
 			sfIdx = compEnt->getScalarFieldIndexByName(CC_TEMP_DISTANCES_DEFAULT_SF_NAME);
 		}
-		compEnt->renameScalarField(sfIdx, qPrintable(sfName));
+		compEnt->renameScalarField(sfIdx, sfName.toStdString());
 
 		ccScalarField* sf = static_cast<ccScalarField*>(compEnt->getScalarField(sfIdx));
 		if (sf)
@@ -11349,6 +11379,8 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_UI->actionFlipPlane->setEnabled(selInfo.planeCount != 0);
 	m_UI->actionComparePlanes->setEnabled(selInfo.planeCount == 2);
 
+	m_UI->actionPromoteCircleToCylinder->setEnabled((selInfo.selCount == 1) && (selInfo.circleCount == 1));
+
 	m_UI->actionFindBiggestInnerRectangle->setEnabled(exactlyOneCloud);
 
 	m_UI->menuActiveScalarField->setEnabled((exactlyOneCloud || exactlyOneMesh) && selInfo.sfCount > 0);
@@ -11812,8 +11844,8 @@ void MainWindow::doActionComparePlanes()
 	info << tr("Angle P1/P2: %1 deg.").arg( CCCoreLib::RadiansToDegrees( angle_rad ) );
 	ccLog::Print(tr("[Compare] ") + info.last());
 
-	PointCoordinateType planeEq1[4] = { N1.x, N1.y, N1.z, d1 };
-	PointCoordinateType planeEq2[4] = { N2.x, N2.y, N2.z, d2 };
+	PointCoordinateType planeEq1[4] { N1.x, N1.y, N1.z, d1 };
+	PointCoordinateType planeEq2[4] { N2.x, N2.y, N2.z, d2 };
 	CCVector3 C1 = p1->getCenter();
 	ScalarType distCenter1ToPlane2 = CCCoreLib::DistanceComputationTools::computePoint2PlaneDistance(&C1, planeEq2);
 	info << tr("Distance Center(P1)/P2: %1").arg(distCenter1ToPlane2);
@@ -11827,4 +11859,49 @@ void MainWindow::doActionComparePlanes()
 	//pop-up summary
 	QMessageBox::information(this, tr("Plane comparison"), info.join("\n"));
 	forceConsoleDisplay();
+}
+
+void MainWindow::doActionPromoteCircleToCylinder()
+{
+	if (!haveOneSelection())
+	{
+		assert(false);
+		return;
+	}
+
+	ccCircle* circle = ccHObjectCaster::ToCircle(m_selectedEntities.front());
+	if (!circle)
+	{
+		assert(false);
+		return;
+	}
+
+	static double CylinderHeight = 0.0;
+	if (CylinderHeight == 0.0)
+	{
+		CylinderHeight = 2 * circle->getRadius();
+	}
+	bool ok = false;
+	double value = QInputDialog::getDouble(this, tr("Cylinder height"), tr("Height"), CylinderHeight, 0.0, std::numeric_limits<double>::max(), 6, &ok);
+	if (!ok)
+	{
+		return;
+	}
+
+	CylinderHeight = value;
+
+	ccCylinder* cylinder = new ccCylinder(	static_cast<PointCoordinateType>(circle->getRadius()),
+											static_cast<PointCoordinateType>(CylinderHeight),
+											&circle->getGLTransformationHistory(),
+											tr("Cylinder from ") + circle->getName());
+
+	circle->setEnabled(false);
+	if (circle->getParent())
+	{
+		circle->getParent()->addChild(cylinder);
+	}
+
+	addToDB(cylinder, true, true);
+	setSelectedInDB(circle, false);
+	setSelectedInDB(cylinder, true);
 }
