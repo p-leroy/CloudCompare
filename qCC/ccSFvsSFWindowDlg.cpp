@@ -339,8 +339,8 @@ void ccSFvsSFWindowDlg::setComboBoxes()
 
 	for (unsigned int index = 0; index < numberOfScalarFields; index++)
 	{
-		ui->comboBoxXAxis->addItem(m_cloud->getScalarFieldName(index));
-		ui->comboBoxYAxis->addItem(m_cloud->getScalarFieldName(index));
+		ui->comboBoxXAxis->addItem(QString::fromStdString(m_cloud->getScalarFieldName(index)));
+		ui->comboBoxYAxis->addItem(QString::fromStdString(m_cloud->getScalarFieldName(index)));
 	}
 
 	// try to restore previous confirguration
@@ -383,8 +383,8 @@ void ccSFvsSFWindowDlg::refresh()
 		x[index] = sfX->getValue(index);
 		y[index] = sfY->getValue(index);
 	}
-	m_xName = sfX->getName();
-	m_yName = sfY->getName();
+	m_xName = QString::fromStdString(sfX->getName());
+	m_yName = QString::fromStdString(sfY->getName());
 
 	// assign data to graph
 	m_graph->data().clear();
