@@ -123,7 +123,7 @@ LasScalarField::Id LasScalarField::IdFromName(const char* name, unsigned targetP
 
 	if (strcmp(name, LasNames::WithheldFlag) == 0)
 	{
-		return LasScalarField::Id::KeypointFlag;
+		return LasScalarField::Id::WithheldFlag;
 	}
 
 	if (strcmp(name, LasNames::ScanAngleRank) == 0)
@@ -239,7 +239,7 @@ std::vector<LasScalarField> LasScalarField::ForPointFormat(unsigned pointFormatI
 	std::vector<LasScalarField> scalarFields;
 	scalarFields.reserve(16);
 
-	if (pointFormatId >= 0 && pointFormatId <= 5)
+	if (pointFormatId <= 5)
 	{
 		scalarFields.emplace_back(LasScalarField::Id::Intensity);
 		scalarFields.emplace_back(LasScalarField::Id::ReturnNumber);

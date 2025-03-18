@@ -239,7 +239,7 @@ private:
 	void handleNewLabel(ccHObject*);
 
 	void setActiveSubWindow(QWidget* window);
-	void showDisplayOptions();
+	void showDisplaySettings();
 	void showSelectedEntitiesHistogram();
 	void testFrameRate();
 	void toggleFullScreen(bool state);
@@ -329,6 +329,8 @@ private:
 	void doActionEditPlane();
 	void doActionFlipPlane();
 	void doActionComparePlanes();
+
+	void doActionPromoteCircleToCylinder();
 
 	void doActionDeleteScanGrids();
 	void doActionSmoothMeshSF();

@@ -27,12 +27,21 @@ ccSNECloud::ccSNECloud()
 
 ccSNECloud::ccSNECloud(ccPointCloud* obj)
 	: ccPointCloud()
-{ 
-	//copy points, normals and scalar fields from obj.
-	*this += obj;
+{
+	if (obj)
+	{
+		//copy points, normals and scalar fields from obj.
+		*this += obj;
 
-	//set name
-	setName(obj->getName());
+		copyGlobalShiftAndScale(*obj);
+
+		//set name
+		setName(obj->getName());
+	}
+	else
+	{
+		assert(false);
+	}
 
 	//update metadata
 	updateMetadata();
@@ -41,9 +50,9 @@ ccSNECloud::ccSNECloud(ccPointCloud* obj)
 void ccSNECloud::updateMetadata()
 {
 	//add metadata tag defining the ccCompass class type
-	QVariantMap* map = new QVariantMap();
-	map->insert("ccCompassType", "SNECloud");
-	setMetaData(*map, true);
+	QVariantMap map;
+	map.insert("ccCompassType", "SNECloud");
+	setMetaData(map, true);
 }
 
 //returns true if object is a lineation

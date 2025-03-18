@@ -21,12 +21,12 @@
 ccFitPlane::ccFitPlane(ccPlane* p)
 	: ccPlane(p->getXWidth(), p->getYWidth(), &p->getTransformation(), p->getName()) //create an identical plane
 {
-	p->clone();
+	importParametersFrom(p);
 
 	//add metadata tag defining the ccCompass class type
-	QVariantMap* map = new QVariantMap();
-	map->insert("ccCompassType", "FitPlane");
-	setMetaData(*map, true);
+	QVariantMap map;
+	map.insert("ccCompassType", "FitPlane");
+	setMetaData(map, true);
 
 	//update name
 	CCVector3 N(getNormal());
@@ -52,7 +52,7 @@ ccFitPlane::ccFitPlane(ccPlane* p)
 	{
 		search_r = p->getMetaData("Radius").toFloat();
 	}
-	updateAttributes(rms,search_r);
+	updateAttributes(rms, search_r);
 
 	//update drawing properties based on ccCompass state
 	enableStippling(ccCompass::drawStippled);
@@ -91,13 +91,13 @@ void ccFitPlane::updateAttributes(float rms, float search_r)
 	CCVector3 C = getCenter();
 
 	//store attributes (centroid, strike, dip, RMS) on plane
-	QVariantMap* map = new QVariantMap();
-	map->insert("Cx", C.x); map->insert("Cy", C.y); map->insert("Cz", C.z); //centroid
-	map->insert("Nx", N.x); map->insert("Ny", N.y); map->insert("Nz", N.z); //normal
-	map->insert("Strike", strike); map->insert("Dip", dip); map->insert("DipDir", dipdir); //strike & dip
-	map->insert("RMS", rms); //rms
-	map->insert("Radius", search_r); //search radius
-	setMetaData(*map, true);
+	QVariantMap map;
+	map.insert("Cx", C.x); map.insert("Cy", C.y); map.insert("Cz", C.z); //centroid
+	map.insert("Nx", N.x); map.insert("Ny", N.y); map.insert("Nz", N.z); //normal
+	map.insert("Strike", strike); map.insert("Dip", dip); map.insert("DipDir", dipdir); //strike & dip
+	map.insert("RMS", rms); //rms
+	map.insert("Radius", search_r); //search radius
+	setMetaData(map, true);
 }
 
 bool ccFitPlane::isFitPlane(ccHObject* object)
@@ -128,6 +128,15 @@ ccFitPlane* ccFitPlane::Fit(CCCoreLib::GenericIndexedCloudPersist* cloud, double
 	{
 		ccFitPlane* fp = new ccFitPlane(p);
 		p->transferChildren(*fp);
+		delete p;
+		p = nullptr;
+
+		ccPointCloud* pc = dynamic_cast<ccPointCloud*>(cloud);
+		if (pc)
+		{
+			fp->copyGlobalShiftAndScale(*pc);
+		}
+
 		return fp;
 	}
 	else
