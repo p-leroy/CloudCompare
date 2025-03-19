@@ -26,6 +26,7 @@
 //qCC_db
 #include <cc2DLabel.h>
 #include <ccCameraSensor.h>
+#include <ccCircle.h>
 #include <ccFacet.h>
 #include <ccFlags.h>
 #include <ccGenericPointCloud.h>
@@ -639,7 +640,17 @@ CC_FILE_ERROR BinFilter::LoadFileV2(QFile& in, ccHObject& container, int flags, 
 					ccHObject* cloud = FindRobust(root, mesh, oldToNewIDMap, cloudID, CC_TYPES::POINT_CLOUD);
 					if (cloud)
 					{
-						mesh->setAssociatedCloud(ccHObjectCaster::ToGenericPointCloud(cloud));
+						ccGenericPointCloud* genericCloud = ccHObjectCaster::ToGenericPointCloud(cloud);
+						assert(genericCloud);
+						mesh->setAssociatedCloud(genericCloud);
+
+						if (!mesh->isAncestorOf(cloud))
+						{
+							// warning: the mesh is not the parent of its vertices!
+							// We want to make sure we will be notified whenever the vertices
+							// are deleted (in which case the mesh will be emptied to avoid any crash)
+							cloud->addDependency(mesh, ccHObject::DP_NOTIFY_OTHER_ON_DELETE);
+						}
 					}
 					else
 					{
@@ -808,6 +819,14 @@ CC_FILE_ERROR BinFilter::LoadFileV2(QFile& in, ccHObject& container, int flags, 
 			{
 				ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(cloudEntity);
 				poly->setAssociatedCloud(cloud);
+
+				if (!poly->isAncestorOf(cloud))
+				{
+					// warning: the polyline is not the parent of its vertices!
+					// We want to make sure we will be notified whenever the vertices
+					// are deleted (in which case the polyline will be emptied to avoid any crash)
+					cloud->addDependency(poly, ccHObject::DP_NOTIFY_OTHER_ON_DELETE);
+				}
 
 				// now check the indexes
 				unsigned pointCount = cloud->size();

@@ -25,6 +25,7 @@
 #include "cc2DViewportLabel.h"
 #include "ccBox.h"
 #include "ccCameraSensor.h"
+#include "ccCircle.h"
 #include "ccCustomObject.h"
 #include "ccCylinder.h"
 #include "ccCoordinateSystem.h"
@@ -87,7 +88,7 @@ ccHObject::~ccHObject()
 		//delete other object?
 		if ((it->second & DP_DELETE_OTHER) == DP_DELETE_OTHER)
 		{
-			it->first->removeDependencyFlag(this,DP_NOTIFY_OTHER_ON_DELETE); //in order to avoid any loop!
+			it->first->removeDependencyFlag(this, DP_NOTIFY_OTHER_ON_DELETE); //in order to avoid any loop!
 			//delete object
 			if (it->first->isShareable())
 			{
@@ -155,6 +156,8 @@ ccHObject* ccHObject::New(CC_CLASS_ENUM objectType, const char* name/*=nullptr*/
 	case CC_TYPES::POLY_LINE:
 		//warning: no associated vertices --> retrieved later
 		return new ccPolyline(nullptr);
+	case CC_TYPES::CIRCLE:
+		return new ccCircle;
 	case CC_TYPES::FACET:
 		return new ccFacet();
 	case CC_TYPES::MATERIAL_SET:
@@ -274,7 +277,7 @@ void ccHObject::addDependency(ccHObject* otherObject, int flags, bool additive/*
 		if (it != m_dependencies.end())
 		{
 			//nothing changes? we stop here (especially to avoid infinite
-			//loop when setting  the DP_NOTIFY_OTHER_ON_DELETE flag below!)
+			//loop when setting the DP_NOTIFY_OTHER_ON_DELETE flag below!)
 			if ((it->second & flags) == flags)
 				return;
 			flags |= it->second;
