@@ -307,7 +307,6 @@ void qM3C2Dialog::updateNormalComboBox()
 			if (previouslySelectedItem == qM3C2Normals::USE_CORE_POINTS_NORMALS || previouslySelectedItem < 0)
 			{
 				normalSourceComboBox->setCurrentIndex(lastIndex);
-				previouslySelectedItem = qM3C2Normals::USE_CORE_POINTS_NORMALS;
 			}
 		}
 	}
@@ -628,16 +627,16 @@ void qM3C2Dialog::applyNormalModeParameter(int normModeInt)
                 if (normalSourceComboBox->itemData(i) == normModeInt)
                 {
                     normalSourceComboBox->setCurrentIndex(i);
-                    found = true;
+                    // found = true;
                     break;
                 }
             }
             if (!found)
             {
-                ccLog::Warning("Can't restore the previous normal computation method (cloud #1 or core points has no normals)");
+                ccLog::Warning("Can't restore the previous normals computation method (cloud #1 or core points has no normals)");
             }
         }
-        else
+        else // called either from the command line or from ICPM3C2
         {
             bool status = true;
             if (normModeInt == qM3C2Normals::USE_CLOUD1_NORMALS)
@@ -660,8 +659,10 @@ void qM3C2Dialog::applyNormalModeParameter(int normModeInt)
                 else
                     status = false;
             }
-            if (!status)
-                ccLog::Warning("Can't restore the previous normal computation method (cloud #1 or core points has no normals)");
+            if (status)
+                ccLog::Print("Normals computation method (NormalMode) set to " + QString::number(normModeInt));
+            else
+                ccLog::Print("Not possible to set normals computation method (NormalMode) to " + QString::number(normModeInt) + " (may be forced later)");
         }
     }
     break;
