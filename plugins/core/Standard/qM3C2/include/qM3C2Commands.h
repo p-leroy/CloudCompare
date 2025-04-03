@@ -36,7 +36,7 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 
 	virtual bool process(ccCommandLineInterface& cmd) override
 	{
-		cmd.print("[M3C2]");
+		// cmd.print("[M3C2]");
 		if (cmd.arguments().empty())
 		{
 			return cmd.error(QString("Missing parameter: parameters filename after \"-%1\"").arg(COMMAND_M3C2));
@@ -55,17 +55,16 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 		ccPointCloud* cloud1 = ccHObjectCaster::ToPointCloud(cmd.clouds()[0].pc);
 		ccPointCloud* cloud2 = ccHObjectCaster::ToPointCloud(cmd.clouds()[1].pc);
 		ccPointCloud* corePointsCloud = (cmd.clouds().size() > 2 ? cmd.clouds()[2].pc : nullptr);
-        unsigned int Np;
-        int sfIdx;
-        CCCoreLib::ScalarField* Nx;
-        CCCoreLib::ScalarField* Ny;
-        CCCoreLib::ScalarField* Nz;
-        bool ok = true;
-        CCVector3 normal;
+		unsigned int Np;
+		int sfIdx;
+		CCCoreLib::ScalarField* Nx;
+		CCCoreLib::ScalarField* Ny;
+		CCCoreLib::ScalarField* Nz;
+		bool ok = true;
+		CCVector3 normal;
 
 		//display dialog
-		qM3C2Dialog dlg(cloud1, cloud2, nullptr);
-        dlg.setCorePointsCloud(corePointsCloud);
+		qM3C2Dialog dlg(cloud1, cloud2, nullptr, corePointsCloud);
 		if (!dlg.loadParamsFromFile(paramFilename))
 		{
 			return false;

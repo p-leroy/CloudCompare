@@ -53,7 +53,15 @@ New features:
 		
 	- 3DMASC: add verticality (VERT) to the neighborhood features (PCA1, PCA2, PCA3, SPHER, LINEA, etc.)
 
-New plugin
+	- New tool: 'Display > Current 3D view Information'
+		- display some pieces of information on the current 3D view (resolution, pixel size, image size, camera orientation, etc.)
+		- also available via the new 'info' button of the 'Display > Render to file' option (taking into account a potential scaling)
+
+New plugins
+
+	- G3 Point: granulometry made simple in CloudCompare
+		- github repository: https://github.com/p-leroy/qG3Point
+		- author page: https://lidar.univ-rennes.fr/en/g3point
 
 	- VoxFall: non-parametric volumetric change detection for rockfalls
 		- computes volume differences between 2 meshes, with some visual representation
@@ -169,12 +177,17 @@ Improvements:
 		- the 'Export cloud info' and 'Export plane info' tools will now also export the center global coordinates
 			(in case the clouds or planes have been shifted to a local coordinate system)
 
+	- 'Display > Render to file'
+		- new 'info' button, to display some pieces of information about the exported image (resolution, pixel size,
+			image size, camera orientation, etc.) taking into account a potential scaling
+
 	- Others:
 		- the shortcut to the 'Level' tool in the 'View' toolbar (left) has been removed. Contrarily to the other options in this toolbar,
 			the Level tool can change the cloud coordinates, and not only the camera position. This could lead to strange issues when the
 			GUI is frozen, but not the View toolbar.
 		- the Box primitive is now a real box mesh, with only 8 vertices, instead of 6 independent planes.
 		- better naming of M3C2 output clouds
+		- Ukrainian translation is now available
 
 Bug fixes:
 	- editing the Global Shift & Scale information of a polyline would make CC crash
@@ -189,6 +202,9 @@ Bug fixes:
 	- E57/PCD: when saving a cloud after having applied a 'reflection' transformation (e.g. inverting a single axis), the saved
 		sensor pose was truncated due to the internal representation of these formats (as a quaternion)
 	- M3C2: 
+		- better handling of the normal mode
+		- bug corrected: when the "use other cloud" is checked, do not propose the use of cloud #1 as a possible source for the normals
+		- option to select either 2 (ref + comp) or 3 (ref + comp + core) clouds to activate the plugin
 		- force the vertical mode in CLI call when NormalMode=3 is requested (needed in case of multiple calls in the same command line)
 	- Waveform
 		- each LAS point with missing waveform data was triggering a warning message
@@ -204,6 +220,8 @@ Bug fixes:
 	- The circular cursor of the 'Cloud layers' and 'Compass' plugins was not displayed at the right position on high DPI screens
 	- The Compass plugin was not transferring the Global Shift & Scale information from the cloud to the generated planes or polylines
 	- UHD screens were not properly supported (rotation center picking with double click, entity selection with a rectangle, etc.)
+	- ASCII cloud file import will now respect empty fields instead of shifting all following columns left
+	- The ICP registration tool could lead to mirrored transformations in some cases (since version 2.12.0)
 
 v2.13.2 (Kharkiv) - (06/30/2024)
 ----------------------
