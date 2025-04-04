@@ -360,9 +360,13 @@ ccPointCloud* qM3C2Dialog::getCorePointsCloud() const
 	}
 }
 
-void qM3C2Dialog::setCorePointsCloud(ccPointCloud* cloud)
+void qM3C2Dialog::setCorePointsCloud(ccPointCloud* cloud, bool withCPOtherCloudComboBoxUpdate)
 {
 	m_corePointsCloud = cloud;
+	if (!withCPOtherCloudComboBoxUpdate)
+	{
+		return;
+	}
 	// the combo box cpOtherCloudComboBox is populated at the creation of the dialog, so the core cloud should already be in it
 	// look for the index of the core cloud and set cpOtherCloudComboBox
 	int index = -1;
@@ -770,9 +774,9 @@ void qM3C2Dialog::applyNormalModeParameter(int normModeInt)
                     status = false;
             }
             if (status)
-                ccLog::Print("Normals computation method (NormalMode) set to " + QString::number(normModeInt));
+                ccLog::Print("[qM3C2Dialog::applyNormalModeParameter] Normals computation method (NormalMode) set to " + QString::number(normModeInt));
             else
-                ccLog::Print("Not possible to set normals computation method (NormalMode) to " + QString::number(normModeInt) + " (may be forced later)");
+                ccLog::Print("[qM3C2Dialog::applyNormalModeParameter] Not possible to set normals computation method (NormalMode) to " + QString::number(normModeInt) + " (may be forced later)");
         }
     }
     break;

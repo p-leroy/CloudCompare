@@ -52,7 +52,7 @@ public:
 	ccPointCloud* getCorePointsCloud() const;
 
 	//! Sets the core points cloud
-	void setCorePointsCloud(ccPointCloud* cloud);
+	void setCorePointsCloud(ccPointCloud* cloud, bool withCPOtherCloudComboBoxUpdate=true);
 
 	//! Returns the cloud to be used for normals orientation (if any)
 	ccPointCloud* getNormalsOrientationCloud() const;
