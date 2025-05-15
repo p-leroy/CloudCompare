@@ -36,7 +36,6 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 
 	virtual bool process(ccCommandLineInterface& cmd) override
 	{
-		// cmd.print("[M3C2]");
 		if (cmd.arguments().empty())
 		{
 			return cmd.error(QString("Missing parameter: parameters filename after \"-%1\"").arg(COMMAND_M3C2));
