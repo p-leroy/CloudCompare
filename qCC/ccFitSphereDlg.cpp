@@ -11,51 +11,44 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#          COPYRIGHT: CloudCompare project                               #
+//#                  COPYRIGHT: Daniel Girardeau-Montaut                   #
 //#                                                                        #
 //##########################################################################
 
-#include <QtGlobal>
+#include "ccFitSphereDlg.h"
 
-#ifdef Q_OS_MAC
-#include <QFileOpenEvent>
-#endif
-
-#include "ccviewer.h"
-#include "ccViewerApplication.h"
-
-
-ccViewerApplication::ccViewerApplication( int &argc, char **argv, bool isCommandLine )
-	: ccApplicationBase( argc, argv, isCommandLine, QString( "1.42.alpha (%1)" ).arg(__DATE__))
+ccFitSphereDlg::ccFitSphereDlg(	double maxOutliersRatio,
+								double confidence,
+								bool autoDetectSphereRadius,
+								double sphereRadius,
+								QWidget* parent/*=nullptr*/)
+	: QDialog(parent)
+	, Ui::FitSphereDialog()
 {
-	setApplicationName( "CloudCompareViewer" );
+	setupUi(this);
+
+	outliersPercentDoubleSpinBox->setValue(maxOutliersRatio * 100.0);
+	confidenceDoubleSpinBox->setValue(confidence * 100.0);
+	autoDetectRadiusCheckBox->setChecked(autoDetectSphereRadius);
+	radiusDoubleSpinBox->setValue(sphereRadius);
 }
 
-void ccViewerApplication::setViewer(ccViewer *inViewer)
+double ccFitSphereDlg::maxOutliersRatio() const
 {
-	mViewer = inViewer;
+	return outliersPercentDoubleSpinBox->value() / 100.0;
 }
 
-bool ccViewerApplication::event(QEvent *inEvent)
+double ccFitSphereDlg::confidence() const
 {
-#ifdef Q_OS_MAC
-	switch ( inEvent->type() )
-	{
-		case QEvent::FileOpen:
-		{			
-			if ( mViewer == nullptr )
-			{
-				return false;
-			}
-			
-			mViewer->addToDB( { static_cast<QFileOpenEvent *>(inEvent)->file() } );
-			return true;
-		}
-			
-		default:
-			break;
-	}
-#endif
+	return confidenceDoubleSpinBox->value() / 100.0;
+}
 
-	return ccApplicationBase::event( inEvent );
+bool ccFitSphereDlg::autoDetectSphereRadius() const
+{
+	return autoDetectRadiusCheckBox->isChecked();
+}
+
+double ccFitSphereDlg::sphereRadius() const
+{
+	return radiusDoubleSpinBox->value();
 }

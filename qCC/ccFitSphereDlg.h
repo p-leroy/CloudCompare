@@ -1,3 +1,5 @@
+#pragma once
+
 //##########################################################################
 //#                                                                        #
 //#                              CLOUDCOMPARE                              #
@@ -11,51 +13,35 @@
 //#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
-//#          COPYRIGHT: CloudCompare project                               #
+//#                  COPYRIGHT: Daniel Girardeau-Montaut                   #
 //#                                                                        #
 //##########################################################################
 
-#include <QtGlobal>
+#include <ui_fitShereDlg.h>
 
-#ifdef Q_OS_MAC
-#include <QFileOpenEvent>
-#endif
+//Qt
+#include <QDialog>
 
-#include "ccviewer.h"
-#include "ccViewerApplication.h"
-
-
-ccViewerApplication::ccViewerApplication( int &argc, char **argv, bool isCommandLine )
-	: ccApplicationBase( argc, argv, isCommandLine, QString( "1.42.alpha (%1)" ).arg(__DATE__))
+//! Dialog to input the 'Fit Sphere' tool parameters
+class ccFitSphereDlg : public QDialog, public Ui::FitSphereDialog
 {
-	setApplicationName( "CloudCompareViewer" );
-}
+	Q_OBJECT
 
-void ccViewerApplication::setViewer(ccViewer *inViewer)
-{
-	mViewer = inViewer;
-}
+public:
 
-bool ccViewerApplication::event(QEvent *inEvent)
-{
-#ifdef Q_OS_MAC
-	switch ( inEvent->type() )
-	{
-		case QEvent::FileOpen:
-		{			
-			if ( mViewer == nullptr )
-			{
-				return false;
-			}
-			
-			mViewer->addToDB( { static_cast<QFileOpenEvent *>(inEvent)->file() } );
-			return true;
-		}
-			
-		default:
-			break;
-	}
-#endif
+	//! Default constructor
+	ccFitSphereDlg(	double maxOutliersRatio,
+					double confidence,
+					bool autoDetectSphereRadius,
+					double sphereRadius,
+					QWidget* parent = nullptr);
 
-	return ccApplicationBase::event( inEvent );
-}
+	//! Returns the max outliers ratio
+	double maxOutliersRatio() const;
+	//! Returns the confidence
+	double confidence() const;
+	//! Returns whether the sphere radius should be automatically detected
+	bool autoDetectSphereRadius() const;
+	//! Returns the sphere radius (or 0.0 if it should be automatically detected)
+	double sphereRadius() const;
+};

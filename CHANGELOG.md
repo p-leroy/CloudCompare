@@ -57,6 +57,14 @@ New features:
 		- display some pieces of information on the current 3D view (resolution, pixel size, image size, camera orientation, etc.)
 		- also available via the new 'info' button of the 'Display > Render to file' option (taking into account a potential scaling)
 
+	- Display > Lock rotation about an axis
+		- now a proper 'turntable' rotation mode
+		- dedicated icon in the left 'View' toolbar
+		- choice is now persistent, and will be reactivated when running CC again, or creating a new 3D view
+		- currently ignored by 3D mice and controllers
+
+	- New setting dialog to customize keyboard shortcuts for common CC actions
+
 New plugins
 
 	- G3 Point: granulometry made simple in CloudCompare
@@ -185,6 +193,9 @@ Improvements:
 		- new 'info' button, to display some pieces of information about the exported image (resolution, pixel size,
 			image size, camera orientation, etc.) taking into account a potential scaling
 
+	- 'Tools > Fit > Sphere'
+		- introduction of a dialog to let the user set the fitting parameters or force the sphere radius
+
 	- 'Edit > Normals > Compute'
 		- When "use scan grid(s) whenever possible" is checked for Neighbors, it is now possible to use a preferred orientation when "Use scan grid(s) whenever possible" and "Use sensor(s) whenever possible" are unchecked
 
@@ -210,6 +221,7 @@ Bug fixes:
 	- When specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
 	- E57/PCD: when saving a cloud after having applied a 'reflection' transformation (e.g. inverting a single axis), the saved
 		sensor pose was truncated due to the internal representation of these formats (as a quaternion)
+	- E57: the local (sensor) pose was not applied to normals at saving time
 	- M3C2:
 		- bug corrected: when the "use other cloud" is checked, do not propose the use of cloud #1 as a possible source for the normals
 		- force the vertical mode in CLI call when NormalMode=3 is requested (needed in case of multiple calls in the same command line)
@@ -229,6 +241,8 @@ Bug fixes:
 	- UHD screens were not properly supported (rotation center picking with double click, entity selection with a rectangle, etc.)
 	- ASCII cloud file import will now respect empty fields instead of shifting all following columns left
 	- The ICP registration tool could lead to mirrored transformations in some cases (since version 2.12.0)
+	- The 'Display > Adjust zoom' could result in a wrong pixel size if the height of the 3D view was larger than its width
+	- CC could crash when merging 2 meshes, one having texture (coordinates) and the other not
 
 v2.13.2 (Kharkiv) - (06/30/2024)
 ----------------------
