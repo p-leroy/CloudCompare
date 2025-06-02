@@ -63,6 +63,12 @@ New features:
 		- choice is now persistent, and will be reactivated when running CC again, or creating a new 3D view
 		- currently ignored by 3D mice and controllers
 
+	- New setting dialog to customize keyboard shortcuts for common CC actions
+
+	- DB tree: new context menu option 'Export images'
+		- to export as PNG files all images highlighted or children of highlighted entities (recursive)
+		- thanks to https://github.com/stolariks for the initial contribution
+
 New plugins
 
 	- G3 Point: granulometry made simple in CloudCompare
@@ -191,6 +197,12 @@ Improvements:
 		- new 'info' button, to display some pieces of information about the exported image (resolution, pixel size,
 			image size, camera orientation, etc.) taking into account a potential scaling
 
+	- 'Tools > Fit > Sphere'
+		- introduction of a dialog to let the user set the fitting parameters or force the sphere radius
+
+	- 'Edit > Normals > Compute'
+		- When "use scan grid(s) whenever possible" is checked for Neighbors, it is now possible to use a preferred orientation when "Use scan grid(s) whenever possible" and "Use sensor(s) whenever possible" are unchecked
+
 	- Others:
 		- the shortcut to the 'Level' tool in the 'View' toolbar (left) has been removed. Contrarily to the other options in this toolbar,
 			the Level tool can change the cloud coordinates, and not only the camera position. This could lead to strange issues when the
@@ -234,6 +246,7 @@ Bug fixes:
 	- ASCII cloud file import will now respect empty fields instead of shifting all following columns left
 	- The ICP registration tool could lead to mirrored transformations in some cases (since version 2.12.0)
 	- The 'Display > Adjust zoom' could result in a wrong pixel size if the height of the 3D view was larger than its width
+	- CC could crash when merging 2 meshes, one having texture (coordinates) and the other not
 
 v2.13.2 (Kharkiv) - (06/30/2024)
 ----------------------
