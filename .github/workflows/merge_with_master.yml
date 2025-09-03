@@ -1,4 +1,4 @@
-name: Auto-merge upstream master daily
+name: Auto-merge master in master_sf_vs_sf on push
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout your branch
         uses: actions/checkout@v4
         with:
-          ref: m3c2_evol
+          ref: master_sf_vs_sf
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -24,4 +24,4 @@ jobs:
           git merge master --no-edit
 
       - name: Push changes to your fork
-        run: git push origin m3c2_evol
+        run: git push origin master_sf_vs_sf
