@@ -16,6 +16,9 @@ jobs:
           ref: master_sf_vs_sf
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          
+      - name: Fetch master
+        run: git fetch origin master
 
       - name: Merge master into branch
         run: |
