@@ -1,4 +1,4 @@
-name: Auto-merge upstream master daily
+name: Auto-merge master in m3c2_evol
 
 on:
   push:
