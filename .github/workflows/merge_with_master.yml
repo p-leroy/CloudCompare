@@ -1,6 +1,5 @@
 name: Auto-merge upstream master daily
 
-
 on:
   push:
     branches:
