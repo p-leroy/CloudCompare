@@ -21,7 +21,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git merge master --no-edit
+          git merge origin/master --no-edit
 
       - name: Push changes to your fork
         run: git push origin m3c2_evol
