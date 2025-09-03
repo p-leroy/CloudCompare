@@ -1,4 +1,4 @@
-name: Auto-merge master in master_sf_vs_sf on push
+name: Auto-merge master in master_sf_vs_sf
 
 on:
   push:
