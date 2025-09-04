@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
+  CONDA_ENV: CloudCompareDev
 
 jobs:
   build:
@@ -23,7 +23,7 @@ jobs:
 
     # Cache conda package downloads
     - name: Cache Conda packages
-      uses: actions/cache@v4
+      uses: actions/cache@v3
       with:
         path: C:\Miniconda\pkgs
         key: ${{ runner.os }}-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
@@ -35,10 +35,8 @@ jobs:
       with:
         architecture: x64
         auto-activate-base: true
-        activate-environment: CloudCompareDev
-        auto-update-conda: true
 
-    # Install mamba in base env
+    # Install mamba in base
     - name: Install mamba
       run: conda install -n base -c conda-forge mamba
 
@@ -46,7 +44,7 @@ jobs:
     - name: Create Conda environement with mamba
       shell: pwsh
       run: |
-        $envName = "CloudCompareDev"
+        $envName = "${{ env.CONDA_ENV }}"
         $envExists = mamba env list | Select-String $envName
 
         if ($envExists) {
@@ -70,8 +68,8 @@ jobs:
       run: |
         mkdir build
 
-        export CONDA_LIB_DIR="$CONDA_PREFIX/Library"
-        export EIGEN_ROOT_DIR="$CONDA_LIB_DIR/include/eigen3"
+        $condaLib = "$env:CONDA/Library"
+        $eigenDir = "$condaLib/include/eigen3"
 
         cmake \
             -B build \
@@ -118,4 +116,13 @@ jobs:
       run: cmake --build build --parallel
 
     - name: Install (Windows)
-      run: cmake --install build 
+      run: cmake --install build
+
+    # Upload artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: CloudCompare-build
+        path: |
+          build/Release/*.exe
+          build/Release/*.dll
