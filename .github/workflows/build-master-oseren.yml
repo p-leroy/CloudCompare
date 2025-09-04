@@ -24,7 +24,7 @@ jobs:
     - name: Cache conda pkgs
       uses: actions/cache@v3
       with:
-        path: C:/Miniconda/pkgs
+        path: C:/Users/runneradmin/conda_pkgs_dir
         key: windows-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
         restore-keys: |
           windows-conda-pkgs-
