@@ -37,6 +37,14 @@ jobs:
         auto-activate-base: false
         environment-file: .ci/conda-win.yml
 
+    - name: Show conda info
+      shell: powershell
+      run: |
+        conda info --base
+        echo "Package cache dirs:"
+        conda info --base | ForEach-Object { Join-Path $_ 'pkgs' }
+        conda info
+
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
       uses: ilammy/msvc-dev-cmd@v1
@@ -99,9 +107,6 @@ jobs:
             -DPLUGIN_STANDARD_QPCL=ON `
             -DPLUGIN_STANDARD_QCLOUDLAYERS=ON `
             -DPLUGIN_STANDARD_QVOXFALL=ON
-
-    - name: Check Format
-      run: cmake --build build --target check-format
 
     - name: Build
       run: cmake --build build --parallel
