@@ -21,7 +21,14 @@ jobs:
       with:
         submodules: recursive
 
-    # DGM: without caching, using conda on Windows takes a long time...
+    - name: Cache Conda packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          C:\Users\runneradmin\AppData\Local\conda\conda\pkgs
+        key: ${{ runner.os }}-conda-pkgs-${{ hashFiles('your_environment_file.yml') }}
+        restore-keys: ${{ runner.os }}-conda-pkgs-
+    
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -47,7 +54,7 @@ jobs:
         $condaLib = "$env:CONDA/Library"
         $eigenDir = "$condaLib/include/eigen3"
 
-        cmake '
+        cmake `
             -B build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
