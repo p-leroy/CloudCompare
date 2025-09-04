@@ -48,7 +48,7 @@ jobs:
 
         cmake \
             -B build \
-            -G ninja \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
             -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
