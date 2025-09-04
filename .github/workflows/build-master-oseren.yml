@@ -44,14 +44,18 @@ jobs:
 
     # Create /update envirnement using mamba
     - name: Create Conda environement with mamba
+      shell: pwsh
       run: |
-        if mamba env list | findstr "CloudCompareDev" >nul 2>&1; then
-          echo "Updating existing environment"
-          mamba env update -n CloudCompareDev -f .ci/conda-win.yml
-        else
-          echo "Creating new environment"
-          mamba env create -n CloudCompareDev -f .ci/conda-win.yml
-        fi
+        $envName = "CloudCompareDev"
+        $envExists = mamba env list | Select-String $envName
+
+        if ($envExists) {
+          Write-Host "Updating existing environment"
+          mamba env update -n $envName -f .ci/conda-win.yml
+        } else {
+          Write-Host "Creating new environment"
+          mamba env create -n $envName -f .ci/conda-win.yml
+        }
 
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
