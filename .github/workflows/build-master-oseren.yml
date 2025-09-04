@@ -20,18 +20,11 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
-
-    - name: Cache Conda packages
-      uses: actions/cache@v4
-      with:
-        path: |
-          C:\Users\runneradmin\AppData\Local\conda\conda\pkgs
-        key: ${{ runner.os }}-conda-pkgs-${{ hashFiles('your_environment_file.yml') }}
-        restore-keys: ${{ runner.os }}-conda-pkgs-
     
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
+        cache: true
         architecture: x64
         activate-environment: CloudCompareDev
         auto-activate-base: false
@@ -51,8 +44,8 @@ jobs:
       run: |
         mkdir build
 
-        $condaLib = "$env:CONDA/Library"
-        $eigenDir = "$condaLib/include/eigen3"
+        $env:CONDA_LIB_DIR = "$env:CONDA_PREFIX\Library"
+        $env:EIGEN_ROOT_DIR = "$env:CONDA_LIB_DIR\include\eigen3"
 
         cmake `
             -B build `
