@@ -21,23 +21,17 @@ jobs:
       with:
         submodules: recursive
 
-    # Cache conda package downloads
-    - name: Cache Conda packages
-      uses: actions/cache@v3
-      with:
-        path: C:\Miniconda\pkgs
-        key: ${{ runner.os }}-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
-        restore-keys: ${{ runner.os }}-conda-pkgs-
-
-    - name: Set up Miniforge + Mamba
+    - name: Set up Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniforge-version: latest   # or miniconda-version: latest
-        use-mamba: true
-        mamba-version: latest
+        miniconda-version: latest        # Use Miniconda
+        use-mamba: true                  # Optional, speeds up installs
+        mamba-version: latest            # Only needed if use-mamba is true
         auto-activate-base: false
+        python-version: 3.11             # Pin Python version
         environment-file: .ci/conda-win.yml
         activate-environment: CloudCompareDev
+        cache: true                      # Caches downloaded packages for future runs
 
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
@@ -57,6 +51,7 @@ jobs:
 
         cmake \
             -B build \
+            -G ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
             -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
