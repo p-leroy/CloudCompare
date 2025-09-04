@@ -76,7 +76,7 @@ jobs:
             -DPLUGIN_IO_QADDITIONAL=ON `
             -DPLUGIN_IO_QCORE=ON `
             -DPLUGIN_IO_QE57=ON `
-            -DPLUGIN_IO_QPHOTOSCAN=ON `
+            -DPLUGIN_IO_QPHOTOSCAN=OFF `
             -DPLUGIN_IO_QLAS=ON `
             -DPLUGIN_IO_QRDB=ON  `
             -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=ON  `
