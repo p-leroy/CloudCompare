@@ -1,0 +1,104 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
+name: Build ClouCompare master_oseren
+
+on:
+  push:
+    branches: [ "master_oseren" ]
+  pull_request:
+    branches: [ "master_oseren" ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Dependencies  # without caching, using conda on Windows takes a long time...
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        architecture: ${{ matrix.config.os == 'macos-latest' && 'arm64' || 'x64' }}
+        activate-environment: CloudCompareDev
+        auto-activate-base: false
+        environment-file: ${{ matrix.config.conda_dep_file }}
+        
+    - name: Configure MSVC console (Windows)
+      if: matrix.config.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Set environment for MSVC (Windows)
+      if: matrix.config.os == 'windows-latest'
+      run: |
+        # Set these env vars so cmake picks the correct compiler
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#environment-files
+        echo "CXX=cl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "CC=cl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Configure CMake
+      shell: bash -l {0}
+      run: |
+        mkdir build
+
+        export CONDA_LIB_DIR="$CONDA_PREFIX/${{ matrix.config.conda_library_dir }}"
+        export EIGEN_ROOT_DIR="$CONDA_LIB_DIR/include/eigen3"
+
+        cmake \
+            -B build \
+            -G "${{ matrix.config.generator }}" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
+            -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
+            -DOPTION_SUPPORT_GAMEPADS=ON \
+            -DPLUGIN_EXAMPLE_GL=ON \
+            -DPLUGIN_EXAMPLE_IO=ON \
+            -DPLUGIN_EXAMPLE_STANDARD=ON \
+            -DPLUGIN_GL_QEDL=ON \
+            -DPLUGIN_GL_QSSAO=ON \
+            -DPLUGIN_IO_QADDITIONAL=ON \
+            -DPLUGIN_IO_QCORE=ON \
+            -DPLUGIN_IO_QE57=ON \
+            -DPLUGIN_IO_QPHOTOSCAN=ON \
+            -DPLUGIN_IO_QLAS=ON \
+            -DPLUGIN_IO_QRDB=${{ matrix.config.compile_riegl }}  \
+            -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=${{ matrix.config.compile_riegl }}  \
+            -DPLUGIN_IO_QRDB_INSTALL_DEPENDENCY=${{ matrix.config.compile_riegl }}  \
+            -DPLUGIN_STANDARD_QANIMATION=ON \
+            -DQANIMATION_WITH_FFMPEG_SUPPORT=ON \
+            -DPLUGIN_STANDARD_QBROOM=ON \
+            -DPLUGIN_STANDARD_QCANUPO=OFF \
+            -DPLUGIN_STANDARD_QCOMPASS=ON \
+            -DPLUGIN_STANDARD_QCSF=ON \
+            -DPLUGIN_STANDARD_QFACETS=ON \
+            -DPLUGIN_STANDARD_QHOUGH_NORMALS=ON \
+            -DPLUGIN_STANDARD_QHPR=ON \
+            -DPLUGIN_STANDARD_QM3C2=ON \
+            -DPLUGIN_STANDARD_QPCV=ON \
+            -DPLUGIN_STANDARD_QPOISSON_RECON=ON \
+            -DPLUGIN_STANDARD_QSRA=ON \
+            -DPLUGIN_STANDARD_QRANSAC_SD=ON \
+            -DPLUGIN_STANDARD_QPCL=ON \
+            -DPLUGIN_STANDARD_QCLOUDLAYERS=ON \
+            -DPLUGIN_STANDARD_QVOXFALL=ON \
+            .
+
+    - name: Check Format
+      if: matrix.config.os == 'windows-latest'
+      run: cmake --build build --target check-format
+
+    - name: Build
+      run: cmake --build build --parallel
+
+    - name: Install (Windows)
+      if: matrix.config.os == 'windows-latest'
+      run: cmake --install build 
