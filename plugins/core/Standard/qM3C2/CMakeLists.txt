@@ -7,9 +7,7 @@ if( PLUGIN_STANDARD_QM3C2 )
 		set(M3C2_PLUGIN_VERSION "0.2")
         AddPlugin( NAME ${PROJECT_NAME} )
 
-        target_include_directories( ${PROJECT_NAME} PRIVATE
-            C:/opt/boost_1_77_0
-            )
+        target_include_directories( ${PROJECT_NAME} PRIVATE)
 
 	add_subdirectory( include )
 	add_subdirectory( src )
