@@ -37,11 +37,7 @@ jobs:
         mamba-version: latest
         auto-activate-base: false
 
-    # Install mamba in base
-    - name: Install mamba
-      run: conda install -n base -c conda-forge mamba
-
-    # Create /update envirnement using mamba
+    # Create /update environement using mamba
     - name: Create Conda environement with mamba
       shell: pwsh
       run: |
