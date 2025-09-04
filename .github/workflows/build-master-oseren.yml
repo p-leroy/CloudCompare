@@ -29,12 +29,13 @@ jobs:
         key: ${{ runner.os }}-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
         restore-keys: ${{ runner.os }}-conda-pkgs-
 
-    # Setup Miniconda
-    - name: Setup Miniconda
+    - name: Set up Miniforge
       uses: conda-incubator/setup-miniconda@v3
       with:
-        architecture: x64
-        auto-activate-base: true
+        miniforge-version: latest
+        use-mamba: true
+        mamba-version: latest
+        auto-activate-base: false
 
     # Install mamba in base
     - name: Install mamba
@@ -106,8 +107,7 @@ jobs:
             -DPLUGIN_STANDARD_QRANSAC_SD=ON \
             -DPLUGIN_STANDARD_QPCL=ON \
             -DPLUGIN_STANDARD_QCLOUDLAYERS=ON \
-            -DPLUGIN_STANDARD_QVOXFALL=ON \
-            .
+            -DPLUGIN_STANDARD_QVOXFALL=ON
 
     - name: Check Format
       run: cmake --build build --target check-format
