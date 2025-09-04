@@ -120,9 +120,8 @@ jobs:
 
     # Upload artifacts
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: CloudCompare-build
         path: |
-          build/Release/*.exe
-          build/Release/*.dll
+          build/Release/*
