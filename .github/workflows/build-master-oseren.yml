@@ -37,13 +37,11 @@ jobs:
         auto-activate-base: false
         environment-file: .ci/conda-win.yml
 
-    - name: Show conda info
-      shell: powershell
-      run: |
-        conda info --base
-        echo "Package cache dirs:"
-        conda info --base | ForEach-Object { Join-Path $_ 'pkgs' }
-        conda info
+    - name: Print Conda package cache path
+      run: conda config --show pkgs_dirs
+
+    - name: List Conda packages directory
+      run: dir C:/Miniconda/pkgs
 
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
@@ -65,7 +63,7 @@ jobs:
             -B build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR;$env:CONDA_LIB_DIR/cmake" 
+            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR;$env:CONDA_LIB_DIR/cmake" `
             `
             -DLASZIP_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
             -DLASZIP_LIBRARY="$env:CONDA_LIB_DIR/lib/laszip3.lib" `
