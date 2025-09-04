@@ -28,10 +28,10 @@ jobs:
     - name: Install Dependencies  # without caching, using conda on Windows takes a long time...
       uses: conda-incubator/setup-miniconda@v3
       with:
-        architecture: ${{ matrix.config.os == 'macos-latest' && 'arm64' || 'x64' }}
+        architecture: x64
         activate-environment: CloudCompareDev
         auto-activate-base: false
-        environment-file: ${{ matrix.config.conda_dep_file }}
+        environment-file: ".ci/conda-win.yml"
         
     - name: Configure MSVC console (Windows)
       if: matrix.config.os == 'windows-latest'
