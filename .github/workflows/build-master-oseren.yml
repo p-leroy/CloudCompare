@@ -21,21 +21,37 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install Dependencies  # without caching, using conda on Windows takes a long time...
+    # Cache conda package downloads
+    - name: Cache Conda packages
+      uses: actions/cache@v4
+      with:
+        path: C:\Miniconda\pkgs
+        key: ${{ runner.os }}-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
+        restore-keys: ${{ runner.os }}-conda-pkgs-
+
+    # Setup Miniconda
+    - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
         architecture: x64
+        auto-activate-base: true
         activate-environment: CloudCompareDev
-        auto-activate-base: false
-        environment-file: ".ci/conda-win.yml"
-        
+        auto-update-conda: true
+
+    # Install mamba in base env
+    - name: Install mamba
+      run: conda install -n base -c conda-forge mamba
+
+    # Create /update envirnement using mamba
+    - name: Create Conda environement with mamba
+      run: mamba env update -f .ci/conda-win.yml -n CloudCompareDex
+
+    # Configure MSVC console
     - name: Configure MSVC console (Windows)
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Set environment for MSVC (Windows)
       run: |
-        # Set these env vars so cmake picks the correct compiler
-        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#environment-files
         echo "CXX=cl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "CC=cl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
