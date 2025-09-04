@@ -21,17 +21,14 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Set up Miniconda
+    # DGM: without caching, using conda on Windows takes a long time...
+    - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniconda-version: latest        # Use Miniconda
-        use-mamba: true                  # Optional, speeds up installs
-        mamba-version: latest            # Only needed if use-mamba is true
-        auto-activate-base: false
-        python-version: 3.11             # Pin Python version
-        environment-file: .ci/conda-win.yml
+        architecture: x64
         activate-environment: CloudCompareDev
-        cache: true                      # Caches downloaded packages for future runs
+        auto-activate-base: false
+        environment-file: .ci/conda-win.yml
 
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
