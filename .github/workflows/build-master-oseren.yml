@@ -65,9 +65,7 @@ jobs:
             -B build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" `
-            `
-            -DXercesC_DIR="$env:CONDA_LIB_DIR/cmake" `
+            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR;$env:CONDA_LIB_DIR/cmake" 
             `
             -DLASZIP_LIBRARY="$env:CONDA_LIB_DIR/include" `
             -DLASZIP_INCLUDE_DIR="$env:CONDA_LIB_DIR/lib/laszip3.lib" `
