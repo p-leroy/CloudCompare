@@ -44,7 +44,14 @@ jobs:
 
     # Create /update envirnement using mamba
     - name: Create Conda environement with mamba
-      run: mamba env update -f .ci/conda-win.yml -n CloudCompareDex
+      run: |
+        if mamba env list | findstr "CloudCompareDev" >nul 2>&1; then
+          echo "Updating existing environment"
+          mamba env update -n CloudCompareDev -f .ci/conda-win.yml
+        else
+          echo "Creating new environment"
+          mamba env create -n CloudCompareDev -f .ci/conda-win.yml
+        fi
 
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
