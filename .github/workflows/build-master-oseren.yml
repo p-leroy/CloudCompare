@@ -1,5 +1,3 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
 name: Build ClouCompare master_oseren
 
 on:
@@ -51,7 +49,6 @@ jobs:
 
         cmake \
             -B build \
-            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
             -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
