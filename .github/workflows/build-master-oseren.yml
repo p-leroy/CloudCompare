@@ -15,9 +15,6 @@ env:
 
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: windows-latest
 
     steps:
@@ -35,11 +32,9 @@ jobs:
         environment-file: ".ci/conda-win.yml"
         
     - name: Configure MSVC console (Windows)
-      if: matrix.config.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Set environment for MSVC (Windows)
-      if: matrix.config.os == 'windows-latest'
       run: |
         # Set these env vars so cmake picks the correct compiler
         # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#environment-files
@@ -51,12 +46,12 @@ jobs:
       run: |
         mkdir build
 
-        export CONDA_LIB_DIR="$CONDA_PREFIX/${{ matrix.config.conda_library_dir }}"
+        export CONDA_LIB_DIR="$CONDA_PREFIX/Library"
         export EIGEN_ROOT_DIR="$CONDA_LIB_DIR/include/eigen3"
 
         cmake \
             -B build \
-            -G "${{ matrix.config.generator }}" \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
             -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
@@ -71,9 +66,9 @@ jobs:
             -DPLUGIN_IO_QE57=ON \
             -DPLUGIN_IO_QPHOTOSCAN=ON \
             -DPLUGIN_IO_QLAS=ON \
-            -DPLUGIN_IO_QRDB=${{ matrix.config.compile_riegl }}  \
-            -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=${{ matrix.config.compile_riegl }}  \
-            -DPLUGIN_IO_QRDB_INSTALL_DEPENDENCY=${{ matrix.config.compile_riegl }}  \
+            -DPLUGIN_IO_QRDB=ON  \
+            -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=ON  \
+            -DPLUGIN_IO_QRDB_INSTALL_DEPENDENCY=ON  \
             -DPLUGIN_STANDARD_QANIMATION=ON \
             -DQANIMATION_WITH_FFMPEG_SUPPORT=ON \
             -DPLUGIN_STANDARD_QBROOM=ON \
@@ -94,12 +89,10 @@ jobs:
             .
 
     - name: Check Format
-      if: matrix.config.os == 'windows-latest'
       run: cmake --build build --target check-format
 
     - name: Build
       run: cmake --build build --parallel
 
     - name: Install (Windows)
-      if: matrix.config.os == 'windows-latest'
       run: cmake --install build 
