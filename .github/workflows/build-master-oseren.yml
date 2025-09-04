@@ -24,7 +24,7 @@ jobs:
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
-        cache: true
+        use-cache: true
         architecture: x64
         activate-environment: CloudCompareDev
         auto-activate-base: false
