@@ -69,7 +69,7 @@ jobs:
             -DLASZIP_LIBRARY="$env:CONDA_LIB_DIR/lib/laszip3.lib" `
             `
             -DXercesC_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
-            -DXercesC_LIBRARY="$env:CONDA_LIB_DIR/bin/xerces-c_3_2.dll" `
+            -DXercesC_LIBRARY="$env:CONDA_LIB_DIR/lib/xerces-c_3.lib" `
             `
             -DEIGEN_ROOT_DIR="$env:CONDA_LIB_DIR/include/eigen3" `
             `
