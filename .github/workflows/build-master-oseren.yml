@@ -44,6 +44,13 @@ jobs:
         key: windows-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
         restore-keys: |
           windows-conda-pkgs-
+
+    - name: Install Dependencies
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        architecture: x64
+        auto-activate-base: false
+        environment-file: .ci/conda-win-open3d.yml
     
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
@@ -76,6 +83,7 @@ jobs:
         mkdir build
 
         $env:CONDA_LIB_DIR = "$env:CONDA_PREFIX/Library"
+        $env:CONDA_LIB_DIR_OPEN3D = "C:/Users/runneradmin/miniconda3/envs/CloudCompareTools/Library"
 
         cmake `
             -B build `
@@ -93,8 +101,8 @@ jobs:
             `
             -DBoost_DIR="$env:CONDA_LIB_DIR/lib/cmake/Boost-1.84.0" `
             `
-            -DOpen3D_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
-            -DOpen3D_LIBRARY="$env:CONDA_LIB_DIR/lib/Open3D.lib" `
+            -DOpen3D_INCLUDE_DIR="$env:CONDA_LIB_DIR_OPEN3D/include" `
+            -DOpen3D_LIBRARY="$env:CONDA_LIB_DIR_OPEN3D/lib/Open3D.lib" `
             `
             -DOPTION_BUILD_CCVIEWER=OFF `
             -DOPTION_SUPPORT_GAMEPADS=ON `
