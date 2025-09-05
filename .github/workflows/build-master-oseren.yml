@@ -78,7 +78,6 @@ jobs:
         mkdir build
 
         $env:CONDA_LIB_DIR = "$env:CONDA_PREFIX/Library"
-        $env:CONDA_LIB_DIR_OPEN3D = "C:/Users/runneradmin/miniconda3/envs/CloudCompareDevOpen3D/Library"
 
         cmake `
             -B build `
@@ -96,8 +95,8 @@ jobs:
             `
             -DBoost_DIR="$env:CONDA_LIB_DIR/lib/cmake/Boost-1.84.0" `
             `
-            -DOpen3D_INCLUDE_DIR="$env:CONDA_LIB_DIR_OPEN3D/include" `
-            -DOpen3D_LIBRARY="$env:CONDA_LIB_DIR_OPEN3D/lib/Open3D.lib" `
+            -DOpen3D_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
+            -DOpen3D_LIBRARY="$env:CONDA_LIB_DIR/lib/Open3D.lib" `
             `
             -DOPTION_BUILD_CCVIEWER=OFF `
             -DOPTION_SUPPORT_GAMEPADS=ON `
