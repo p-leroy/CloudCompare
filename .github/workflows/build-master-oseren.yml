@@ -45,19 +45,20 @@ jobs:
         restore-keys: |
           windows-conda-pkgs-
 
-    - name: Install Dependencies [Open3D]
-      shell: powershell
-      run: |
-        conda env create -n CloudCompareDevOpen3d
-        conda activate CloudCompareDevOpen3d
-        conda install -c conda-forge open3d
-
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
         architecture: x64
         environment-file: .ci/conda-win.yml
         activate-environment: CloudCompareDev
+
+    - name: Install Dependencies [Open3D]
+      shell: powershell
+      run: |
+        conda env create -n CloudCompareDevOpen3d
+        conda activate CloudCompareDevOpen3d
+        conda install -c conda-forge open3d
+        conda activate CloudCompareDev
 
     - name: Print Conda package cache path
       if: false
