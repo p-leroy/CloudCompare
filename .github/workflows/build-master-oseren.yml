@@ -26,7 +26,7 @@ jobs:
       with:
         repository: p-leroy/qICPM3C2
         token: ${{ secrets.QICPM3C2_TOKEN }}
-        path: plugins/private
+        path: plugins/private/qICPM3C2
         fetch-depth: 0
 
     - name: Checkout qFWF plugin
@@ -34,7 +34,7 @@ jobs:
       with:
         repository: p-leroy/qFWF
         token: ${{ secrets.QICPM3C2_TOKEN }}
-        path: plugins/private      
+        path: plugins/private/qFWF     
         fetch-depth: 0
 
     - name: Cache conda pkgs
