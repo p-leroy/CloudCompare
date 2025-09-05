@@ -26,7 +26,7 @@ jobs:
       with:
         repository: p-leroy/qICPM3C2
         token: ${{ secrets.QICPM3C2_TOKEN }}
-        path: plugins/private
+        path: plugins/private/qICPM3C2
         fetch-depth: 0
 
     - name: Checkout qFWF plugin
@@ -34,7 +34,7 @@ jobs:
       with:
         repository: p-leroy/qFWF
         token: ${{ secrets.QICPM3C2_TOKEN }}
-        path: plugins/private      
+        path: plugins/private/qFWF     
         fetch-depth: 0
 
     - name: Cache conda pkgs
@@ -54,9 +54,11 @@ jobs:
         environment-file: .ci/conda-win.yml
 
     - name: Print Conda package cache path
+      if: false
       run: conda config --show pkgs_dirs
 
     - name: List Conda packages directory
+      if: false
       run: dir C:/Users/runneradmin/conda_pkgs_dir
 
     # Configure MSVC console
@@ -123,7 +125,8 @@ jobs:
             -DPLUGIN_STANDARD_QPCL=ON `
             -DPLUGIN_STANDARD_QCLOUDLAYERS=ON `
             -DPLUGIN_STANDARD_QVOXFALL=ON `
-            -DPLUGIN_QICPM3C2=ON
+            -DPLUGIN_QICPM3C2=ON `
+            -DPLUGIN_QFWF=ON
 
     - name: Build
       run: cmake --build build --parallel
