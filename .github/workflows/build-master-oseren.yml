@@ -55,10 +55,8 @@ jobs:
     - name: Install Dependencies [Open3D]
       shell: powershell
       run: |
-        conda env create -n CloudCompareDevOpen3d
-        conda activate CloudCompareDevOpen3d
-        conda install -c conda-forge open3d
-        conda activate CloudCompareDev
+        conda create -y -n CloudCompareDevOpen3d
+        conda run -n CloudCompareDevOpen3D conda install -y -c conda-forge open3d
 
     - name: Print Conda package cache path
       if: false
@@ -83,7 +81,7 @@ jobs:
         mkdir build
 
         $env:CONDA_LIB_DIR = "$env:CONDA_PREFIX/Library"
-        $env:CONDA_LIB_DIR_OPEN3D = C:/Miniconda3/envs/CloudCompareDevOpen3D/Library
+        $env:OPEN3D_LIB_DIR = "$(conda info --base)/envs/CloudCompareDevOpen3D/Library"
 
         cmake `
             -B build `
@@ -101,8 +99,8 @@ jobs:
             `
             -DBoost_DIR="$env:CONDA_LIB_DIR/lib/cmake/Boost-1.84.0" `
             `
-            -DOpen3D_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
-            -DOpen3D_LIBRARY="$env:CONDA_LIB_DIR/lib/Open3D.lib" `
+            -DOpen3D_INCLUDE_DIR="$env:OPEN3D_LIB_DIR/include" `
+            -DOpen3D_LIBRARY="$env:OPEN3D_LIB_DIR/lib/Open3D.lib" `
             `
             -DOPTION_BUILD_CCVIEWER=OFF `
             -DOPTION_SUPPORT_GAMEPADS=ON `
