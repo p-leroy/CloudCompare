@@ -45,19 +45,15 @@ jobs:
         restore-keys: |
           windows-conda-pkgs-
 
-    - name: Install Dependencies [Open3D]
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        architecture: x64
-        environment-file: .ci/conda-win-open3d.yml
-        activate-environment: false
-
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
         architecture: x64
         environment-file: .ci/conda-win.yml
         activate-environment: CloudCompareDev
+
+    - name: Install Dependencies [Open3D]
+      run: conda install open3d
 
     - name: Print Conda package cache path
       if: false
