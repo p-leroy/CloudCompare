@@ -82,7 +82,7 @@ jobs:
         mkdir build
 
         $env:CONDA_LIB_DIR = "$env:CONDA_PREFIX/Library"
-        $env:CONDA_LIB_DIR_OPEN3D = "C:/Users/runneradmin/miniconda3/envs/CloudCompareTools/Library"
+        $env:CONDA_LIB_DIR_OPEN3D = "C:/Users/runneradmin/miniconda3/envs/CloudCompareDevOpen3D/Library"
 
         cmake `
             -B build `
