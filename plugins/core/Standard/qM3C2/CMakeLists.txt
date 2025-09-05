@@ -7,13 +7,16 @@ if( PLUGIN_STANDARD_QM3C2 )
 	set(M3C2_PLUGIN_VERSION "0.2")
 	AddPlugin( NAME ${PROJECT_NAME} )
 
-	target_include_directories( ${PROJECT_NAME} PRIVATE)
+	find_package(Boost REQUIRED)
+	message(STATUS "Boost_VERSION: ${Boost_VERSION}")
+	message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
+	message(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
+
+	target_include_directories( ${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
 
 	add_subdirectory( include )
 	add_subdirectory( src )
 	add_subdirectory( ui )
-
-	find_package(Boost REQUIRED)
 
 	#================
 	# git commit hash
@@ -31,9 +34,9 @@ if( PLUGIN_STANDARD_QM3C2 )
 	OUTPUT_VARIABLE GIT_COMMIT_HASH_CC
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-	message(${PROJECT_NAME} " " GIT_BRANCH_CC " " ${GIT_BRANCH_CC})
-	message(${PROJECT_NAME} " " GIT_COMMIT_HASH_CC " " ${GIT_COMMIT_HASH_CC})
-	message(${PROJECT_NAME} " " QM3C2_VERSION " " ${M3C2_PLUGIN_VERSION})
+	message(STATUS ${PROJECT_NAME} " " GIT_BRANCH_CC " " ${GIT_BRANCH_CC})
+	message(STATUS ${PROJECT_NAME} " " GIT_COMMIT_HASH_CC " " ${GIT_COMMIT_HASH_CC})
+	message(STATUS ${PROJECT_NAME} " " QM3C2_VERSION " " ${M3C2_PLUGIN_VERSION})
 
 	target_compile_definitions(${PROJECT_NAME} PRIVATE
 	GIT_BRANCH_CC="${GIT_BRANCH_CC}"
