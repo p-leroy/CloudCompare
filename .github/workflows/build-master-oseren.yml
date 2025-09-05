@@ -41,7 +41,7 @@ jobs:
       run: conda config --show pkgs_dirs
 
     - name: List Conda packages directory
-      run: dir C:/Miniconda/pkgs
+      run: dir C:/Users/runneradmin/conda_pkgs_dir
 
     # Configure MSVC console
     - name: Configure MSVC console (Windows)
@@ -63,7 +63,7 @@ jobs:
             -B build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR;$env:CONDA_LIB_DIR/cmake" `
+            -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" `
             `
             -DLASZIP_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
             -DLASZIP_LIBRARY="$env:CONDA_LIB_DIR/lib/laszip3.lib" `
@@ -73,7 +73,7 @@ jobs:
             `
             -DEIGEN_ROOT_DIR="$env:CONDA_LIB_DIR/include/eigen3" `
             `
-            -DBoost_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
+            -DBoost_DIR="$env:CONDA_LIB_DIR/lib/cmake/Boost-1.84.0" `
             `
             -DOPTION_SUPPORT_GAMEPADS=ON `
             -DPLUGIN_EXAMPLE_GL=ON `
