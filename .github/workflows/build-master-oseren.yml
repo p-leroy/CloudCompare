@@ -44,21 +44,20 @@ jobs:
         key: windows-conda-pkgs-${{ hashFiles('.ci/conda-win.yml') }}
         restore-keys: |
           windows-conda-pkgs-
-
-    - name: Install Dependencies
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        architecture: x64
-        auto-activate-base: false
-        environment-file: .ci/conda-win-open3d.yml
     
     - name: Install Dependencies
       uses: conda-incubator/setup-miniconda@v3
       with:
         architecture: x64
-        activate-environment: CloudCompareDev
-        auto-activate-base: false
         environment-file: .ci/conda-win.yml
+        activate-environment: CloudCompareDev
+
+    - name: Install Dependencies [Open3D]
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        architecture: x64
+        environment-file: .ci/conda-win-open3d.yml
+        activate-environment: false
 
     - name: Print Conda package cache path
       if: false
