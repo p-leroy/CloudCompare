@@ -1,0 +1,6 @@
+name: CloudCompareDevOpen3D
+channels:
+  - conda-forge
+dependencies:
+  - open3d
+ 

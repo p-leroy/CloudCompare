@@ -12,5 +12,4 @@ dependencies:
   - zlib=1.2.*
   - laszip
   - clang-format==18.*
-  - open3d
- 
+  
