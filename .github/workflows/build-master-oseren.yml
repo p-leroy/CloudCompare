@@ -25,13 +25,17 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: p-leroy/qICPM3C2
-        path: plugins/private           
+        token: ${{ secrets.QICPM3C2_TOKEN }}
+        path: plugins/private
+        fetch-depth: 0
 
     - name: Checkout qFWF plugin
       uses: actions/checkout@v4
       with:
         repository: p-leroy/qFWF
-        path: plugins/private         
+        token: ${{ secrets.QICPM3C2_TOKEN }}
+        path: plugins/private      
+        fetch-depth: 0
 
     - name: Cache conda pkgs
       uses: actions/cache@v3
