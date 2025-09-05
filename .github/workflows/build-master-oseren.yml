@@ -135,7 +135,7 @@ jobs:
             -DPLUGIN_STANDARD_QCLOUDLAYERS=ON `
             -DPLUGIN_STANDARD_QVOXFALL=ON `
             -DPLUGIN_QICPM3C2=ON `
-            -DPLUGIN_QFWF=ON
+            -DINSTALL_QFWF_PLUGIN=ON
 
     - name: Build
       run: cmake --build build --parallel
