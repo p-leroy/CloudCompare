@@ -46,6 +46,13 @@ New features:
 					- optional, only used when bilateral filter applied
 		- New SF_OP suboption: -NOT_IN_PLACE
 			- to create new scalar field during the operation.
+		- New SF-to-normals and normals-to-SF conversion methods:
+			- NORM_TO_SF {X/Y/Z}
+				where {X/Y/Z} is any combination of X, Y and Z, such as 'XYZ', 'XZ' or 'Y'
+			- SF_TO_NORM {SFxIndex} {SFyIndex} {SFzIndex}
+				where {SFnIndex} can be a numerical index, a name or 'LAST', or -1 if the
+				dimension should not be initialized from a SF (in which case it will be
+				left at its previous value, or 0 if no normal was previously set)
 
 	- New option to discard the confirmation popup dialog when exiting CloudCompare
 		- one can choose to discard it the first time it appears
@@ -208,6 +215,10 @@ Improvements:
 		- New default color scales: ASPRS classes and ASPRS classes with labels
 			- The 'ASPRS classes' scale will now be used by default when loading the LAS classification field
 		- Improvement of the color scale preview (better accuracy)
+
+	- ccViewer:
+		- new shortcuts to change the active scalar field: SHIFT + Up or Down arrows
+		- updated shortcuts list (F1)
 
 	- Others:
 		- the shortcut to the 'Level' tool in the 'View' toolbar (left) has been removed. Contrarily to the other options in this toolbar,
