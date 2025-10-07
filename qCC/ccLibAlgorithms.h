@@ -21,10 +21,14 @@
 
 #include <GeometricalAnalysisTools.h>
 
+#include <Neighbourhood.h>
+
 class QWidget;
 
 class ccGenericPointCloud;
 class ccProgressDialog;
+
+using namespace CCCoreLib;
 
 namespace ccLibAlgorithms
 {
@@ -53,11 +57,12 @@ namespace ccLibAlgorithms
 	typedef std::vector<GeomCharacteristic> GeomCharacteristicSet;
 
 	//! Computes geometrical characteristics (see GeometricalAnalysisTools::GeomCharacteristic) on a set of entities
-	bool ComputeGeomCharacteristics(const GeomCharacteristicSet& characteristics,
-	                                PointCoordinateType          radius,
-	                                ccHObject::Container&        entities,
-	                                const CCVector3*             roughnessUpDir = nullptr,
-	                                QWidget*                     parent         = nullptr);
+	bool ComputeGeomCharacteristics(const GeomCharacteristicSet&       characteristics,
+									PointCoordinateType                radius,
+									ccHObject::Container&              entities,
+									const CCVector3*                   roughnessUpDir = nullptr,
+									QWidget*                           parent         = nullptr,
+									const Neighbourhood::SignCurvature signCurvature  = Neighbourhood::DO_NOT_SIGN);
 
 	//! Computes a geometrical characteristic (see GeometricalAnalysisTools::GeomCharacteristic) on a set of entities
 	bool ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::GeomCharacteristic algo,
@@ -66,7 +71,8 @@ namespace ccLibAlgorithms
 	                               ccHObject::Container&                                   entities,
 	                               const CCVector3*                                        roughnessUpDir = nullptr,
 	                               QWidget*                                                parent         = nullptr,
-	                               ccProgressDialog*                                       progressDialog = nullptr);
+								   ccProgressDialog*                                       progressDialog = nullptr,
+								   const Neighbourhood::SignCurvature                      signCurvature  = Neighbourhood::DO_NOT_SIGN);
 
 	// CCCoreLib algorithms handled by the 'ApplyCCCoreLibAlgorithm' method
 	enum CC_LIB_ALGORITHM

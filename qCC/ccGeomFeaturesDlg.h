@@ -23,6 +23,7 @@
 
 // Qt
 #include <QDialog>
+#include <QButtonGroup>
 #include <ui_geomFeaturesDlg.h>
 
 //! Dialog for computing the density of a point clouds
@@ -47,6 +48,10 @@ class ccGeomFeaturesDlg : public QDialog
 	//! Returns the 'up direction' if any is defined (nullptr otherwise)
 	CCVector3* getUpDirection() const;
 
+	void setCurvatureSignatureMethod(Neighbourhood::SignCurvature signCurvature);
+
+	Neighbourhood::SignCurvature getCurvatureSignatureMethod() const;
+
 	//! Reset the whole dialog
 	void reset();
 
@@ -63,6 +68,8 @@ class ccGeomFeaturesDlg : public QDialog
 	};
 
 	std::vector<Option> m_options;
+
+	QButtonGroup* buttonGroup;
 };
 
 #endif // CC_GEOM_FEATURES_DIALOG_HEADER

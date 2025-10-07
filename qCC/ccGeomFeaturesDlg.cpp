@@ -29,6 +29,12 @@ ccGeomFeaturesDlg::ccGeomFeaturesDlg(QWidget* parent /*=nullptr*/)
 
 	connect(buttonBox->button(QDialogButtonBox::Reset), &QPushButton::clicked, this, &ccGeomFeaturesDlg::reset);
 
+	// Make the options for the signature of curvature features exclusive
+	buttonGroup = new QButtonGroup(this);
+	buttonGroup->setExclusive(true);
+	buttonGroup->addButton(curvWithNormal);
+	buttonGroup->addButton(curvWithPlusZ);
+
 	try
 	{
 		m_options.reserve(22);
@@ -37,6 +43,7 @@ ccGeomFeaturesDlg::ccGeomFeaturesDlg(QWidget* parent /*=nullptr*/)
 		m_options.push_back(Option(curvMeanCheckBox, CCCoreLib::GeometricalAnalysisTools::Curvature, CCCoreLib::Neighbourhood::MEAN_CURV));
 		m_options.push_back(Option(curvGaussCheckBox, CCCoreLib::GeometricalAnalysisTools::Curvature, CCCoreLib::Neighbourhood::GAUSSIAN_CURV));
 		m_options.push_back(Option(curvNCRCheckBox, CCCoreLib::GeometricalAnalysisTools::Curvature, CCCoreLib::Neighbourhood::NORMAL_CHANGE_RATE));
+		m_options.push_back(Option(curvTypeOfQuadric, CCCoreLib::GeometricalAnalysisTools::Curvature, CCCoreLib::Neighbourhood::TYPE_OF_QUADRIC));
 		m_options.push_back(Option(densityKnnCheckBox, CCCoreLib::GeometricalAnalysisTools::LocalDensity, CCCoreLib::GeometricalAnalysisTools::DENSITY_KNN));
 		m_options.push_back(Option(densitySurfCheckBox, CCCoreLib::GeometricalAnalysisTools::LocalDensity, CCCoreLib::GeometricalAnalysisTools::DENSITY_2D));
 		m_options.push_back(Option(densityVolCheckBox, CCCoreLib::GeometricalAnalysisTools::LocalDensity, CCCoreLib::GeometricalAnalysisTools::DENSITY_3D));
@@ -83,6 +90,45 @@ CCVector3* ccGeomFeaturesDlg::getUpDirection() const
 	{
 		return nullptr;
 	}
+}
+
+void ccGeomFeaturesDlg::setCurvatureSignatureMethod(Neighbourhood::SignCurvature signCurvature)
+{
+	switch (signCurvature)
+	{
+	case CCCoreLib::Neighbourhood::DO_NOT_SIGN:
+		curvSignCurvature->setChecked(false);
+		curvWithNormal->setChecked(false);
+		curvWithPlusZ->setChecked(false);
+		break;
+	case CCCoreLib::Neighbourhood::SIGN_WITH_NORMAL:
+		curvSignCurvature->setChecked(true);
+		curvWithNormal->setChecked(true);
+		curvWithPlusZ->setChecked(false);
+		break;
+	case CCCoreLib::Neighbourhood::SIGN_WITH_PLUS_Z:
+		curvSignCurvature->setChecked(true);
+		curvWithNormal->setChecked(false);
+		curvWithPlusZ->setChecked(true);
+		break;
+	}
+}
+
+Neighbourhood::SignCurvature ccGeomFeaturesDlg::getCurvatureSignatureMethod() const
+{
+	if (curvSignCurvature->isChecked())
+	{
+		if (curvWithNormal)
+		{
+			return Neighbourhood::SIGN_WITH_NORMAL;
+		}
+		else if (curvWithPlusZ)
+		{
+			return Neighbourhood::SIGN_WITH_PLUS_Z;
+		}
+	}
+
+	return Neighbourhood::DO_NOT_SIGN;
 }
 
 void ccGeomFeaturesDlg::setSelectedFeatures(const ccLibAlgorithms::GeomCharacteristicSet& features)

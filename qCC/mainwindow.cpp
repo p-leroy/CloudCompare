@@ -8641,6 +8641,7 @@ void MainWindow::doComputeGeometricFeature()
 	static ccLibAlgorithms::GeomCharacteristicSet s_selectedCharacteristics;
 	static CCVector3                              s_upDir(0, 0, 1);
 	static bool                                   s_upDirDefined = false;
+	static Neighbourhood::SignCurvature           s_signCurvatureMethod = Neighbourhood::DO_NOT_SIGN;
 
 	ccGeomFeaturesDlg gfDlg(this);
 	double            radius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
@@ -8652,8 +8653,11 @@ void MainWindow::doComputeGeometricFeature()
 	{
 		gfDlg.setUpDirection(s_upDir);
 	}
+	gfDlg.setCurvatureSignatureMethod(s_signCurvatureMethod);
 
-	if (!gfDlg.exec())
+
+
+	if (!gfDlg.exec()) // Execute the dialog, select features
 		return;
 
 	radius = gfDlg.getRadius();
@@ -8663,6 +8667,7 @@ void MainWindow::doComputeGeometricFeature()
 		return;
 	}
 
+
 	CCVector3* upDir = gfDlg.getUpDirection();
 
 	// remember semi-persistent parameters
@@ -8671,8 +8676,14 @@ void MainWindow::doComputeGeometricFeature()
 	{
 		s_upDir = *upDir;
 	}
+	s_signCurvatureMethod  = gfDlg.getCurvatureSignatureMethod();
 
-	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics, static_cast<PointCoordinateType>(radius), m_selectedEntities, upDir, this);
+	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics,
+												static_cast<PointCoordinateType>(radius),
+												m_selectedEntities,
+												upDir,
+												this,
+												s_signCurvatureMethod);
 
 	refreshAll();
 	updateUI();

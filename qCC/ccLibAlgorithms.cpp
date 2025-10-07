@@ -115,11 +115,12 @@ namespace ccLibAlgorithms
 		return sigma;
 	}
 
-	bool ComputeGeomCharacteristics(const GeomCharacteristicSet& characteristics,
-	                                PointCoordinateType          radius,
-	                                ccHObject::Container&        entities,
-	                                const CCVector3*             roughnessUpDir /*=nullptr*/,
-	                                QWidget*                     parent /*=nullptr*/)
+	bool ComputeGeomCharacteristics(const GeomCharacteristicSet&       characteristics,
+									PointCoordinateType                radius,
+									ccHObject::Container&              entities,
+									const CCVector3*                   roughnessUpDir /*=nullptr*/,
+									QWidget*                           parent /*=nullptr*/,
+									const Neighbourhood::SignCurvature signCurvature /*=DO_NOT_SIGN*/)
 	{
 		// no feature case
 		if (characteristics.empty())
@@ -137,7 +138,9 @@ namespace ccLibAlgorithms
 			                                 radius,
 			                                 entities,
 			                                 roughnessUpDir,
-			                                 parent);
+											 parent,
+											 nullptr,
+											 signCurvature);
 		}
 
 		// multiple features case
@@ -156,7 +159,8 @@ namespace ccLibAlgorithms
 			                               entities,
 			                               roughnessUpDir,
 			                               parent,
-			                               pDlg.data()))
+										   pDlg.data(),
+										   signCurvature))
 			{
 				return false;
 			}
@@ -166,12 +170,13 @@ namespace ccLibAlgorithms
 	}
 
 	bool ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::GeomCharacteristic c,
-	                               int                                                     subOption,
-	                               PointCoordinateType                                     radius,
-	                               ccHObject::Container&                                   entities,
-	                               const CCVector3*                                        roughnessUpDir /*=nullptr*/,
-	                               QWidget*                                                parent /*= nullptr*/,
-	                               ccProgressDialog*                                       progressDialog /*=nullptr*/)
+								   int                                                     subOption,
+								   PointCoordinateType                                     radius,
+								   ccHObject::Container&                                   entities,
+								   const CCVector3*                                        roughnessUpDir /*=nullptr*/,
+								   QWidget*                                                parent /*= nullptr*/,
+								   ccProgressDialog*                                       progressDialog /*=nullptr*/,
+								   const Neighbourhood::SignCurvature                      signCurvature /*=DO_NOT_SIGN*/)
 	{
 		size_t selNum = entities.size();
 		if (selNum < 1)
@@ -243,10 +248,30 @@ namespace ccLibAlgorithms
 			switch (subOption)
 			{
 			case CCCoreLib::Neighbourhood::GAUSSIAN_CURV:
-				sfName = CC_CURVATURE_GAUSSIAN_FIELD_NAME;
+				switch (signCurvature) {
+				case Neighbourhood::SIGN_WITH_NORMAL:
+					sfName = CC_CURVATURE_SIGNED_N_GAUSSIAN_FIELD_NAME;
+					break;
+				case Neighbourhood::SIGN_WITH_PLUS_Z:
+					sfName = CC_CURVATURE_SIGNED_Z_GAUSSIAN_FIELD_NAME;
+					break;
+				default:
+					sfName = CC_CURVATURE_GAUSSIAN_FIELD_NAME;
+					break;
+				}
 				break;
 			case CCCoreLib::Neighbourhood::MEAN_CURV:
-				sfName = CC_CURVATURE_MEAN_FIELD_NAME;
+				switch(signCurvature) {
+				case Neighbourhood::SIGN_WITH_NORMAL:
+					sfName = CC_CURVATURE_SIGNED_N_MEAN_FIELD_NAME;
+					break;
+				case Neighbourhood::SIGN_WITH_PLUS_Z:
+					sfName = CC_CURVATURE_SIGNED_Z_MEAN_FIELD_NAME;
+					break;
+				default:
+					sfName = CC_CURVATURE_MEAN_FIELD_NAME;
+					break;
+				}
 				break;
 			case CCCoreLib::Neighbourhood::NORMAL_CHANGE_RATE:
 				sfName = CC_CURVATURE_NORM_CHANGE_RATE_FIELD_NAME;
