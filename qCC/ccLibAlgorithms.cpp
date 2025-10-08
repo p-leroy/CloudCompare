@@ -248,7 +248,8 @@ namespace ccLibAlgorithms
 			switch (subOption)
 			{
 			case CCCoreLib::Neighbourhood::GAUSSIAN_CURV:
-				switch (signCurvature) {
+				switch (signCurvature)
+				{
 				case Neighbourhood::SIGN_WITH_NORMAL:
 					sfName = CC_CURVATURE_SIGNED_N_GAUSSIAN_FIELD_NAME;
 					break;
@@ -261,7 +262,8 @@ namespace ccLibAlgorithms
 				}
 				break;
 			case CCCoreLib::Neighbourhood::MEAN_CURV:
-				switch(signCurvature) {
+				switch(signCurvature)
+				{
 				case Neighbourhood::SIGN_WITH_NORMAL:
 					sfName = CC_CURVATURE_SIGNED_N_MEAN_FIELD_NAME;
 					break;
@@ -275,6 +277,9 @@ namespace ccLibAlgorithms
 				break;
 			case CCCoreLib::Neighbourhood::NORMAL_CHANGE_RATE:
 				sfName = CC_CURVATURE_NORM_CHANGE_RATE_FIELD_NAME;
+				break;
+			case CCCoreLib::Neighbourhood::TYPE_OF_QUADRIC:
+				sfName = CC_CURVATURE_TYPE_OF_QUADRIC_FIELD_NAME;
 				break;
 			default:
 				assert(false);
@@ -353,13 +358,26 @@ namespace ccLibAlgorithms
 					}
 				}
 
-				CCCoreLib::GeometricalAnalysisTools::ErrorCode result = CCCoreLib::GeometricalAnalysisTools::ComputeCharactersitic(c,
-				                                                                                                                   subOption,
-				                                                                                                                   cloud,
-				                                                                                                                   radius,
-				                                                                                                                   roughnessUpDir,
-				                                                                                                                   pDlg,
-				                                                                                                                   octree.data());
+				CCCoreLib::GeometricalAnalysisTools::ErrorCode result = CCCoreLib::GeometricalAnalysisTools::NoError;
+				if (signCurvature == CCCoreLib::Neighbourhood::SIGN_WITH_NORMAL)
+				{
+					if (!cloud->hasNormals())
+					{
+						result = CCCoreLib::GeometricalAnalysisTools::NormalsNeededOnTheInputCloud;
+					}
+				}
+
+				if (result == CCCoreLib::GeometricalAnalysisTools::NoError)
+				{
+					result = CCCoreLib::GeometricalAnalysisTools::ComputeCharactersitic(c,
+																						subOption,
+																						cloud,
+																						radius,
+																						roughnessUpDir,
+																						pDlg,
+																						octree.data(),
+																						signCurvature);
+				}
 
 				if (result == CCCoreLib::GeometricalAnalysisTools::NoError)
 				{
@@ -409,6 +427,9 @@ namespace ccLibAlgorithms
 						break;
 					case CCCoreLib::GeometricalAnalysisTools::ProcessCancelledByUser:
 						errorMessage = "Process cancelled by user";
+						break;
+					case CCCoreLib::GeometricalAnalysisTools::NormalsNeededOnTheInputCloud:
+						errorMessage = "You need normals on the input cloud";
 						break;
 					default:
 						assert(false);

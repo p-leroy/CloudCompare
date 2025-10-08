@@ -52,6 +52,8 @@ class ccGeomFeaturesDlg : public QDialog
 
 	Neighbourhood::SignCurvature getCurvatureSignatureMethod() const;
 
+	void enableCurvSignCurvature();
+
 	//! Reset the whole dialog
 	void reset();
 
