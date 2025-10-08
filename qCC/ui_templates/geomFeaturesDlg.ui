@@ -214,6 +214,9 @@
           </item>
           <item row="4" column="0">
            <widget class="QCheckBox" name="curvTypeOfQuadric">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;0 UNKNOWN,&lt;/p&gt;&lt;p&gt;1 ELLIPTIC_PARABOLOID_AKA_BOWL,&lt;/p&gt;&lt;p&gt;2 HYPERBOLIC_PARABOLOID_AKA_SADDLE,&lt;/p&gt;&lt;p&gt;3 PARABOLIC_AKA_DEGENERATE&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
             <property name="text">
              <string>Quadric type</string>
             </property>
