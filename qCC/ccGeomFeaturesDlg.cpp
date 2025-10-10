@@ -119,11 +119,11 @@ Neighbourhood::SignCurvature ccGeomFeaturesDlg::getCurvatureSignatureMethod() co
 {
 	if (curvSignCurvature->isChecked())
 	{
-		if (curvWithNormal)
+		if (curvWithNormal->isChecked())
 		{
 			return Neighbourhood::SIGN_WITH_NORMAL;
 		}
-		else if (curvWithPlusZ)
+		else if (curvWithPlusZ->isChecked())
 		{
 			return Neighbourhood::SIGN_WITH_PLUS_Z;
 		}
