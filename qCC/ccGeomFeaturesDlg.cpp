@@ -29,6 +29,7 @@ ccGeomFeaturesDlg::ccGeomFeaturesDlg(QWidget* parent /*=nullptr*/)
 
 	connect(buttonBox->button(QDialogButtonBox::Reset), &QPushButton::clicked, this, &ccGeomFeaturesDlg::reset);
 	connect(curvGaussCheckBox, &QCheckBox::stateChanged, this, &ccGeomFeaturesDlg::enableCurvSignCurvature);
+	connect(curvMeanCheckBox, &QCheckBox::stateChanged, this, &ccGeomFeaturesDlg::enableCurvSignCurvature);
 
 	// Make the options for the signature of curvature features exclusive
 	buttonGroup = new QButtonGroup(this);
@@ -136,11 +137,11 @@ void ccGeomFeaturesDlg::enableCurvSignCurvature()
 {
 	if (curvGaussCheckBox->isChecked() || curvMeanCheckBox->isChecked())
 	{
-		curvSignCurvature->setChecked(true);
+		curvSignCurvature->setEnabled(true);
 	}
 	else
 	{
-		curvSignCurvature->setChecked(false);
+		curvSignCurvature->setEnabled(false);
 	}
 }
 

@@ -215,7 +215,7 @@
           <item row="4" column="0">
            <widget class="QCheckBox" name="curvTypeOfQuadric">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;0 UNKNOWN,&lt;/p&gt;&lt;p&gt;1 ELLIPTIC_PARABOLOID_AKA_BOWL,&lt;/p&gt;&lt;p&gt;2 HYPERBOLIC_PARABOLOID_AKA_SADDLE,&lt;/p&gt;&lt;p&gt;3 PARABOLIC_AKA_DEGENERATE&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;0 UNKNOWN&lt;/p&gt;&lt;p&gt;1 ELLIPTIC_PARABOLOID_OPENS_UP&lt;/p&gt;&lt;p&gt;2 ELLIPTIC_PARABOLOID_OPENS_DOWN&lt;/p&gt;&lt;p&gt;3 HYPERBOLIC_PARABOLOID&lt;/p&gt;&lt;p&gt;4 PARABOLIC_CYLINDER&lt;/p&gt;&lt;p&gt;5 PAIR_OF_PLANES&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
              <string>Quadric type</string>
