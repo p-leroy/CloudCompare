@@ -8642,10 +8642,10 @@ void MainWindow::doComputeGeometricFeature()
 	static CCVector3                              s_upDir(0, 0, 1);
 	static bool                                   s_upDirDefined = false;
 	static Neighbourhood::SignCurvature           s_signCurvatureMethod = Neighbourhood::DO_NOT_SIGN;
+	static double                                 s_radius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
 
 	ccGeomFeaturesDlg gfDlg(this);
-	double            radius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
-	gfDlg.setRadius(radius);
+	gfDlg.setRadius(s_radius);
 
 	// restore semi-persistent parameters
 	gfDlg.setSelectedFeatures(s_selectedCharacteristics);
@@ -8660,7 +8660,7 @@ void MainWindow::doComputeGeometricFeature()
 	if (!gfDlg.exec()) // Execute the dialog, select features
 		return;
 
-	radius = gfDlg.getRadius();
+	s_radius = gfDlg.getRadius();
 	if (!gfDlg.getSelectedFeatures(s_selectedCharacteristics))
 	{
 		ccLog::Error(tr("Not enough memory!"));
@@ -8679,7 +8679,7 @@ void MainWindow::doComputeGeometricFeature()
 	s_signCurvatureMethod  = gfDlg.getCurvatureSignatureMethod();
 
 	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics,
-												static_cast<PointCoordinateType>(radius),
+												static_cast<PointCoordinateType>(s_radius),
 												m_selectedEntities,
 												upDir,
 												this,
