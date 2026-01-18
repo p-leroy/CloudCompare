@@ -21,6 +21,11 @@ New features:
 		- distances between a point cloud and a disc can be computed with 'Tools > Distances > Cloud/primitive dist'
 
 	- New Command line options
+		- New command -DISTANCES_FROM_SENSOR [-SQUARED]
+			- to compute the distances from every point of the cloud to the associated sensor origin (if any)
+		- New command -SCATTERING_ANGLES [-DEGREES]
+			- to compute the scattering angle from every point of the cloud (and its associated normal) w.r.t. to the associated sensor (if any)
+			- the cloud must have normals
 		- New command -FILTER -RGB -SF {-MEAN|-MEDIAN|GAUSSIAN|BILATERAL} -SIGMA {sigma} -SIGMA_SF {sigma_sf} -BURNT_COLOR_THRESHOLD {burnt_color_threshold} -BLEND_GRAYSCALE {grayscale_threshold} {grayscale_percent}
 			- command arguments with a dash can be in any order
 			- -RGB runs the filter on color
@@ -83,6 +88,7 @@ New features:
               - -CSV_FILENAME {csv_filename} default = '[name of cloud]_facets.csv'
 			  - -COORDS_IN_CSV will add facet polyline coordinates to the csv file in wkt format "POLYGONZ(x1 y1 z1,x2 y2 z2,...,x1 y1 z1)". default=false
 					If present then -USE_NATIVE_ORIENTATION etc will apply.
+
 	- New option to discard the confirmation popup dialog when exiting CloudCompare
 		- one can choose to discard it the first time it appears
 		- it can then be restored via the 'Display > Display options' menu entry
@@ -92,12 +98,6 @@ New features:
 	- New tool: 'Display > Current 3D view Information'
 		- display some pieces of information on the current 3D view (resolution, pixel size, image size, camera orientation, etc.)
 		- also available via the new 'info' button of the 'Display > Render to file' option (taking into account a potential scaling)
-
-	- Display > Lock rotation about an axis
-		- now a proper 'turntable' rotation mode
-		- dedicated icon in the left 'View' toolbar
-		- choice is now persistent, and will be reactivated when running CC again, or creating a new 3D view
-		- currently ignored by 3D mice and controllers
 
 	- New setting dialog to customize keyboard shortcuts for common CC actions
 
@@ -121,6 +121,12 @@ New plugins
 		- option to generate CSV report
 
 Improvements:
+
+	- Display > Lock rotation about an axis
+		- now a proper 'turntable' rotation mode
+		- dedicated icon in the left 'View' toolbar
+		- choice is now persistent, and will be reactivated when running CC again, or creating a new 3D view
+		- currently ignored by 3D mice and controllers
 
 	- Rasterize tool
 		- New 'X-ray' field calculation tool (same tab as 'hillshade')
@@ -150,10 +156,8 @@ Improvements:
 			this means the user really wants to apply the input Global shift to all the entities (instead of showing the dialog again and again)
 
 	- Command line:
-		- new options
-			- -DISTANCES_FROM_SENSOR [-SQUARED]
-			- -SCATTERING_ANGLES [-DEGREES]
-			- -OCTREE_NORMALS {radius} [-WITH_GRIDS {angle}] [-ORIENT WITH_GRIDS] [-ORIENT WITH_SENSOR]
+		- new sub-options for -OCTREE_NORMALS:
+			- -OCTREE_NORMALS {radius} [-WITH_GRIDS {angle}] [-ORIENT WITH_GRIDS/WITH_SENSOR]
 		- the -SF_OP command now supports MIN/DISP_MIN/SAT_MIN/N_SIGMA_MIN/MAX/DISP_MAX/SAT_MAX/N_SIGMA_MAX as input values
 		- Rename -CSF command's resulting clouds to be able to select them later:
 			- {original cloud name} + '_ground_points'
@@ -167,6 +171,10 @@ Improvements:
 			- Option -GLOBAL_SHIFT (must be placed just after the orthogonal dimension setting)
 				- this allows to apply a Global Shift to the polyline vertices. Similar syntax to the -GLOBAL_SHIFT option of the -O command.
 			- The orthogonal dimension can now be Xflip, Yflip or Zflip to reverse the order in whcih CC expects the coordinates
+		- the -SF_INTERP option now has more sub-options
+			- '-SF_INTERP {SF index} -INTERP_NN k' to use nearest neighbors interpolation (k = number of neighbors)
+			- '-SF_INTERP {SF index} -INTERP_RADIUS r' to use interpolation inside a sphere (r = sphere radius)
+			- (these new options must always be placed after 'DEST_IS_FIRST')
 
 	- LAS file loading dialog
 		- Option to decompose the classification fields into Classification, Synthetic, Key Point and Withheld sub-fields

@@ -126,8 +126,10 @@ constexpr char COMMAND_SF_OP[]                            = "SF_OP";
 constexpr char COMMAND_SF_OP_NOT_IN_PLACE[]               = "NOT_IN_PLACE";
 constexpr char COMMAND_SF_OP_SF[]                         = "SF_OP_SF";
 constexpr char COMMAND_SF_INTERP[]                        = "SF_INTERP";
-constexpr char COMMAND_COLOR_INTERP[]                     = "COLOR_INTERP";
 constexpr char COMMAND_SF_INTERP_DEST_IS_FIRST[]          = "DEST_IS_FIRST";
+constexpr char COMMAND_SF_INTERP_NN[]                     = "INTERP_NN";
+constexpr char COMMAND_SF_INTERP_RADIUS[]                 = "INTERP_RADIUS";
+constexpr char COMMAND_COLOR_INTERP[]                     = "COLOR_INTERP";
 constexpr char COMMAND_SF_ADD_CONST[]                     = "SF_ADD_CONST";
 constexpr char COMMAND_SF_ADD_ID[]                        = "SF_ADD_ID";
 constexpr char COMMAND_SF_ADD_ID_AS_INT[]                 = "AS_INT";
@@ -3356,18 +3358,21 @@ bool CommandMergeClouds::process(ccCommandLineInterface& cmd)
 	// merge clouds
 	if (!cmd.clouds().empty())
 	{
-		ccPointCloud* firstCloud = nullptr;
-
-		unsigned totalSize = 0;
+		size_t totalSize = 0;
 		for (size_t i = 0; i < cmd.clouds().size(); ++i)
 		{
 			totalSize += cmd.clouds()[i].pc->size();
 		}
 
-		firstCloud = cmd.clouds().front().pc;
+		if (totalSize > std::numeric_limits<unsigned>::max())
+		{
+			return cmd.error(QObject::tr("Merged cloud is too big!"));
+		}
+
+		ccPointCloud* firstCloud = cmd.clouds().front().pc;
 
 		// reserve the final required number of points
-		if (!firstCloud->reserve(totalSize))
+		if (!firstCloud->reserve(static_cast<unsigned>(totalSize)))
 		{
 			return cmd.error(QObject::tr("Not enough memory!"));
 		}
@@ -6549,7 +6554,7 @@ bool CommandSFInterpolation::process(ccCommandLineInterface& cmd)
 	}
 
 	bool destIsFirst = false;
-	while (!cmd.arguments().empty())
+	if (!cmd.arguments().empty())
 	{
 		QString argument = cmd.arguments().front();
 		if (ccCommandLineInterface::IsCommand(argument, COMMAND_SF_INTERP_DEST_IS_FIRST))
@@ -6558,10 +6563,6 @@ bool CommandSFInterpolation::process(ccCommandLineInterface& cmd)
 			// local option confirmed, we can move on
 			cmd.arguments().pop_front();
 			destIsFirst = true;
-		}
-		else
-		{
-			break; // as soon as we encounter an unrecognized argument, we break the local loop to go back to the main one!
 		}
 	}
 
@@ -6578,10 +6579,8 @@ bool CommandSFInterpolation::process(ccCommandLineInterface& cmd)
 	{
 		return false;
 	}
-
 	cmd.print("SF to interpolate: index " + QString::number(sfIndex) + ", name " + QString::fromStdString(source->getScalarField(sfIndex)->getName()));
 
-	// semi-persistent parameters
 	ccPointCloudInterpolator::Parameters params;
 	{
 		params.method = ccPointCloudInterpolator::Parameters::NEAREST_NEIGHBOR; // nearest neighbor
@@ -6589,6 +6588,48 @@ bool CommandSFInterpolation::process(ccCommandLineInterface& cmd)
 		params.knn    = 6;
 		params.radius = static_cast<float>(dest->getOwnBB().getDiagNormd() / 100);
 		params.sigma  = params.radius / 2.5; // see ccInterpolationDlg::onRadiusUpdated
+	}
+
+	if (!cmd.arguments().empty())
+	{
+		QString argument = cmd.arguments().front();
+		if (ccCommandLineInterface::IsCommand(argument, COMMAND_SF_INTERP_NN))
+		{
+			cmd.print(QObject::tr("[Nearest Neighbor interpolation]"));
+			params.method = ccPointCloudInterpolator::Parameters::K_NEAREST_NEIGHBORS;
+			// local option confirmed
+			cmd.arguments().pop_front();
+
+			if (cmd.arguments().empty())
+			{
+				return cmd.error(QObject::tr("Missing argument after '%1': number of nearest neighbors").arg(COMMAND_SF_INTERP_NN));
+			}
+
+			bool ok;
+			params.knn = cmd.arguments().takeFirst().toInt(&ok);
+			if (!ok || params.knn < 1)
+			{
+				return cmd.error(QObject::tr("Invalid number of nearest neighbors! (after %1)").arg(COMMAND_SF_INTERP_NN));
+			}
+		}
+		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_SF_INTERP_RADIUS))
+		{
+			cmd.print(QObject::tr("[Sphere interpolation]"));
+			params.method = ccPointCloudInterpolator::Parameters::RADIUS;
+			// local option confirmed
+			cmd.arguments().pop_front();
+
+			if (cmd.arguments().empty())
+			{
+				return cmd.error(QObject::tr("Missing argument after '%1': radius of the sphere").arg(COMMAND_SF_INTERP_RADIUS));
+			}
+			bool ok;
+			params.radius = cmd.arguments().takeFirst().toFloat(&ok);
+			if (!ok || params.radius <= 0)
+			{
+				return cmd.error(QObject::tr("Invalid sphere radius! (after %1)").arg(COMMAND_SF_INTERP_RADIUS));
+			}
+		}
 	}
 
 	return ccEntityAction::interpolateSFs(source, dest, sfIndex, params, cmd.widgetParent());
@@ -8318,37 +8359,18 @@ bool CommandComputeDistancesFromSensor::process(ccCommandLineInterface& cmd)
 		}
 	}
 
-	// Call MainWindow generic method
-	ccHObject::Container entities;
-	entities.resize(cmd.clouds().size());
-	for (size_t i = 0; i < cmd.clouds().size(); ++i)
+	for (const auto& cl : cmd.clouds())
 	{
-		entities[i] = cmd.clouds()[i].pc;
-	}
-
-	for (ccHObject* entity : entities)
-	{
-		unsigned  childrenNumber = entity->getChildrenNumber();
 		ccSensor* sensor{nullptr};
-		for (unsigned childPos = 0; childPos < childrenNumber; childPos++)
+		for (unsigned childPos = 0; childPos < cl.pc->getChildrenNumber(); childPos++)
 		{
-			sensor = ccHObjectCaster::ToSensor(entity->getChild(childPos));
+			sensor = ccHObjectCaster::ToSensor(cl.pc->getChild(childPos));
 			if (sensor)
 				break; // once a sensor is found, break the loop
 		}
 
 		if (!sensor)
 			continue;
-
-		assert(sensor); // at this step we should have a sensor associated to the cloud
-
-		// get associated cloud
-		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(entity);
-		if (!cloud)
-		{
-			cmd.error(QObject::tr("Do not manage to associate the sensor with a cloud"));
-			return false;
-		}
 
 		// sensor center
 		CCVector3 sensorCenter;
@@ -8360,22 +8382,22 @@ bool CommandComputeDistancesFromSensor::process(ccCommandLineInterface& cmd)
 
 		// set up a new scalar field
 		const char* defaultRangesSFname = squared ? CC_DEFAULT_SQUARED_RANGES_SF_NAME : CC_DEFAULT_RANGES_SF_NAME;
-		int         sfIdx               = cloud->getScalarFieldIndexByName(defaultRangesSFname);
+		int         sfIdx               = cl.pc->getScalarFieldIndexByName(defaultRangesSFname);
 		if (sfIdx < 0)
 		{
-			sfIdx = cloud->addScalarField(defaultRangesSFname);
+			sfIdx = cl.pc->addScalarField(defaultRangesSFname);
 			if (sfIdx < 0)
 			{
 				cmd.error(QObject::tr("Not enough memory!"));
 				return false;
 			}
 		}
-		CCCoreLib::ScalarField* distances = cloud->getScalarField(sfIdx);
+		CCCoreLib::ScalarField* distances = cl.pc->getScalarField(sfIdx);
 
 		// perform computation
-		for (unsigned i = 0; i < cloud->size(); ++i)
+		for (unsigned i = 0; i < cl.pc->size(); ++i)
 		{
-			const CCVector3* P = cloud->getPoint(i);
+			const CCVector3* P = cl.pc->getPoint(i);
 			ScalarType       s = static_cast<ScalarType>(squared ? (*P - sensorCenter).norm2() : (*P - sensorCenter).norm());
 			distances->setValue(i, s);
 		}
@@ -8414,21 +8436,13 @@ bool CommandComputeScatteringAngles::process(ccCommandLineInterface& cmd)
 		}
 	}
 
-	// Call MainWindow generic method
-	ccHObject::Container entities;
-	entities.resize(cmd.clouds().size());
-	for (size_t i = 0; i < cmd.clouds().size(); ++i)
+	for (const auto& cl : cmd.clouds())
 	{
-		entities[i] = cmd.clouds()[i].pc;
-	}
-
-	for (ccHObject* entity : entities)
-	{
-		unsigned  childrenNumber = entity->getChildrenNumber();
+		unsigned  childrenNumber = cl.pc->getChildrenNumber();
 		ccSensor* sensor{nullptr};
 		for (unsigned childPos = 0; childPos < childrenNumber; childPos++)
 		{
-			sensor = ccHObjectCaster::ToSensor(entity->getChild(childPos));
+			sensor = ccHObjectCaster::ToSensor(cl.pc->getChild(childPos));
 			if (sensor)
 				break; // once a sensor is found, break the loop
 		}
@@ -8438,17 +8452,9 @@ bool CommandComputeScatteringAngles::process(ccCommandLineInterface& cmd)
 
 		assert(sensor); // at this step we should have a sensor associated to the cloud
 
-		// get associated cloud
-		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(entity);
-		if (!cloud)
+		if (!cl.pc->hasNormals())
 		{
-			cmd.error(QObject::tr("Do not manage to associate the sensor with a cloud"));
-			return false;
-		}
-
-		if (!cloud->hasNormals())
-		{
-			cmd.print(QObject::tr(("The cloud must have normals for scattering angles calculations, skip calculation for cloud " + cloud->getName()).toLatin1()));
+			cmd.print(QObject::tr(("The cloud must have normals for scattering angles calculations, skip calculation for cloud " + cl.pc->getName()).toLatin1()));
 			continue;
 		}
 
@@ -8462,30 +8468,30 @@ bool CommandComputeScatteringAngles::process(ccCommandLineInterface& cmd)
 
 		// set up a new scalar field
 		const char* defaultScatAnglesSFname = toDegreeFlag ? CC_DEFAULT_DEG_SCATTERING_ANGLES_SF_NAME : CC_DEFAULT_RAD_SCATTERING_ANGLES_SF_NAME;
-		int         sfIdx                   = cloud->getScalarFieldIndexByName(defaultScatAnglesSFname);
+		int         sfIdx                   = cl.pc->getScalarFieldIndexByName(defaultScatAnglesSFname);
 		if (sfIdx < 0)
 		{
-			sfIdx = cloud->addScalarField(defaultScatAnglesSFname);
+			sfIdx = cl.pc->addScalarField(defaultScatAnglesSFname);
 			if (sfIdx < 0)
 			{
 				cmd.error(QObject::tr("Not enough memory!"));
 				return false;
 			}
 		}
-		CCCoreLib::ScalarField* angles = cloud->getScalarField(sfIdx);
+		CCCoreLib::ScalarField* angles = cl.pc->getScalarField(sfIdx);
 
 		// perform computation
-		for (unsigned i = 0; i < cloud->size(); ++i)
+		for (unsigned i = 0; i < cl.pc->size(); ++i)
 		{
 			// the point position
-			const CCVector3* P = cloud->getPoint(i);
+			const CCVector3* P = cl.pc->getPoint(i);
 
 			// build the ray
 			CCVector3 ray = *P - sensorCenter;
 			ray.normalize();
 
 			// get the current normal
-			CCVector3 normal(cloud->getPointNormal(i));
+			CCVector3 normal(cl.pc->getPointNormal(i));
 			// normal.normalize(); //should already be the case!
 
 			// compute the angle
