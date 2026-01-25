@@ -281,6 +281,10 @@ Improvements:
 		- new shortcuts to change the active scalar field: SHIFT + Up or Down arrows
 		- updated shortcuts list (F1)
 
+	- Tools > Projection > Unroll
+		- new option when unrolling a mesh: 'remove stretched triangles'
+		- automatically discards triangles which are stretched from one end to the other of the unrolled entity
+
 	- Others:
 		- the shortcut to the 'Level' tool in the 'View' toolbar (left) has been removed. Contrarily to the other options in this toolbar,
 			the Level tool can change the cloud coordinates, and not only the camera position. This could lead to strange issues when the
@@ -333,6 +337,7 @@ Bug fixes:
 	- some SHP files could not be opened due to longer records than specified
 	- DXF files: the 'elevation' of LWPOLYLINE entities was ignored
 	- High DPI displays with a 1.5 ratio would be badly handled (point picking, 2D labels, etc.)
+	- When loading a file, the user could change the Global scale, but the value was ignored. The field will be disabled to avoid confusion for the time being.
 
 Unresolved anomalies:
 	- 'LAS.vlrs' meta-data items saved in BIN files with any version prior to 2.14.beta cannot be restored anymore due to Qt 6
