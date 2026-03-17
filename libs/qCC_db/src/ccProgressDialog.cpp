@@ -18,9 +18,14 @@
 #include "ccProgressDialog.h"
 
 // Qt
+#include <CCPlatform.h>
 #include <QCoreApplication>
 #include <QProgressBar>
 #include <QPushButton>
+#if defined(CC_WINDOWS)
+#include <QThread>
+#include <windows.h>
+#endif
 
 ccProgressDialog::ccProgressDialog(bool     showCancelButton,
                                    QWidget* parent /*=nullptr*/)
@@ -46,8 +51,6 @@ ccProgressDialog::ccProgressDialog(bool     showCancelButton,
 		cancelButton->setFocusPolicy(Qt::NoFocus);
 	}
 	setCancelButton(cancelButton);
-
-	connect(this, &ccProgressDialog::scheduleRefresh, this, &ccProgressDialog::refresh, Qt::QueuedConnection); // can't use DirectConnection here!
 }
 
 void ccProgressDialog::refresh()
@@ -67,8 +70,19 @@ void ccProgressDialog::update(float percent)
 	if (value != m_currentValue)
 	{
 		m_currentValue = value;
-		Q_EMIT scheduleRefresh();
-		QCoreApplication::processEvents();
+#if defined(CC_WINDOWS)
+		if (QThread::currentThread() && QThread::currentThread()->isMainThread())
+		{
+			refresh();
+			::Sleep(1);
+		}
+		else
+#endif
+		{
+			QTimer::singleShot(0, this, [this]()
+			                   { refresh(); });
+			QCoreApplication::processEvents();
+		}
 	}
 }
 
