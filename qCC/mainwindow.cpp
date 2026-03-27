@@ -824,7 +824,9 @@ void MainWindow::doActionSetUniqueColor()
 void MainWindow::doActionSetColor(bool colorize)
 {
 	if (!ccEntityAction::setColor(m_selectedEntities, colorize, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -833,7 +835,9 @@ void MainWindow::doActionSetColor(bool colorize)
 void MainWindow::doActionRGBToGreyScale()
 {
 	if (!ccEntityAction::rgbToGreyScale(m_selectedEntities))
+	{
 		return;
+	}
 
 	refreshAll();
 }
@@ -841,7 +845,9 @@ void MainWindow::doActionRGBToGreyScale()
 void MainWindow::doActionSetColorGradient()
 {
 	if (!ccEntityAction::setColorGradient(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -855,7 +861,9 @@ void MainWindow::doActionChangeColorLevels()
 void MainWindow::doActionInterpolateColors()
 {
 	if (!ccEntityAction::interpolateColors(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -864,7 +872,9 @@ void MainWindow::doActionInterpolateColors()
 void MainWindow::doActionInterpolateScalarFields()
 {
 	if (!ccEntityAction::interpolateSFs(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -873,7 +883,9 @@ void MainWindow::doActionInterpolateScalarFields()
 void MainWindow::doActionEnhanceRGBWithIntensities()
 {
 	if (!ccEntityAction::enhanceRGBWithIntensities(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 }
@@ -897,7 +909,9 @@ void MainWindow::doActionColorFromScalars()
 void MainWindow::doActionInvertNormals()
 {
 	if (!ccEntityAction::invertNormals(m_selectedEntities))
+	{
 		return;
+	}
 
 	refreshAll();
 }
@@ -931,9 +945,11 @@ void          MainWindow::doActionComputeKdTree()
 {
 	ccGenericPointCloud* cloud = nullptr;
 
-	if (haveOneSelection())
+	auto selectedEntities = m_selectedEntities; // we don't want the user to change the set of selected entities while the algorithm is executed!
+
+	if (selectedEntities.size() == 1)
 	{
-		ccHObject* ent = m_selectedEntities.front();
+		ccHObject* ent = selectedEntities.front();
 		bool       lockedVertices;
 		cloud = ccHObjectCaster::ToGenericPointCloud(ent, &lockedVertices);
 		if (lockedVertices)
@@ -993,7 +1009,9 @@ void          MainWindow::doActionComputeKdTree()
 void MainWindow::doActionComputeOctree()
 {
 	if (!ccEntityAction::computeOctree(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -1081,7 +1099,9 @@ void MainWindow::doActionApplyTransformation()
 {
 	ccApplyTransformationDlg dlg(this);
 	if (!dlg.exec())
+	{
 		return;
+	}
 
 	bool        applyToGlobal = false;
 	ccGLMatrixd transMat      = dlg.getTransformation(applyToGlobal);
@@ -2736,7 +2756,9 @@ void MainWindow::doActionComputePointsVisibility()
 void MainWindow::doActionConvertTextureToColor()
 {
 	if (!ccEntityAction::convertTextureToColor(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3146,7 +3168,9 @@ void MainWindow::doActionFilterByValue()
 void MainWindow::doActionSFConvertToRandomRGB()
 {
 	if (!ccEntityAction::sfConvertToRandomRGB(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3155,7 +3179,9 @@ void MainWindow::doActionSFConvertToRandomRGB()
 void MainWindow::doActionSFConvertToRGB()
 {
 	if (!ccEntityAction::sfConvertToRGB(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3237,7 +3263,9 @@ void MainWindow::doApplyActiveSFAction(int action)
 void MainWindow::doActionRenameSF()
 {
 	if (!ccEntityAction::sfRename(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	updateUI();
 }
@@ -3269,7 +3297,9 @@ void MainWindow::doActionAddIdField()
 void MainWindow::doActionSplitCloudUsingSF()
 {
 	if (!ccEntityAction::sfSplitCloud(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3280,7 +3310,9 @@ void MainWindow::doActionRGBGaussianFilter()
 	ccPointCloud::RgbFilterOptions(filterParams);
 	filterParams.filterType = ccPointCloud::RGB_FILTER_TYPES::GAUSSIAN;
 	if (!ccEntityAction::rgbGaussianFilter(m_selectedEntities, filterParams, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3291,7 +3323,9 @@ void MainWindow::doActionRGBBilateralFilter()
 	ccPointCloud::RgbFilterOptions(filterParams);
 	filterParams.filterType = ccPointCloud::RGB_FILTER_TYPES::BILATERAL;
 	if (!ccEntityAction::rgbGaussianFilter(m_selectedEntities, filterParams, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3302,7 +3336,9 @@ void MainWindow::doActionRGBMeanFilter()
 	ccPointCloud::RgbFilterOptions(filterParams);
 	filterParams.filterType = ccPointCloud::RGB_FILTER_TYPES::MEAN;
 	if (!ccEntityAction::rgbGaussianFilter(m_selectedEntities, filterParams, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3313,7 +3349,9 @@ void MainWindow::doActionRGBMedianFilter()
 	ccPointCloud::RgbFilterOptions(filterParams);
 	filterParams.filterType = ccPointCloud::RGB_FILTER_TYPES::MEDIAN;
 	if (!ccEntityAction::rgbGaussianFilter(m_selectedEntities, filterParams, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3324,7 +3362,9 @@ void MainWindow::doActionSFGaussianFilter()
 	ccPointCloud::RgbFilterOptions(filterParams);
 	filterParams.filterType = ccPointCloud::RGB_FILTER_TYPES::GAUSSIAN;
 	if (!ccEntityAction::sfGaussianFilter(m_selectedEntities, filterParams, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3335,7 +3375,9 @@ void MainWindow::doActionSFBilateralFilter()
 	ccPointCloud::RgbFilterOptions(filterParams);
 	filterParams.filterType = ccPointCloud::RGB_FILTER_TYPES::BILATERAL;
 	if (!ccEntityAction::sfGaussianFilter(m_selectedEntities, filterParams, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3344,7 +3386,9 @@ void MainWindow::doActionSFBilateralFilter()
 void MainWindow::doActionSmoothMeshSF()
 {
 	if (!ccEntityAction::processMeshSF(m_selectedEntities, ccMesh::SMOOTH_MESH_SF, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -3353,7 +3397,9 @@ void MainWindow::doActionSmoothMeshSF()
 void MainWindow::doActionEnhanceMeshSF()
 {
 	if (!ccEntityAction::processMeshSF(m_selectedEntities, ccMesh::ENHANCE_MESH_SF, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -4300,7 +4346,9 @@ void MainWindow::doActionSubsample()
 void MainWindow::doActionStatisticalTest()
 {
 	if (!ccEntityAction::statisticalTest(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -5531,7 +5579,9 @@ void MainWindow::doActionComputeCPS()
 void MainWindow::doActionComputeNormals()
 {
 	if (!ccEntityAction::computeNormals(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -5540,7 +5590,9 @@ void MainWindow::doActionComputeNormals()
 void MainWindow::doActionOrientNormalsMST()
 {
 	if (!ccEntityAction::orientNormalsMST(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -5549,7 +5601,9 @@ void MainWindow::doActionOrientNormalsMST()
 void MainWindow::doActionOrientNormalsFM()
 {
 	if (!ccEntityAction::orientNormalsFM(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -8352,7 +8406,9 @@ void MainWindow::doActionAddClassificationSF()
 void MainWindow::doActionScalarFieldFromColor()
 {
 	if (!ccEntityAction::sfFromColor(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -8361,7 +8417,9 @@ void MainWindow::doActionScalarFieldFromColor()
 void MainWindow::doActionScalarFieldArithmetic()
 {
 	if (!ccEntityAction::sfArithmetic(m_selectedEntities, this))
+	{
 		return;
+	}
 
 	refreshAll();
 	updateUI();
@@ -8718,19 +8776,23 @@ void MainWindow::doComputeGeometricFeature()
 void MainWindow::doActionSFGradient()
 {
 	if (!ccLibAlgorithms::ApplyCCLibAlgorithm(ccLibAlgorithms::CCLIB_ALGO_SF_GRADIENT, m_selectedEntities, this))
+	{
 		return;
+	}
 	refreshAll();
 	updateUI();
 }
 
 void MainWindow::doSphericalNeighbourhoodExtractionTest()
 {
-	size_t selNum = m_selectedEntities.size();
+	auto selectedEntities = m_selectedEntities; // we don't want the user to change the set of selected entities while the algorithm is executed!
+
+	size_t selNum = selectedEntities.size();
 	if (selNum < 1)
 		return;
 
 	// spherical neighborhood extraction radius
-	double sphereRadius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
+	double sphereRadius = ccLibAlgorithms::GetDefaultCloudKernelSize(selectedEntities);
 	if (sphereRadius < 0)
 	{
 		ccConsole::Error(tr("Invalid kernel size!"));
@@ -8751,11 +8813,11 @@ void MainWindow::doSphericalNeighbourhoodExtractionTest()
 	for (size_t i = 0; i < selNum; ++i)
 	{
 		// we only process clouds
-		if (!m_selectedEntities[i]->isA(CC_TYPES::POINT_CLOUD))
+		if (!selectedEntities[i]->isA(CC_TYPES::POINT_CLOUD))
 		{
 			continue;
 		}
-		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(m_selectedEntities[i]);
+		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(selectedEntities[i]);
 
 		int sfIdx = cloud->getScalarFieldIndexByName(sfName.toStdString());
 		if (sfIdx < 0)
@@ -9498,19 +9560,21 @@ void MainWindow::doActionExportCloudInfo()
 
 void MainWindow::doActionCloudCloudDist()
 {
-	if (getSelectedEntities().size() != 2)
+	auto selectedEntities = m_selectedEntities; // we don't want the user to change the set of selected entities while the algorithm is executed!
+
+	if (selectedEntities.size() != 2)
 	{
 		ccConsole::Error(tr("Select 2 point clouds!"));
 		return;
 	}
 
-	if (!m_selectedEntities.front()->isKindOf(CC_TYPES::POINT_CLOUD) || !m_selectedEntities.back()->isKindOf(CC_TYPES::POINT_CLOUD))
+	if (!selectedEntities.front()->isKindOf(CC_TYPES::POINT_CLOUD) || !selectedEntities.back()->isKindOf(CC_TYPES::POINT_CLOUD))
 	{
 		ccConsole::Error(tr("Select 2 point clouds!"));
 		return;
 	}
 
-	ccOrderChoiceDlg dlg(m_selectedEntities.front(), tr("Compared"), m_selectedEntities.back(), tr("Reference"), this);
+	ccOrderChoiceDlg dlg(selectedEntities.front(), tr("Compared"), selectedEntities.back(), tr("Reference"), this);
 	if (!dlg.exec())
 		return;
 
@@ -9539,7 +9603,9 @@ void MainWindow::doActionCloudCloudDist()
 
 void MainWindow::doActionCloudMeshDist()
 {
-	if (getSelectedEntities().size() != 2)
+	auto selectedEntities = m_selectedEntities; // we don't want the user to change the set of selected entities while the algorithm is executed!
+
+	if (selectedEntities.size() != 2)
 	{
 		ccConsole::Error(tr("Select 2 entities!"));
 		return;
@@ -9550,12 +9616,12 @@ void MainWindow::doActionCloudMeshDist()
 	unsigned cloudNum = 0;
 	for (unsigned i = 0; i < 2; ++i)
 	{
-		if (m_selectedEntities[i]->isKindOf(CC_TYPES::MESH))
+		if (selectedEntities[i]->isKindOf(CC_TYPES::MESH))
 		{
 			++meshNum;
 			isMesh[i] = true;
 		}
-		else if (m_selectedEntities[i]->isKindOf(CC_TYPES::POINT_CLOUD))
+		else if (selectedEntities[i]->isKindOf(CC_TYPES::POINT_CLOUD))
 		{
 			++cloudNum;
 		}
@@ -9577,8 +9643,8 @@ void MainWindow::doActionCloudMeshDist()
 
 	if (meshNum == 1)
 	{
-		compEnt = m_selectedEntities[isMesh[0] ? 1 : 0];
-		refMesh = ccHObjectCaster::ToGenericMesh(m_selectedEntities[isMesh[0] ? 0 : 1]);
+		compEnt = selectedEntities[isMesh[0] ? 1 : 0];
+		refMesh = ccHObjectCaster::ToGenericMesh(selectedEntities[isMesh[0] ? 0 : 1]);
 
 		if (refMesh->isKindOf(CC_TYPES::PRIMITIVE))
 		{
@@ -9605,9 +9671,11 @@ void MainWindow::doActionCloudMeshDist()
 	}
 	else
 	{
-		ccOrderChoiceDlg dlg(m_selectedEntities.front(), tr("Compared"), m_selectedEntities.back(), tr("Reference"), this);
+		ccOrderChoiceDlg dlg(selectedEntities.front(), tr("Compared"), selectedEntities.back(), tr("Reference"), this);
 		if (!dlg.exec())
+		{
 			return;
+		}
 
 		compEnt = dlg.getFirstEntity();
 		refMesh = ccHObjectCaster::ToGenericMesh(dlg.getSecondEntity());
@@ -10763,8 +10831,12 @@ static bool IsValidFileName(QString filename)
 
 void MainWindow::doActionSaveFile()
 {
-	if (!haveSelection())
+	auto selectedEntities = m_selectedEntities; // we don't want the user to change the set of selected entities while the algorithm is executed!
+
+	if (selectedEntities.empty())
+	{
 		return;
+	}
 
 	ccHObject            clouds("clouds");
 	ccHObject            meshes("meshes");
@@ -10773,7 +10845,7 @@ void MainWindow::doActionSaveFile()
 	ccHObject            other("other");
 	ccHObject            otherSerializable("serializable");
 	ccHObject::Container entitiesToDispatch;
-	entitiesToDispatch.insert(entitiesToDispatch.begin(), m_selectedEntities.begin(), m_selectedEntities.end());
+	entitiesToDispatch.insert(entitiesToDispatch.begin(), selectedEntities.begin(), selectedEntities.end());
 	ccHObject entitiesToSave;
 	while (!entitiesToDispatch.empty())
 	{
@@ -10952,8 +11024,8 @@ void MainWindow::doActionSaveFile()
 		// hierarchy objects have generally as name: 'filename.ext (fullpath)'
 		// so we must only take the first part! (otherwise this type of name
 		// with a path inside disturbs QFileDialog a lot ;))
-		QString defaultFileName(m_selectedEntities.front()->getName());
-		if (m_selectedEntities.front()->isA(CC_TYPES::HIERARCHY_OBJECT))
+		QString defaultFileName(selectedEntities.front()->getName());
+		if (selectedEntities.front()->isA(CC_TYPES::HIERARCHY_OBJECT))
 		{
 			QStringList parts = defaultFileName.split(' ', Qt::SkipEmptyParts);
 			if (!parts.empty())
@@ -11010,13 +11082,13 @@ void MainWindow::doActionSaveFile()
 	{
 		if (haveOneSelection())
 		{
-			result = FileIOFilter::SaveToFile(m_selectedEntities.front(), selectedFilename, parameters, selectedFilter);
+			result = FileIOFilter::SaveToFile(selectedEntities.front(), selectedFilename, parameters, selectedFilter);
 		}
 		else
 		{
 			// we'll regroup all selected entities in a temporary group
 			ccHObject tempContainer;
-			ConvertToGroup(m_selectedEntities, tempContainer, ccHObject::DP_NONE);
+			ConvertToGroup(selectedEntities, tempContainer, ccHObject::DP_NONE);
 			if (tempContainer.getChildrenNumber())
 			{
 				result = FileIOFilter::SaveToFile(&tempContainer, selectedFilename, parameters, selectedFilter);
