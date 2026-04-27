@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -14,9 +16,6 @@
 // #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
 // #                                                                        #
 // ##########################################################################
-
-#ifndef CC_MAIN_WINDOW_HEADER
-#define CC_MAIN_WINDOW_HEADER
 
 // Qt
 #include <QMainWindow>
@@ -184,7 +183,7 @@ class MainWindow : public QMainWindow
 	void initPlugins();
 
 	//! Updates the 'Properties' view
-	void updatePropertiesView();
+	void updatePropertiesView() override;
 
   private:
 	//! Creates a new 3D GL sub-window
@@ -462,6 +461,9 @@ class MainWindow : public QMainWindow
 	void doActionShowActiveSFPrevious();
 	void doActionShowActiveSFNext();
 
+	//! Toggles the clipping planes
+	void toggleClippingPlanes();
+
 	//! Removes all entities currently loaded in the DB tree
 	void closeAll();
 
@@ -680,5 +682,3 @@ class MainWindow : public QMainWindow
 
 	QList<QAction*> m_actions;
 };
-
-#endif

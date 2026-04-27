@@ -1372,16 +1372,19 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 		return cmd.error(QObject::tr("No point cloud to resample (be sure to open one with \"-%1 [cloud filename]\" before \"-%2\")").arg(COMMAND_OPEN, COMMAND_SUBSAMPLE));
 	}
 
-	if (cmd.arguments().empty())
+	ccArgumentParser parser(cmd.arguments());
+
+	QString method = parser.takeNext();
+	if (method.isNull())
 	{
 		return cmd.error(QObject::tr("Missing parameter: resampling method after \"-%1\"").arg(COMMAND_SUBSAMPLE));
 	}
 
-	QString method = cmd.arguments().takeFirst().toUpper();
+	method = method.toUpper();
 	cmd.print(QObject::tr("\tMethod: ") + method);
 	if (method == "RANDOM")
 	{
-		if (cmd.arguments().empty())
+		if (parser.isEmpty())
 		{
 			return cmd.error(QObject::tr("Missing parameter: number of points or option \"%2\" after \"-%1 RANDOM \"").arg(COMMAND_SUBSAMPLE).arg(OPTION_PERCENT));
 		}
@@ -1390,32 +1393,21 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 		unsigned count     = 0;
 
 		// handle percent argument
-		if (cmd.arguments().front() == OPTION_PERCENT)
+		if (parser.peek().toUpper() == OPTION_PERCENT)
 		{
-			// local option verified
-			cmd.arguments().pop_front();
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: number after \"-%1 RANDOM %2\"").arg(COMMAND_SUBSAMPLE).arg(OPTION_PERCENT));
-			}
-
-			bool ok;
-			percent = cmd.arguments().takeFirst().toDouble(&ok);
-			if (!ok || percent < 0 || percent > 100)
-			{
-				return cmd.error(QObject::tr("Invalid parameter: number after \"-%1 RANDOM %2\" must be decimal between 0 and 100").arg(COMMAND_SUBSAMPLE).arg(OPTION_PERCENT));
-			}
-
+			parser.skip();
+			const auto maybePercent = parser.takeDouble(QObject::tr("percent"), 0.0, 100.0);
+			if (!maybePercent)
+				return false;
+			percent   = *maybePercent;
 			isPercent = true;
 		}
 		else
 		{
-			bool ok;
-			count = cmd.arguments().takeFirst().toUInt(&ok);
-			if (!ok)
-			{
-				return cmd.error(QObject::tr("Invalid parameter: number of points or option \"%2\" after \"-%1 RANDOM \"").arg(COMMAND_SUBSAMPLE).arg(OPTION_PERCENT));
-			}
+			const auto maybeCount = parser.takeInt(QObject::tr("number of points"));
+			if (!maybeCount)
+				return false;
+			count = *maybeCount;
 			cmd.print(QObject::tr("\tOutput points: %1").arg(count));
 		}
 
@@ -1468,45 +1460,32 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 	}
 	else if (method == "SPATIAL")
 	{
-		if (cmd.arguments().empty())
-		{
-			return cmd.error(QObject::tr("Missing parameter: spatial step after \"-%1 SPATIAL\"").arg(COMMAND_SUBSAMPLE));
-		}
 
-		bool   ok;
-		double step = cmd.arguments().takeFirst().toDouble(&ok);
-		if (!ok || step <= 0)
-		{
-			return cmd.error(QObject::tr("Invalid step value for spatial subsampling!"));
-		}
+		// Note: min for double is the minimum positive value representable
+		const auto maybeStep = parser.takeDouble(QObject::tr("step"), std::numeric_limits<double>::min());
+		if (!maybeStep)
+			return false;
+		double step = *maybeStep;
+
 		cmd.print(QObject::tr("\tSpatial step: %1").arg(step));
 
 		double sfMinSpacing = 0;
 		double sfMaxSpacing = 0;
 		bool   useActiveSF  = false;
-		if (!cmd.arguments().empty())
+		if (!parser.isEmpty() && parser.peek().toUpper() == OPTION_USE_ACTIVE_SF)
 		{
-			if (cmd.arguments().front().toUpper() == OPTION_USE_ACTIVE_SF)
-			{
-				// enable USE_ACTIVE_SF
-				useActiveSF = true;
-				cmd.arguments().pop_front();
-				if (cmd.arguments().size() >= 2)
-				{
-					bool validMin = false;
-					sfMinSpacing  = cmd.arguments().takeFirst().toDouble(&validMin);
-					bool validMax = false;
-					sfMaxSpacing  = cmd.arguments().takeFirst().toDouble(&validMax);
-					if (!validMin || !validMax || sfMinSpacing < 0 || sfMaxSpacing < 0)
-					{
-						return cmd.error(QObject::tr("Invalid parameters: Two positive decimal number required after '%1'").arg(OPTION_USE_ACTIVE_SF));
-					}
-				}
-				else
-				{
-					return cmd.error(QObject::tr("Missing parameters: Two positive decimal number required after '%1'").arg(OPTION_USE_ACTIVE_SF));
-				}
-			}
+			parser.skip();
+			useActiveSF = true;
+
+			const auto maybeMinSpacing = parser.takeDouble(QObject::tr("SF min spacing"), 0.0);
+			if (!maybeMinSpacing)
+				return false;
+			sfMinSpacing = *maybeMinSpacing;
+
+			const auto maybeMaxSpacing = parser.takeDouble(QObject::tr("SF max spacing"), 0.0);
+			if (!maybeMaxSpacing)
+				return false;
+			sfMaxSpacing = *maybeMaxSpacing;
 		}
 
 		for (CLCloudDesc& desc : cmd.clouds())
@@ -1626,84 +1605,56 @@ bool CommandSubsample::process(ccCommandLineInterface& cmd)
 		double    percent             = 0.0;
 		const int maxOctreeLevel      = CCCoreLib::DgmOctree::MAX_OCTREE_LEVEL;
 
-		if (!cmd.arguments().empty())
+		if (!parser.isEmpty())
 		{
 			// params for automatic OCTREE level calculation based on cell size
-			if (cmd.arguments().front() == "CELL_SIZE")
+			if (parser.peek().toUpper() == "CELL_SIZE")
 			{
-				cmd.arguments().pop_front();
-
-				if (cmd.arguments().empty())
-				{
-					return cmd.error(QObject::tr("Missing parameter: octree cell size after \"-%1 OCTREE CELL_SIZE \"").arg(COMMAND_SUBSAMPLE));
-				}
-
-				bool ok  = false;
-				cellSize = cmd.arguments().takeFirst().toDouble(&ok);
-				if (!ok)
-				{
-					return cmd.error(QObject::tr("Invalid parameter: octree cell size after \"-%1 OCTREE CELL_SIZE \"").arg(COMMAND_SUBSAMPLE));
-				}
+				parser.skip();
+				const auto maybeCellSize = parser.takeDouble(QObject::tr("octree cell size"), std::numeric_limits<double>::min());
+				if (!maybeCellSize)
+					return false;
+				cellSize   = *maybeCellSize;
 				byCellSize = true;
 				cmd.print(QObject::tr("\tOctree cell size: %1").arg(cellSize));
 			}
-
 			// params for automatic OCTREE level calculation based on number of points
-			else if (cmd.arguments().front() == OPTION_NUMBER_OF_POINTS)
+			else if (parser.peek().toUpper() == OPTION_NUMBER_OF_POINTS)
 			{
-				// local option verified
+				parser.skip();
 				byMaxNumberOfPoints = true;
-				cmd.arguments().pop_front();
 
-				if (cmd.arguments().empty())
+				if (parser.isEmpty())
 				{
-					return cmd.error(QObject::tr("Missing parameter: number of points or option \"%3\" after \"-%1 OCTREE %2 \"").arg(COMMAND_SUBSAMPLE).arg(OPTION_NUMBER_OF_POINTS).arg(OPTION_PERCENT));
+					return cmd.error(QObject::tr("Missing parameter: number of points or option \"%3\" after \"-%1 OCTREE %2 \"").arg(COMMAND_SUBSAMPLE, OPTION_NUMBER_OF_POINTS, OPTION_PERCENT));
 				}
 
 				// handle percent argument
-				if (cmd.arguments().front() == OPTION_PERCENT)
+				if (parser.peek().toUpper() == OPTION_PERCENT)
 				{
-					// local option verified
-					cmd.arguments().pop_front();
-					if (cmd.arguments().empty())
-					{
-						return cmd.error(QObject::tr("Missing parameter: number after \"-%1 OCTREE %2 %3\"").arg(COMMAND_SUBSAMPLE).arg(OPTION_NUMBER_OF_POINTS).arg(OPTION_PERCENT));
-					}
-
-					bool ok = false;
-					percent = cmd.arguments().takeFirst().toDouble(&ok);
-					if (!ok || percent < 0 || percent > 100)
-					{
-						return cmd.error(QObject::tr("Invalid parameter: number after \"-%1 OCTREE %2 %3\" must be decimal between 0 and 100").arg(COMMAND_SUBSAMPLE).arg(OPTION_NUMBER_OF_POINTS).arg(OPTION_PERCENT));
-					}
-
+					parser.skip();
+					const auto maybePercent = parser.takeDouble(QObject::tr("percent"), 0.0, 100.0);
+					if (!maybePercent)
+						return false;
+					percent   = *maybePercent;
 					isPercent = true;
 				}
 				else
 				{
-					bool ok           = false;
-					maxNumberOfPoints = cmd.arguments().takeFirst().toUInt(&ok);
-					if (!ok)
-					{
-						return cmd.error(QObject::tr("Invalid parameter: number of points or option \"%3\" after \"-%1 OCTREE %2 \"").arg(COMMAND_SUBSAMPLE).arg(OPTION_NUMBER_OF_POINTS).arg(OPTION_PERCENT));
-					}
+					const auto maybeCount = parser.takeInt(QObject::tr("number of points"), 1);
+					if (!maybeCount)
+						return false;
+					maxNumberOfPoints = static_cast<unsigned>(*maybeCount);
 					cmd.print(QObject::tr("\tOctree target number of points: %1").arg(maxNumberOfPoints));
 				}
 			}
 			// params for original version octree calculation based on given level
 			else
 			{
-				if (cmd.arguments().empty())
-				{
-					return cmd.error(QObject::tr("Missing parameter: octree level after \"-%1 OCTREE\"").arg(COMMAND_SUBSAMPLE));
-				}
-
-				bool ok     = false;
-				octreeLevel = cmd.arguments().takeFirst().toInt(&ok);
-				if (!ok || octreeLevel < 1 || octreeLevel > maxOctreeLevel)
-				{
-					return cmd.error(QObject::tr("Invalid octree level!"));
-				}
+				const auto maybeLevel = parser.takeInt(QObject::tr("octree level"), 1, maxOctreeLevel);
+				if (!maybeLevel)
+					return false;
+				octreeLevel = *maybeLevel;
 				cmd.print(QObject::tr("\tOctree level: %1").arg(octreeLevel));
 			}
 		}
@@ -2009,43 +1960,28 @@ CommandCurvature::CommandCurvature()
 
 bool CommandCurvature::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
+	ccArgumentParser parser(cmd.arguments());
+	const QString    curvTypeStr = parser.takeNext();
+	if (curvTypeStr.isNull())
 	{
 		return cmd.error(QObject::tr("Missing parameter: curvature type after \"-%1\"").arg(COMMAND_CURVATURE));
 	}
+	const auto maybeCurvType = ccArgumentParser::ParseEnum<CCCoreLib::Neighbourhood::CurvatureType>(
+	    curvTypeStr, {
+	                     {"MEAN", CCCoreLib::Neighbourhood::MEAN_CURV},
+	                     {"GAUSS", CCCoreLib::Neighbourhood::GAUSSIAN_CURV},
+	                     {"NORMAL_CHANGE", CCCoreLib::Neighbourhood::NORMAL_CHANGE_RATE},
+	                 },
+	    QObject::tr("curvature type"));
+	if (!maybeCurvType)
+		return false;
+	const CCCoreLib::Neighbourhood::CurvatureType curvType = *maybeCurvType;
 
-	QString                                 curvTypeStr = cmd.arguments().takeFirst().toUpper();
-	CCCoreLib::Neighbourhood::CurvatureType curvType    = CCCoreLib::Neighbourhood::MEAN_CURV;
-	if (curvTypeStr == "MEAN")
-	{
-		// curvType = CCCoreLib::Neighbourhood::MEAN_CURV;
-	}
-	else if (curvTypeStr == "GAUSS")
-	{
-		curvType = CCCoreLib::Neighbourhood::GAUSSIAN_CURV;
-	}
-	else if (curvTypeStr == "NORMAL_CHANGE")
-	{
-		curvType = CCCoreLib::Neighbourhood::NORMAL_CHANGE_RATE;
-	}
-	else
-	{
-		return cmd.error(QObject::tr("Invalid curvature type after \"-%1\". Got '%2' instead of MEAN or GAUSS.").arg(COMMAND_CURVATURE, curvTypeStr));
-	}
-
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: kernel size after curvature type"));
-	}
-
-	bool                paramOk    = false;
-	QString             kernelStr  = cmd.arguments().takeFirst();
-	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(kernelStr.toDouble(&paramOk));
-	if (!paramOk)
-	{
-		return cmd.error(QObject::tr("Failed to read a numerical parameter: kernel size (after curvature type). Got '%1' instead.").arg(kernelStr));
-	}
-	cmd.print(QObject::tr("\tKernel size: %1").arg(kernelSize));
+	const auto maybeKernelSize = parser.takeDouble(QObject::tr("kernel size"));
+	if (!maybeKernelSize)
+		return false;
+	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(*maybeKernelSize);
+	cmd.print(QObject::tr("\tKernel size: %1").arg(QString::number(kernelSize)));
 
 	if (cmd.clouds().empty())
 	{
@@ -2071,33 +2007,14 @@ bool CommandCurvature::process(ccCommandLineInterface& cmd)
 	return true;
 }
 
-static bool ReadDensityType(ccCommandLineInterface& cmd, CCCoreLib::GeometricalAnalysisTools::Density& density)
+static std::optional<CCCoreLib::GeometricalAnalysisTools::Density> ReadDensityType(ccArgumentParser& parser)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: density type after \"-%1\" (KNN/SURFACE/VOLUME)").arg(COMMAND_DENSITY_TYPE));
-	}
-
-	// read option confirmed, we can move on
-	QString typeArg = cmd.arguments().takeFirst().toUpper();
-	if (typeArg == "KNN")
-	{
-		density = CCCoreLib::GeometricalAnalysisTools::DENSITY_KNN;
-	}
-	else if (typeArg == "SURFACE")
-	{
-		density = CCCoreLib::GeometricalAnalysisTools::DENSITY_2D;
-	}
-	else if (typeArg == "VOLUME")
-	{
-		density = CCCoreLib::GeometricalAnalysisTools::DENSITY_3D;
-	}
-	else
-	{
-		return cmd.error(QObject::tr("Invalid parameter: density type is expected after \"-%1\" (KNN/SURFACE/VOLUME)").arg(COMMAND_DENSITY_TYPE));
-	}
-
-	return true;
+	return parser.takeEnum<CCCoreLib::GeometricalAnalysisTools::Density>({
+	                                                                         {"KNN", CCCoreLib::GeometricalAnalysisTools::DENSITY_KNN},
+	                                                                         {"SURFACE", CCCoreLib::GeometricalAnalysisTools::DENSITY_2D},
+	                                                                         {"VOLUME", CCCoreLib::GeometricalAnalysisTools::DENSITY_3D},
+	                                                                     },
+	                                                                     QObject::tr("density type"));
 }
 
 CommandApproxDensity::CommandApproxDensity()
@@ -2120,25 +2037,15 @@ bool CommandApproxDensity::process(ccCommandLineInterface& cmd)
 		entities[i] = cmd.clouds()[i].pc;
 	}
 
+	ccArgumentParser parser(cmd.arguments());
 	// optional parameter: density type
 	CCCoreLib::GeometricalAnalysisTools::Density densityType = CCCoreLib::GeometricalAnalysisTools::DENSITY_3D;
-	if (!cmd.arguments().empty())
+	if (parser.tryConsumeOption(COMMAND_DENSITY_TYPE))
 	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_DENSITY_TYPE))
-		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: density type after \"-%1\" (KNN/SURFACE/VOLUME)").arg(COMMAND_DENSITY_TYPE));
-			}
-			// read option confirmed, we can move on
-			if (!ReadDensityType(cmd, densityType))
-			{
-				return false;
-			}
-		}
+		const auto maybeDensityType = ReadDensityType(parser);
+		if (!maybeDensityType)
+			return false;
+		densityType = *maybeDensityType;
 	}
 
 	if (ccLibAlgorithms::ComputeGeomCharacteristic(CCCoreLib::GeometricalAnalysisTools::ApproxLocalDensity, densityType, 0, entities, nullptr, cmd.widgetParent()))
@@ -2160,39 +2067,22 @@ CommandDensity::CommandDensity()
 
 bool CommandDensity::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: sphere radius after \"-%1\"").arg(COMMAND_DENSITY));
-	}
+	ccArgumentParser parser(cmd.arguments());
 
-	bool                paramOk    = false;
-	QString             kernelStr  = cmd.arguments().takeFirst();
-	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(kernelStr.toDouble(&paramOk));
-	if (!paramOk)
-	{
-		return cmd.error(QObject::tr("Failed to read a numerical parameter: sphere radius (after \"-%1\"). Got '%2' instead.").arg(COMMAND_DENSITY, kernelStr));
-	}
+	const auto maybeKernelSize = parser.takeDouble(QObject::tr("kernel size"));
+	if (!maybeKernelSize)
+		return false;
+	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(*maybeKernelSize);
 	cmd.print(QObject::tr("\tSphere radius: %1").arg(kernelSize));
 
 	// optional parameter: density type
 	CCCoreLib::GeometricalAnalysisTools::Density densityType = CCCoreLib::GeometricalAnalysisTools::DENSITY_3D;
-	if (!cmd.arguments().empty())
+	if (parser.tryConsumeOption(COMMAND_DENSITY_TYPE))
 	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_DENSITY_TYPE))
-		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: density type after \"-%1\" (KNN/SURFACE/VOLUME)").arg(COMMAND_DENSITY_TYPE));
-			}
-			// read option confirmed, we can move on
-			if (!ReadDensityType(cmd, densityType))
-			{
-				return false;
-			}
-		}
+		const auto maybeDensityType = ReadDensityType(parser);
+		if (!maybeDensityType)
+			return false;
+		densityType = *maybeDensityType;
 	}
 
 	if (cmd.clouds().empty())
@@ -2297,40 +2187,26 @@ CommandRoughness::CommandRoughness()
 
 bool CommandRoughness::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: kernel size after \"-%1\"").arg(COMMAND_ROUGHNESS));
-	}
-
-	bool                paramOk    = false;
-	QString             kernelStr  = cmd.arguments().takeFirst();
-	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(kernelStr.toDouble(&paramOk));
-	if (!paramOk)
-	{
-		return cmd.error(QObject::tr("Failed to read a numerical parameter: kernel size (after \"-%1\"). Got '%2' instead.").arg(COMMAND_ROUGHNESS, kernelStr));
-	}
+	ccArgumentParser parser(cmd.arguments());
+	const auto       maybeKernelSize = parser.takeDouble(QObject::tr("kernel size"));
+	if (!maybeKernelSize)
+		return false;
+	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(*maybeKernelSize);
 	cmd.print(QObject::tr("\tKernel size: %1").arg(kernelSize));
 
 	// optional argument
 	CCVector3  roughnessUpDir;
 	CCVector3* _roughnessUpDir = nullptr;
-	if (cmd.arguments().size() >= 4)
+	if (parser.size() >= 4)
 	{
-		QString nextArg = cmd.arguments().first();
-		if (nextArg.startsWith('-') && nextArg.mid(1).toUpper() == COMMAND_ROUGHNESS_UP_DIR)
+		if (parser.tryConsumeOption(COMMAND_ROUGHNESS_UP_DIR))
 		{
-			// option confirmed
-			cmd.arguments().takeFirst();
-			QString xStr = cmd.arguments().takeFirst();
-			QString yStr = cmd.arguments().takeFirst();
-			QString zStr = cmd.arguments().takeFirst();
-			bool    okX = false, okY = false, okZ = false;
-			roughnessUpDir.x = static_cast<PointCoordinateType>(xStr.toDouble(&okX));
-			roughnessUpDir.y = static_cast<PointCoordinateType>(yStr.toDouble(&okY));
-			roughnessUpDir.z = static_cast<PointCoordinateType>(zStr.toDouble(&okZ));
-			if (!okX || !okY || !okZ)
+			for (unsigned i = 0; i < 3; ++i)
 			{
-				return cmd.error(QObject::tr("Invalid 'up direction' vector after option -%1 (3 coordinates expected)").arg(COMMAND_ROUGHNESS_UP_DIR));
+				const auto maybeValue = parser.takeDouble(QObject::tr("up direction vector coordinate"));
+				if (!maybeValue)
+					return false;
+				roughnessUpDir[i] = static_cast<PointCoordinateType>(*maybeValue);
 			}
 			_roughnessUpDir = &roughnessUpDir;
 		}
@@ -4033,18 +3909,11 @@ CommandOrientNormalsMST::CommandOrientNormalsMST()
 
 bool CommandOrientNormalsMST::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: number of neighbors after \"-%1\"").arg(COMMAND_ORIENT_NORMALS));
-	}
-
-	QString knnStr = cmd.arguments().takeFirst();
-	bool    ok;
-	int     knn = knnStr.toInt(&ok);
-	if (!ok || knn <= 0)
-	{
-		return cmd.error(QObject::tr("Invalid parameter: number of neighbors (%1)").arg(knnStr));
-	}
+	ccArgumentParser parser(cmd.arguments());
+	const auto       maybeKnn = parser.takeInt(QObject::tr("number of neighbors"), 1);
+	if (!maybeKnn)
+		return false;
+	const int knn = *maybeKnn;
 
 	if (cmd.clouds().empty())
 	{
@@ -4102,29 +3971,17 @@ CommandSORFilter::CommandSORFilter()
 
 bool CommandSORFilter::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: number of neighbors mode after \"-%1\"").arg(COMMAND_SOR_FILTER));
-	}
+	ccArgumentParser parser(cmd.arguments());
 
-	QString knnStr = cmd.arguments().takeFirst();
-	bool    ok;
-	int     knn = knnStr.toInt(&ok);
-	if (!ok || knn <= 0)
-	{
-		return cmd.error(QObject::tr("Invalid parameter: number of neighbors (%1)").arg(knnStr));
-	}
+	const auto maybeKnn = parser.takeInt(QObject::tr("number of neighbors"), 1);
+	if (!maybeKnn)
+		return false;
+	int knn = *maybeKnn;
 
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: sigma multiplier after number of neighbors (SOR)"));
-	}
-	QString sigmaStr = cmd.arguments().takeFirst();
-	double  nSigma   = sigmaStr.toDouble(&ok);
-	if (!ok || nSigma < 0)
-	{
-		return cmd.error(QObject::tr("Invalid parameter: sigma multiplier (%1)").arg(nSigma));
-	}
+	const auto maybeNSigma = parser.takeDouble(QObject::tr("sigma multiplier"), 0.0);
+	if (!maybeNSigma)
+		return false;
+	double nSigma = *maybeNSigma;
 
 	if (cmd.clouds().empty())
 	{
@@ -4208,72 +4065,62 @@ bool CommandNoiseFilter::process(ccCommandLineInterface& cmd)
 		return cmd.error(QObject::tr("Missing parameters: 'KNN/RADIUS {value} REL/ABS {value}' expected after \"-%1\"").arg(COMMAND_NOISE_FILTER));
 	}
 
-	QString firstOption = cmd.arguments().takeFirst().toUpper();
+	ccArgumentParser parser(cmd.arguments());
+
+	QString firstOption = parser.takeNext().toUpper();
 	int     knn         = -1;
 	double  radius      = std::numeric_limits<double>::quiet_NaN();
 
 	if (firstOption == COMMAND_NOISE_FILTER_KNN)
 	{
-		QString knnStr = cmd.arguments().takeFirst();
-		bool    ok;
-		knn = knnStr.toInt(&ok);
-		if (!ok || knn <= 0)
+		const auto maybeKnn = parser.takeInt(QObject::tr("number of neighbors after KNN"));
+		if (!maybeKnn)
 		{
-			return cmd.error(QObject::tr("Invalid parameter: number of neighbors after KNN (got '%1' instead)").arg(knnStr));
+			return false;
 		}
+		knn = *maybeKnn;
 	}
 	else if (firstOption == COMMAND_NOISE_FILTER_RADIUS)
 	{
-		QString radiusStr = cmd.arguments().takeFirst();
-		bool    ok;
-		radius = radiusStr.toDouble(&ok);
-		if (!ok || radius <= 0)
-		{
-			return cmd.error(QObject::tr("Invalid parameter: radius after RADIUS (got '%1' instead)").arg(radiusStr));
-		}
+		const auto maybeRadius = parser.takeDouble(QObject::tr("radius"));
+		if (!maybeRadius)
+			return false;
+		if (*maybeRadius <= 0)
+			return cmd.error(QObject::tr("Invalid parameter: radius must be > 0 (got '%1')").arg(*maybeRadius));
+		radius = *maybeRadius;
 	}
 	else
 	{
 		return cmd.error(QObject::tr("Invalid parameter: KNN or RADIUS expected after \"-%1\"").arg(COMMAND_NOISE_FILTER));
 	}
 
-	QString secondOption  = cmd.arguments().takeFirst().toUpper();
-	bool    absoluteError = true;
-	if (secondOption == COMMAND_NOISE_FILTER_REL)
+	const auto maybeAbsoluteError = parser.takeEnum<bool>({{COMMAND_NOISE_FILTER_REL, false},
+	                                                       {COMMAND_NOISE_FILTER_ABS, true}},
+	                                                      QObject::tr("error type"));
+	bool       absoluteError;
+	if (!maybeAbsoluteError)
 	{
-		absoluteError = false;
+		return false;
 	}
-	else if (secondOption == COMMAND_NOISE_FILTER_ABS)
-	{
-		absoluteError = true;
-	}
-	else
-	{
-		return cmd.error(QObject::tr("Invalid parameter: REL or ABS expected"));
-	}
+	absoluteError = *maybeAbsoluteError;
 
 	double error = std::numeric_limits<double>::quiet_NaN();
 	{
-		QString errorStr = cmd.arguments().takeFirst();
-		bool    ok;
-		error = errorStr.toDouble(&ok);
-		if (!ok || error <= 0)
-		{
-			return cmd.error(QObject::tr("Invalid parameter: relative or absolute error expected after KNN (got '%1' instead)").arg(errorStr));
-		}
+		const auto maybeError = parser.takeDouble(QObject::tr("error"));
+		if (!maybeError)
+			return false;
+		if (*maybeError <= 0)
+			return cmd.error(QObject::tr("Invalid parameter: error must be > 0 (got '%1')").arg(*maybeError));
+		error = *maybeError;
 	}
 
 	// optional arguments
 	bool removeIsolatedPoints = false;
-	if (!cmd.arguments().empty())
+	if (parser.peek() == COMMAND_NOISE_FILTER_RIP)
 	{
-		QString argument = cmd.arguments().front();
-		if (argument == COMMAND_NOISE_FILTER_RIP)
-		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-			removeIsolatedPoints = true;
-		}
+		// local option confirmed, we can move on
+		parser.skip();
+		removeIsolatedPoints = true;
 	}
 
 	QScopedPointer<ccProgressDialog> progressDialog(nullptr);
@@ -4353,22 +4200,22 @@ CommandRemoveDuplicatePoints::CommandRemoveDuplicatePoints()
 
 bool CommandRemoveDuplicatePoints::process(ccCommandLineInterface& cmd)
 {
+	ccArgumentParser parser(cmd.arguments());
+
 	double minDistanceBetweenPoints = std::numeric_limits<double>::epsilon();
 
-	// get optional argument
-	if (!cmd.arguments().empty())
+	if (!parser.isEmpty())
 	{
-		bool   paramOk = false;
-		double arg     = cmd.arguments().front().toDouble(&paramOk);
-		if (paramOk)
+		bool   ok  = false;
+		double arg = parser.peek().toDouble(&ok);
+		if (ok)
 		{
 			if (arg < minDistanceBetweenPoints)
 			{
 				return cmd.error(QObject::tr("Invalid argument: '%1'").arg(arg));
 			}
-
+			parser.skip();
 			minDistanceBetweenPoints = arg;
-			cmd.arguments().pop_front();
 		}
 	}
 
@@ -4508,38 +4355,22 @@ CommandSampleMesh::CommandSampleMesh()
 
 bool CommandSampleMesh::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: sampling mode after \"-%1\" (POINTS/DENSITY)").arg(COMMAND_SAMPLE_MESH));
-	}
+	ccArgumentParser parser(cmd.arguments());
 
-	bool   useDensity = false;
-	double parameter  = 0;
+	const auto maybeUseDensity = parser.takeEnum<bool>({
+	                                                       {"POINTS", false},
+	                                                       {"DENSITY", true},
+	                                                   },
+	                                                   QObject::tr("sample mode"));
 
-	QString sampleMode = cmd.arguments().takeFirst().toUpper();
-	if (sampleMode == "POINTS")
-	{
-		useDensity = false;
-	}
-	else if (sampleMode == "DENSITY")
-	{
-		useDensity = true;
-	}
-	else
-	{
-		return cmd.error(QObject::tr("Invalid parameter: unknown sampling mode \"%1\"").arg(sampleMode));
-	}
+	if (!maybeUseDensity)
+		return false;
+	const bool useDensity = *maybeUseDensity;
 
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: value after sampling mode"));
-	}
-	bool conversionOk = false;
-	parameter         = cmd.arguments().takeFirst().toDouble(&conversionOk);
-	if (!conversionOk)
-	{
-		return cmd.error(QObject::tr("Invalid parameter: value after sampling mode"));
-	}
+	const auto maybeParameter = parser.takeDouble(QObject::tr("sampling mode value"));
+	if (!maybeParameter)
+		return false;
+	const double parameter = *maybeParameter;
 
 	if (cmd.meshes().empty())
 	{
@@ -5213,40 +5044,26 @@ bool CommandColorBanding::process(ccCommandLineInterface& cmd)
 		return cmd.error(QObject::tr("No entity available. Be sure to open or generate one first!"));
 	}
 
-	// dimension
-	unsigned char dim    = 2;
-	QString       dimStr = "Z";
-	{
-		dimStr = cmd.arguments().takeFirst().toUpper();
-		if (dimStr == "X")
-		{
-			dim = 0;
-		}
-		else if (dimStr == "Y")
-		{
-			dim = 1;
-		}
-		else if (dimStr == "Z")
-		{
-			dim = 2;
-		}
-		else
-		{
-			return cmd.error(QObject::tr("Invalid parameter: dimension after \"-%1\" (expected: X, Y or Z)").arg(COMMAND_COLOR_BANDING));
-		}
-	}
+	ccArgumentParser parser(cmd.arguments());
+
+	const QString dimStr   = parser.takeNext();
+	const auto    maybeDim = ccArgumentParser::ParseEnum<unsigned char>(
+        dimStr,
+        {
+            {"X", 0},
+            {"Y", 1},
+            {"Z", 2},
+        },
+        QObject::tr("dimension"));
+	if (!maybeDim)
+		return false;
+	unsigned char dim = *maybeDim;
 
 	// frequency
-	bool   ok   = true;
-	double freq = 0;
-	{
-		QString countStr = cmd.arguments().takeFirst();
-		freq             = countStr.toDouble(&ok);
-		if (!ok)
-		{
-			return cmd.error(QObject::tr("Invalid parameter: frequency after \"-%1 DIM\" (in Hz, integer value)").arg(COMMAND_COLOR_BANDING));
-		}
-	}
+	const auto maybeFreq = parser.takeDouble(QObject::tr("frequency"));
+	if (!maybeFreq)
+		return false;
+	const double freq = *maybeFreq;
 
 	// process clouds
 	if (!cmd.clouds().empty())
@@ -5324,8 +5141,11 @@ bool CommandColorLevels::process(ccCommandLineInterface& cmd)
 		return cmd.error(QObject::tr("No entity available. Be sure to open or generate one first!"));
 	}
 
+	ccArgumentParser parser(cmd.arguments());
+
 	// color bands
-	QString band = cmd.arguments().takeFirst().toUpper();
+	// the check above guarantees it's not null
+	QString band = parser.takeNext().toUpper();
 	bool    rgb[3]{band.contains('R'), band.contains('G'), band.contains('B')};
 	{
 		QString testBand = band;
@@ -5342,13 +5162,10 @@ bool CommandColorLevels::process(ccCommandLineInterface& cmd)
 	int levels[4] = {0};
 	for (int i = 0; i < 4; ++i)
 	{
-		bool    ok       = true;
-		QString levelStr = cmd.arguments().takeFirst();
-		levels[i]        = levelStr.toInt(&ok);
-		if (!ok || levels[i] < 0 || levels[i] > 255)
-		{
-			return cmd.error(QObject::tr("Invalid parameter: color level after \"-%1 COLOR-BANDS\" (integer value between 0 and 255 expected)").arg(COMMAND_COLOR_LEVELS));
-		}
+		const auto maybeLevel = parser.takeInt(QObject::tr("color level"), 0, 255);
+		if (!maybeLevel)
+			return false;
+		levels[i] = *maybeLevel;
 	}
 
 	// process clouds
@@ -6047,36 +5864,23 @@ bool CommandDelaunayTri::process(ccCommandLineInterface& cmd)
 	bool   axisAligned   = true;
 	double maxEdgeLength = 0;
 
-	while (!cmd.arguments().empty())
+	ccArgumentParser parser(cmd.arguments());
+	while (!parser.isEmpty())
 	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_DELAUNAY_AA))
+		if (parser.tryConsumeOption(COMMAND_DELAUNAY_AA))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 			axisAligned = true;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_DELAUNAY_BF))
+		else if (parser.tryConsumeOption(COMMAND_DELAUNAY_BF))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 			axisAligned = false;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_DELAUNAY_MAX_EDGE_LENGTH))
+		else if (parser.tryConsumeOption(COMMAND_DELAUNAY_MAX_EDGE_LENGTH))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: max edge length value after '%1'").arg(COMMAND_DELAUNAY_MAX_EDGE_LENGTH));
-			}
-			bool ok;
-			maxEdgeLength = cmd.arguments().takeFirst().toDouble(&ok);
-			if (!ok)
-			{
-				return cmd.error(QObject::tr("Invalid value for max edge length (%1)! (after %2)").arg(maxEdgeLength).arg(COMMAND_DELAUNAY_MAX_EDGE_LENGTH));
-			}
+			const auto maybeMaxEdgeLength = parser.takeDouble(QObject::tr("max edge length"));
+			if (!maybeMaxEdgeLength)
+				return false;
+			maxEdgeLength = *maybeMaxEdgeLength;
 		}
 		else
 		{
@@ -7056,99 +6860,53 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 	bool                                              robustC2MDistances    = true;
 	CCCoreLib::ICPRegistrationTools::NORMALS_MATCHING normalsMatching       = CCCoreLib::ICPRegistrationTools::NO_NORMAL;
 
-	while (!cmd.arguments().empty())
-	{
-		QString argument = cmd.arguments().front();
-		if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_REFERENCE_IS_FIRST))
-		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
+	ccArgumentParser parser(cmd.arguments());
 
+	while (!parser.isEmpty())
+	{
+		if (parser.tryConsumeOption(COMMAND_ICP_REFERENCE_IS_FIRST))
+		{
 			referenceIsFirst = true;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_ADJUST_SCALE))
+		else if (parser.tryConsumeOption(COMMAND_ICP_ADJUST_SCALE))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
 			adjustScale = true;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_ENABLE_FARTHEST_REMOVAL))
+		else if (parser.tryConsumeOption(COMMAND_ICP_ENABLE_FARTHEST_REMOVAL))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
 			enableFarthestPointRemoval = true;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_MIN_ERROR_DIIF))
+		else if (parser.tryConsumeOption(COMMAND_ICP_MIN_ERROR_DIIF))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: min error difference after '%1'").arg(COMMAND_ICP_MIN_ERROR_DIIF));
-			}
-			bool ok;
-			minErrorDiff = cmd.arguments().takeFirst().toDouble(&ok);
-			if (!ok || minErrorDiff <= 0)
-			{
-				return cmd.error(QObject::tr("Invalid value for min. error difference! (after %1)").arg(COMMAND_ICP_MIN_ERROR_DIIF));
-			}
+			// Note that min is actually the minimum positive value a double can represent
+			const auto maybeErrorDiff = parser.takeDouble(QObject::tr("min error difference"), std::numeric_limits<double>::min());
+			if (!maybeErrorDiff)
+				return false;
+			minErrorDiff = *maybeErrorDiff;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_ITERATION_COUNT))
+		else if (parser.tryConsumeOption(COMMAND_ICP_ITERATION_COUNT))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: number of iterations after '%1'").arg(COMMAND_ICP_ITERATION_COUNT));
-			}
-			bool    ok;
-			QString arg    = cmd.arguments().takeFirst();
-			iterationCount = arg.toUInt(&ok);
-			if (!ok || iterationCount == 0)
-				return cmd.error(QObject::tr("Invalid number of iterations! (%1)").arg(arg));
+			const auto maybeIterCount = parser.takeUInt(QObject::tr("number of iterations"), 1);
+			if (!maybeIterCount)
+				return false;
+			iterationCount = *maybeIterCount;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_OVERLAP))
+		else if (parser.tryConsumeOption(COMMAND_ICP_OVERLAP))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: overlap percentage after '%1'").arg(COMMAND_ICP_OVERLAP));
-			}
-			bool    ok;
-			QString arg = cmd.arguments().takeFirst();
-			overlap     = arg.toUInt(&ok);
-			if (!ok || overlap < 10 || overlap > 100)
-			{
-				return cmd.error(QObject::tr("Invalid overlap value! (%1 --> should be between 10 and 100)").arg(arg));
-			}
+			const auto maybeOverlap = parser.takeUInt(QObject::tr("overlap"), 10, 100);
+			if (!maybeOverlap)
+				return false;
+			overlap = *maybeOverlap;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_RANDOM_SAMPLING_LIMIT))
+		else if (parser.tryConsumeOption(COMMAND_ICP_RANDOM_SAMPLING_LIMIT))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: random sampling limit value after '%1'").arg(COMMAND_ICP_RANDOM_SAMPLING_LIMIT));
-			}
-			bool ok;
-			randomSamplingLimit = cmd.arguments().takeFirst().toUInt(&ok);
-			if (!ok || randomSamplingLimit < 3)
-			{
-				return cmd.error(QObject::tr("Invalid random sampling limit! (after %1)").arg(COMMAND_ICP_RANDOM_SAMPLING_LIMIT));
-			}
+			const auto maybeRandomSamplingLimit = parser.takeUInt(QObject::tr("random sampling limit"), 3);
+			if (!maybeRandomSamplingLimit)
+				return false;
+			randomSamplingLimit = *maybeRandomSamplingLimit;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_USE_MODEL_SF_AS_WEIGHT))
+		else if (parser.tryConsumeOption(COMMAND_ICP_USE_MODEL_SF_AS_WEIGHT))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
 			if (cmd.arguments().empty())
 			{
 				return cmd.error(QObject::tr("Missing parameter: SF index after '%1'").arg(COMMAND_ICP_USE_MODEL_SF_AS_WEIGHT));
@@ -7160,11 +6918,8 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 				return false;
 			}
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_USE_DATA_SF_AS_WEIGHT))
+		else if (parser.tryConsumeOption(COMMAND_ICP_USE_DATA_SF_AS_WEIGHT))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
 			if (cmd.arguments().empty())
 			{
 				return cmd.error(QObject::tr("Missing parameter: SF index after '%1'").arg(COMMAND_ICP_USE_DATA_SF_AS_WEIGHT));
@@ -7176,116 +6931,87 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 				return false;
 			}
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_MAX_THREAD_COUNT))
+		else if (parser.tryConsumeOption(COMMAND_MAX_THREAD_COUNT))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
-			{
-				return cmd.error(QObject::tr("Missing parameter: max thread count after '%1'").arg(COMMAND_MAX_THREAD_COUNT));
-			}
-
-			bool ok;
-			maxThreadCount = cmd.arguments().takeFirst().toInt(&ok);
-			if (!ok || maxThreadCount < 0)
-			{
-				return cmd.error(QObject::tr("Invalid thread count! (after %1)").arg(COMMAND_MAX_THREAD_COUNT));
-			}
+			const auto maybemaxThreadCount = parser.takeUInt(QObject::tr("max thread count"), 1);
+			if (!maybemaxThreadCount)
+				return false;
+			maxThreadCount = *maybemaxThreadCount;
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_ROT))
+		else if (parser.tryConsumeOption(COMMAND_ICP_ROT))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (!cmd.arguments().empty())
-			{
-				QString rotation = cmd.arguments().takeFirst().toUpper();
-
-				// invalidate all previous rotations in case -ROT used twice
-				cmd.print(QObject::tr("[ICP] Reset rotation constraints if any. Only one -%1 argument allowed").arg(COMMAND_ICP_ROT));
-				transformationFilters &= (~CCCoreLib::RegistrationTools::SKIP_ROTATION);
-
-				if (rotation == "XYZ")
-				{
-					cmd.print(QObject::tr("[ICP] Use all rotations"));
-				}
-				else if (rotation == "X")
-				{
-					transformationFilters |= CCCoreLib::RegistrationTools::SKIP_RYZ;
-					cmd.print(QObject::tr("[ICP] Skip RYZ"));
-				}
-				else if (rotation == "Y")
-				{
-					transformationFilters |= CCCoreLib::RegistrationTools::SKIP_RXZ;
-					cmd.print(QObject::tr("[ICP] Skip RXZ"));
-				}
-				else if (rotation == "Z")
-				{
-					transformationFilters |= CCCoreLib::RegistrationTools::SKIP_RXY;
-					cmd.print(QObject::tr("[ICP] Skip RXY"));
-				}
-				else if (rotation == "NONE")
-				{
-					transformationFilters |= CCCoreLib::RegistrationTools::SKIP_ROTATION;
-					cmd.print(QObject::tr("[ICP] Skip rotation"));
-				}
-				else
-				{
-					return cmd.error(QObject::tr("Invalid parameter: unknown rotation filter \"%1\"").arg(rotation));
-				}
-			}
-			else
+			if (parser.isEmpty())
 			{
 				return cmd.error(QObject::tr("Missing parameter: rotation filter after \"-%1\" (XYZ/X/Y/Z/NONE)").arg(COMMAND_ICP_ROT));
 			}
+
+			// invalidate all previous rotations in case -ROT used twice
+			cmd.print(QObject::tr("[ICP] Reset rotation constraints if any. Only one -%1 argument allowed").arg(COMMAND_ICP_ROT));
+			transformationFilters &= (~CCCoreLib::RegistrationTools::SKIP_ROTATION);
+
+			QString rotation = parser.takeNext().toUpper();
+			if (rotation == "XYZ")
+			{
+				cmd.print(QObject::tr("[ICP] Use all rotations"));
+			}
+			else if (rotation == "X")
+			{
+				transformationFilters |= CCCoreLib::RegistrationTools::SKIP_RYZ;
+				cmd.print(QObject::tr("[ICP] Skip RYZ"));
+			}
+			else if (rotation == "Y")
+			{
+				transformationFilters |= CCCoreLib::RegistrationTools::SKIP_RXZ;
+				cmd.print(QObject::tr("[ICP] Skip RXZ"));
+			}
+			else if (rotation == "Z")
+			{
+				transformationFilters |= CCCoreLib::RegistrationTools::SKIP_RXY;
+				cmd.print(QObject::tr("[ICP] Skip RXY"));
+			}
+			else if (rotation == "NONE")
+			{
+				transformationFilters |= CCCoreLib::RegistrationTools::SKIP_ROTATION;
+				cmd.print(QObject::tr("[ICP] Skip rotation"));
+			}
+			else
+			{
+				return cmd.error(QObject::tr("Invalid parameter: unknown rotation filter \"%1\"").arg(rotation));
+			}
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_SKIP_TX))
+		else if (parser.tryConsumeOption(COMMAND_ICP_SKIP_TX))
 		{
 			transformationFilters |= CCCoreLib::RegistrationTools::SKIP_TX;
 			cmd.print(QObject::tr("[ICP] Skip TX"));
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_SKIP_TY))
+		else if (parser.tryConsumeOption(COMMAND_ICP_SKIP_TY))
 		{
 			transformationFilters |= CCCoreLib::RegistrationTools::SKIP_TY;
 			cmd.print(QObject::tr("[ICP] Skip TY"));
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_SKIP_TZ))
+		else if (parser.tryConsumeOption(COMMAND_ICP_SKIP_TZ))
 		{
 			transformationFilters |= CCCoreLib::RegistrationTools::SKIP_TZ;
 			cmd.print(QObject::tr("[ICP] Skip TZ"));
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_ICP_C2M_DIST))
+		else if (parser.tryConsumeOption(COMMAND_ICP_C2M_DIST))
 		{
 			useC2MDistances = true;
 			cmd.print(QObject::tr("[ICP] Use C2M distances"));
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2M_DIST_NON_ROBUST))
+		else if (parser.tryConsumeOption(COMMAND_C2M_DIST_NON_ROBUST))
 		{
 			robustC2MDistances = false;
 			cmd.warning(QObject::tr("[ICP] Use non-robust C2M distances"));
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 		}
-		else if (ccCommandLineInterface::IsCommand(argument, COMMAND_C2M_NORMAL_MATCHING))
+		else if (parser.tryConsumeOption(COMMAND_C2M_NORMAL_MATCHING))
 		{
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
-
-			if (cmd.arguments().empty())
+			if (parser.isEmpty())
 			{
 				return cmd.error(QObject::tr("Missing parameter: normals matching mode after '%1'").arg(COMMAND_C2M_NORMAL_MATCHING));
 			}
 
-			QString normalsMatchingOption = cmd.arguments().takeFirst().toUpper();
+			QString normalsMatchingOption = parser.takeNext().toUpper();
 
 			if (normalsMatchingOption == "OPPOSITE")
 			{
@@ -7306,9 +7032,6 @@ bool CommandICP::process(ccCommandLineInterface& cmd)
 			{
 				return cmd.error(QObject::tr("Unknown normal matching mode: ") + normalsMatchingOption);
 			}
-
-			// local option confirmed, we can move on
-			cmd.arguments().pop_front();
 		}
 		else
 		{
@@ -8040,18 +7763,12 @@ CommandMoment::CommandMoment()
 
 bool CommandMoment::process(ccCommandLineInterface& cmd)
 {
-	if (cmd.arguments().empty())
-	{
-		return cmd.error(QObject::tr("Missing parameter: kernel size after %1").arg(COMMAND_MOMENT));
-	}
+	ccArgumentParser parser(cmd.arguments());
 
-	bool                paramOk    = false;
-	QString             kernelStr  = cmd.arguments().takeFirst();
-	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(kernelStr.toDouble(&paramOk));
-	if (!paramOk)
-	{
-		return cmd.error(QObject::tr("Failed to read a numerical parameter: kernel size. Got '%1' instead.").arg(kernelStr));
-	}
+	const auto maybeKernelSize = parser.takeDouble(QObject::tr("kernel size"));
+	if (!maybeKernelSize)
+		return false;
+	PointCoordinateType kernelSize = static_cast<PointCoordinateType>(*maybeKernelSize);
 	cmd.print(QObject::tr("\tKernel size: %1").arg(kernelSize));
 
 	if (cmd.clouds().empty())

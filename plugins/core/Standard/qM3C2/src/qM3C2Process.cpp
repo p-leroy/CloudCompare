@@ -2106,7 +2106,10 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
     }
 
 	if (app)
+	{
+		app->updatePropertiesView();
 		app->refreshAll();
+	}
 
 	//release structures
 	if (normalScaleSF)
