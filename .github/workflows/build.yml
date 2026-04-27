@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -45,6 +45,10 @@ jobs:
           environment-file: ${{ matrix.config.conda_dep_file }}
           channels: conda-forge
           conda-remove-defaults: "true"
+
+      - name: Verify macOS bundle identifiers
+        shell: bash -l {0}
+        run: python .ci/verify_macos_bundle_identifiers.py .
 
       - name: Configure MSVC console (Windows)
         if: matrix.config.os == 'windows-latest'
@@ -131,7 +135,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -167,7 +171,7 @@ jobs:
           echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Cache PCL Build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-pcl
         with:
           path: pcl-cached
