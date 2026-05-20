@@ -879,7 +879,7 @@ bool ccSFvsSFWindowDlg::exportToCSV(QString filename) const
 
 	//header
 	stream << ui->comboBoxXAxis->currentText() << ", "
-		   << ui->comboBoxYAxis->currentText() << endl;
+	       << ui->comboBoxYAxis->currentText() << Qt::endl;
 
 	//data
 	{
@@ -887,7 +887,7 @@ bool ccSFvsSFWindowDlg::exportToCSV(QString filename) const
 
 		for (auto item : *container)
 		{
-			stream << item.key << " " << item.value << endl;
+			stream << item.key << " " << item.value << Qt::endl;
 		}
 	}
 
