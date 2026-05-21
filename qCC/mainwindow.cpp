@@ -124,6 +124,7 @@
 #include "ccUnrollDlg.h"
 #include "ccVolumeCalcTool.h"
 #include "ccWaveformDialog.h"
+#include "ccSFvsSFWindowDlg.h"
 
 // CCPluginAPI
 #include <ccInfoDlg.h>
@@ -606,6 +607,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionViewFromSensor, &QAction::triggered, this, &MainWindow::doActionSetViewFromSensor);
 	//"Edit > Scalar fields" menu
 	connect(m_UI->actionShowHistogram, &QAction::triggered, this, &MainWindow::showSelectedEntitiesHistogram);
+	connect(m_UI->actionPlotSFvsSF, &QAction::triggered, this, &MainWindow::plotSelectedEntitySFvsSF);	
 	connect(m_UI->actionComputeStatParams, &QAction::triggered, this, &MainWindow::doActionComputeStatParams);
 	connect(m_UI->actionSFGradient, &QAction::triggered, this, &MainWindow::doActionSFGradient);
 	connect(m_UI->actionGaussianFilter, &QAction::triggered, this, &MainWindow::doActionSFGaussianFilter);
@@ -8058,6 +8060,22 @@ void MainWindow::showSelectedEntitiesHistogram()
 	}
 }
 
+void MainWindow::plotSelectedEntitySFvsSF()
+{
+	for ( ccHObject *entity : getSelectedEntities() )
+	{
+		//for "real" point clouds only
+		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud( entity );
+		if (cloud)
+		{
+			ccSFvsSFWindowDlg* dlg = new ccSFvsSFWindowDlg(cloud, this);
+			dlg->setAttribute(Qt::WA_DeleteOnClose, true);
+			dlg->setWindowTitle(tr("Cloud: [%1]").arg(cloud->getName()));
+			dlg->show();
+		}
+	}
+}
+
 void MainWindow::doActionCrop()
 {
 	// find candidates
@@ -11619,6 +11637,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_UI->actionComputeStatParams->setEnabled(atLeastOneSF);
 	m_UI->actionComputeStatParams2->setEnabled(atLeastOneSF);
 	m_UI->actionShowHistogram->setEnabled(atLeastOneSF);
+	m_UI->actionPlotSFvsSF->setEnabled(atLeastOneCloud);
 	m_UI->actionGaussianFilter->setEnabled(atLeastOneSF);
 	m_UI->actionBilateralFilter->setEnabled(atLeastOneSF);
 	m_UI->actionDeleteScalarField->setEnabled(atLeastOneSF);

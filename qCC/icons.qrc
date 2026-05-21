@@ -154,6 +154,7 @@
     <file>images/photo-camera.svg</file>
     <file>images/search.svg</file>
     <file>images/exportIcon.png</file>
+	<file>images/scatter-plot.png</file>
   </qresource>
   <qresource prefix="/CC/Icons">
     <file>images/icon/cc_viewer_icon_16.png</file>

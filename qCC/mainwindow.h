@@ -258,6 +258,7 @@ class MainWindow : public QMainWindow
 	void setActiveSubWindow(QWidget* window);
 	void showDisplaySettings();
 	void showSelectedEntitiesHistogram();
+	void plotSelectedEntitySFvsSF();
 	void testFrameRate();
 	void toggleFullScreen(bool state);
 	void toggleVisualDebugTraces();
