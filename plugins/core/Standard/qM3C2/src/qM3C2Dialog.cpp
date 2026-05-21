@@ -111,6 +111,7 @@ qM3C2Dialog::qM3C2Dialog(ccPointCloud* cloud1, ccPointCloud* cloud2, ccMainAppIn
 	connect(cpSubsampleRadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
 	connect(cpUseOtherCloudRadioButton, &QAbstractButton::toggled, this, &qM3C2Dialog::updateNormalComboBox);
 
+
 	setClouds(cloud1, cloud2);
 
 	if (m_app)
@@ -359,9 +360,13 @@ ccPointCloud* qM3C2Dialog::getCorePointsCloud() const
 	}
 }
 
-void qM3C2Dialog::setCorePointsCloud(ccPointCloud* cloud)
+void qM3C2Dialog::setCorePointsCloud(ccPointCloud* cloud, bool withCPOtherCloudComboBoxUpdate)
 {
 	m_corePointsCloud = cloud;
+	if (!withCPOtherCloudComboBoxUpdate)
+	{
+		return;
+	}
 	// the combo box cpOtherCloudComboBox is populated at the creation of the dialog, so the core cloud should already be in it
 	// look for the index of the core cloud and set cpOtherCloudComboBox
 	int index = -1;
@@ -475,12 +480,44 @@ qM3C2Dialog::ExportOptions qM3C2Dialog::getExportOption() const
 		return PROJECT_ON_CLOUD2;
 	case 2:
 		return PROJECT_ON_CORE_POINTS;
+	case 3:
+		return PROJECT_ON_CLOUD1_AND_CLOUD2;
+	case 4:
+		return PROJECT_ON_CLOUD2_WITH_NORM2;
 	default:
 		assert(false);
 		break;
 	}
 
 	return PROJECT_ON_CORE_POINTS;
+}
+
+qM3C2Tools::DistAndUncerMethod qM3C2Dialog::getDistAndUncerMethod() const
+{
+	qM3C2Tools::DistAndUncerMethod method = qM3C2Tools::USE_MEAN_AND_STD_DEV;
+
+	if (useMeanRadioButton->isChecked())
+		method = qM3C2Tools::USE_MEAN_AND_STD_DEV;
+	else if (useMedianRadioButton->isChecked())
+		method = qM3C2Tools::USE_MEDIAN_AND_IQR;
+	else if (useMinRadioButton->isChecked())
+		method = qM3C2Tools::USE_MIN_AND_MAX_MINUS_MIN;
+	else if (usePrctileRadioButton->isChecked())
+		method = qM3C2Tools::USE_PERCENTILES;
+	else if (useMinPrctile5RadioButton->isChecked())
+		method = qM3C2Tools::USE_MIN_AND_PRCTILE5_MINUS_MIN;
+
+	return method;
+}
+
+void qM3C2Dialog::setProjDestIndex(ExportOptions val)
+{
+	projDestComboBox->setCurrentIndex(val);
+}
+
+void qM3C2Dialog::setNormalMode(qM3C2Normals::ComputationMode val)
+{
+	applyNormalModeParameter(val);
 }
 
 void qM3C2Dialog::projDestIndexChanged(int index)
@@ -503,6 +540,31 @@ unsigned qM3C2Dialog::getMinPointsForStats(unsigned defaultValue/*=5*/) const
 	return useMinPoints4StatCheckBox->isChecked() ? static_cast<unsigned>(std::max(0,minPoints4StatSpinBox->value())) : defaultValue;
 }
 
+bool qM3C2Dialog::getProjectionDetails() const
+{
+    return checkBox_projectionDetails->isChecked();
+}
+
+bool qM3C2Dialog::exportSearchDepth() const
+{
+    return checkBox_exportSearchDepth->isChecked();
+}
+
+void qM3C2Dialog::setExportSearchDepth(bool state)
+{
+    checkBox_exportSearchDepth->setChecked(state);
+}
+
+bool qM3C2Dialog::computeWelch() const
+{
+    return checkBox_computeWelch->isChecked();
+}
+
+bool qM3C2Dialog::getSharpMean() const
+{
+    return checkBox_sharpMean->isChecked();
+}
+
 void qM3C2Dialog::loadParamsFromPersistentSettings()
 {
 	QSettings settings("qM3C2");
@@ -520,7 +582,7 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	bool normUseCorePoints = settings.value("NormalUseCorePoints", normUseCorePointsCheckBox->isChecked()).toBool();
 	int normPreferredOri = settings.value("NormalPreferedOri", normOriPreferredComboBox->currentIndex()).toInt();
 
-	double seachScale = settings.value("SearchScale", cylDiameterDoubleSpinBox->value()).toDouble();
+    double searchScale = settings.value("SearchScale", cylDiameterDoubleSpinBox->value()).toDouble();
 	double searchDepth = settings.value("SearchDepth", cylHalfHeightDoubleSpinBox->value()).toDouble();
 
 	double subsampleRadius = settings.value("SubsampleRadius", cpSubsamplingDoubleSpinBox->value()).toDouble();
@@ -531,7 +593,10 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 
 	bool useSinglePass4Depth = settings.value("UseSinglePass4Depth", useSinglePass4DepthCheckBox->isChecked()).toBool();
 	bool positiveSearchOnly = settings.value("PositiveSearchOnly", positiveSearchOnlyCheckBox->isChecked()).toBool();
-	bool useMedian = settings.value("UseMedian", useMedianCheckBox->isChecked()).toBool();
+    bool useMean = settings.value("UseMean", useMeanRadioButton->isChecked()).toBool();
+    bool useMedian = settings.value("UseMedian", useMedianRadioButton->isChecked()).toBool();
+    bool useMin = settings.value("UseMin", useMinRadioButton->isChecked()).toBool();
+    bool usePrctile = settings.value("UsePrctile", usePrctileRadioButton->isChecked()).toBool();
 
 	bool useMinPoints4Stat = settings.value("UseMinPoints4Stat", useMinPoints4StatCheckBox->isChecked()).toBool();
 	int minPoints4Stat = settings.value("MinPoints4Stat", minPoints4StatSpinBox->value()).toInt();
@@ -547,6 +612,8 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	bool usePrecisionMaps = settings.value("UsePrecisionMaps", precisionMapsGroupBox->isChecked()).toBool();
 	double pm1Scale = settings.value("PM1Scale", pm1ScaleDoubleSpinBox->value()).toDouble();
 	double pm2Scale = settings.value("PM2Scale", pm2ScaleDoubleSpinBox->value()).toDouble();
+
+	bool sectorGap = settings.value("sectorGap", checkBox_exportSearchDepth->isChecked()).toBool();
 
 	//apply parameters
 	normalScaleDoubleSpinBox->setValue(normalScale);
@@ -617,7 +684,7 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	normUseCorePointsCheckBox->setChecked(normUseCorePoints);
 	normOriPreferredComboBox->setCurrentIndex(normPreferredOri);
 
-	cylDiameterDoubleSpinBox->setValue(seachScale);
+    cylDiameterDoubleSpinBox->setValue(searchScale);
 	cylHalfHeightDoubleSpinBox->setValue(searchDepth);
 
 	rmsCheckBox->setChecked(registrationErrorEnabled);
@@ -625,7 +692,10 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 
 	useSinglePass4DepthCheckBox->setChecked(useSinglePass4Depth);
 	positiveSearchOnlyCheckBox->setChecked(positiveSearchOnly);
-	useMedianCheckBox->setChecked(useMedian);
+    useMeanRadioButton->setChecked(useMean);
+    useMedianRadioButton->setChecked(useMedian);
+    useMinRadioButton->setChecked(useMin);
+    usePrctileRadioButton->setChecked(usePrctile);
 	
 	useMinPoints4StatCheckBox->setChecked(useMinPoints4Stat);
 	minPoints4StatSpinBox->setValue(minPoints4Stat);
@@ -641,12 +711,97 @@ void qM3C2Dialog::loadParamsFrom(const QSettings& settings)
 	precisionMapsGroupBox->setChecked(usePrecisionMaps);
 	pm1ScaleDoubleSpinBox->setValue(pm1Scale);
 	pm2ScaleDoubleSpinBox->setValue(pm2Scale);
+
+	setExportSearchDepth(sectorGap);
+}
+
+void qM3C2Dialog::applyNormalModeParameter(int normModeInt)
+{
+    switch(normModeInt)
+    {
+    case qM3C2Normals::USE_CLOUD1_NORMALS:
+    case qM3C2Normals::USE_CORE_POINTS_NORMALS:
+    {
+        if (m_app)
+        {
+            bool found = false;
+            for (int i = 0; i < normalSourceComboBox->count(); ++i)
+            {
+                if (normalSourceComboBox->itemData(i) == normModeInt)
+                {
+                    normalSourceComboBox->setCurrentIndex(i);
+                    // found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                ccLog::Warning("Can't restore the previous normals computation method (cloud #1 or core points has no normals)");
+            }
+        }
+        else // called either from the command line or from ICPM3C2
+        {
+            bool status = true;
+            if (normModeInt == qM3C2Normals::USE_CLOUD1_NORMALS)
+            {
+                if (m_cloud1)
+                {
+                    if (!m_cloud1->hasNormals())
+                        status = false;
+                }
+                else
+                    status = false;
+            }
+            else if (normModeInt == qM3C2Normals::USE_CORE_POINTS_NORMALS)
+            {
+                if (m_corePointsCloud)
+                {
+                    if (!m_corePointsCloud->hasNormals())
+                        status = false;
+                }
+                else
+                    status = false;
+            }
+            if (status)
+                ccLog::Print("[qM3C2Dialog::applyNormalModeParameter] Normals computation method (NormalMode) set to " + QString::number(normModeInt));
+            else
+                ccLog::Print("[qM3C2Dialog::applyNormalModeParameter] Not possible to set normals computation method (NormalMode) to " + QString::number(normModeInt) + " (may be forced later)");
+        }
+    }
+    break;
+
+    case qM3C2Normals::DEFAULT_MODE:
+        normDefaultRadioButton->setChecked(true);
+        break;
+
+    case qM3C2Normals::MULTI_SCALE_MODE:
+        normMultiScaleRadioButton->setChecked(true);
+        break;
+
+    case qM3C2Normals::VERT_MODE:
+        normVertRadioButton->setChecked(true);
+        break;
+
+    case qM3C2Normals::HORIZ_MODE:
+        normHorizRadioButton->setChecked(true);
+        break;
+
+    default:
+        //nothing to do
+        break;
+    }
 }
 
 void qM3C2Dialog::saveParamsToPersistentSettings()
 {
 	QSettings settings("qM3C2");
 	saveParamsTo(settings);
+}
+
+bool qM3C2Dialog::loadParamsFromQSettings(const QSettings &settings)
+{
+    loadParamsFrom(settings);
+    return true;
 }
 
 void qM3C2Dialog::saveParamsTo(QSettings& settings)
@@ -671,7 +826,10 @@ void qM3C2Dialog::saveParamsTo(QSettings& settings)
 
 	settings.setValue("UseSinglePass4Depth", useSinglePass4DepthCheckBox->isChecked());
 	settings.setValue("PositiveSearchOnly", positiveSearchOnlyCheckBox->isChecked());
-	settings.setValue("UseMedian", useMedianCheckBox->isChecked());
+    settings.setValue("UseMean", useMeanRadioButton->isChecked());
+    settings.setValue("UseMedian", useMedianRadioButton->isChecked());
+    settings.setValue("UseMin", useMinRadioButton->isChecked());
+    settings.setValue("UsePrctile", usePrctileRadioButton->isChecked());
 
 	settings.setValue("UseMinPoints4Stat", useMinPoints4StatCheckBox->isChecked());
 	settings.setValue("MinPoints4Stat", minPoints4StatSpinBox->value());
@@ -778,4 +936,9 @@ void qM3C2Dialog::guessParams(bool fastMode/*=false*/)
 
 		cpSubsamplingDoubleSpinBox->setValue(params.projScale / 2);
 	}
+}
+
+int qM3C2Dialog::getRequestedNormMode(void) const
+{
+	return m_requestedComputationMode;
 }
