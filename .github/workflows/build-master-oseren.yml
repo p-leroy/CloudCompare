@@ -1,0 +1,236 @@
+name: Build master_oseren
+
+on:
+  push:
+    branches: [ "master_oseren" ]
+  pull_request:
+    branches: [ "master_oseren" ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+
+##########
+# CHECKOUT
+
+    - name: Checkout --- master_oseren
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Checkout --- qICPM3C2
+      uses: actions/checkout@v6
+      with:
+        repository: p-leroy/qICPM3C2
+        token: ${{ secrets.QICPM3C2_TOKEN }}
+        path: plugins/private/qICPM3C2
+        fetch-depth: 0
+
+    - name: Checkout --- qFWF
+      uses: actions/checkout@v6
+      with:
+        repository: p-leroy/qFWF
+        token: ${{ secrets.QICPM3C2_TOKEN }}
+        path: plugins/private/qFWF     
+        fetch-depth: 0
+
+#######
+# CONDA
+
+    - name: Conda --- Cache
+      uses: actions/cache@v5
+      env:
+        # Increase this value to reset cache if etc/example-environment.yml has not changed
+        CACHE_NUMBER: 0
+      with:
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+          hashFiles('.ci/conda-win.yml') }}
+          
+    - name: Conda --- Install and create CloudCompareDev
+      uses: conda-incubator/setup-miniconda@v4
+      with:
+        activate-environment: CloudCompareDev
+        channels: conda-forge
+        environment-file: .ci/conda-win.yml
+
+    - name: Conda --- Install GDAL in CloudCompareDevGDAL
+      run: conda create -n CloudCompareDevGDAL -c conda-forge gdal=3.2.2 proj=8.0.0
+
+    - name: Conda --- Print informations
+      if: true
+      shell: pwsh
+      run: |
+        conda config --show pkgs_dirs
+        conda env list
+
+########
+# OPENCV
+
+    - name: OpenCV --- Cache ZIP
+      uses: actions/cache@v5
+      with:
+        path: ${{ github.workspace }}/opencv-4.12.0-windows.exe  # runner.tool_cache is better for large size cache
+        key: opencv-4.12.0-windows.exe
+
+    - name: OpenCV --- Install 4.12.0
+      shell: pwsh
+      run: |
+        $exeUrl = "https://github.com/opencv/opencv/releases/download/4.12.0/opencv-4.12.0-windows.exe"
+        $exePath = "${{ github.workspace }}/opencv-4.12.0-windows.exe"
+        if (-Not (Test-Path $exePath)) {
+          curl.exe -L $exeUrl -o $exePath
+        }
+        7z x $exePath -o"$env:RUNNER_TEMP"
+        $env:OPENCV_DIR = "$env:RUNNER_TEMP/opencv/build/x64/vc16/lib"  # VC16
+        $env:OPENCV_WORLD_DLL = "$env:RUNNER_TEMP/opencv/build/x64/vc16/bin/opencv_world4120.dll"
+        echo "OPENCV_DIR=$env:OPENCV_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append  # Export for all subsequent steps
+        echo "OPENCV_WORLD_DLL=$env:OPENCV_WORLD_DLL" | Out-File -FilePath $env:GITHUB_ENV -Append
+        Write-Host "OPENCV_DIR set to $env:OPENCV_DIR"
+        Write-Host "OPENCV_WORLD_DLL set to $env:OPENCV_WORLD_DLL"
+
+#####
+# QT6
+
+    - name: Qt6 --- Install
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: 6.8.3
+        host: windows
+        target: desktop
+        arch: win64_msvc2022_64
+        cache: true
+
+    - name: Qt6 --- Setup environnement
+      shell: pwsh
+      run: |
+        $qtPath = $env:Qt6_Dir
+        Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
+
+########
+# OPEN3D
+
+    - name: Open3D --- Cache ZIP
+      uses: actions/cache@v5
+      with:
+        path: ${{ runner.temp }}/open3d-devel-windows-amd64-0.19.0.zip  # runner.temp is OK for small cache
+        key: open3d-0.19.0
+
+    - name: Open3D --- Download zip
+      shell: pwsh
+      run: |
+        $zipUrl = "https://github.com/isl-org/Open3D/releases/download/v0.19.0/open3d-devel-windows-amd64-0.19.0.zip"
+        $zipPath = "$env:RUNNER_TEMP/open3d-devel-windows-amd64-0.19.0.zip"
+        curl.exe -L $zipUrl -o $zipPath  # Use -L to follow redirects
+        Expand-Archive -Path $zipPath -DestinationPath "$env:RUNNER_WORKSPACE"
+        $env:OPEN3D_LIB_DIR = "$env:RUNNER_WORKSPACE/open3d-devel-windows-amd64-0.19.0"
+        echo "OPEN3D_LIB_DIR=$env:OPEN3D_LIB_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append  # Export for all subsequent steps
+        Write-Host "OPEN3D_LIB_DIR set to $env:OPEN3D_LIB_DIR"
+              
+    - name: Open3D --- Verify that Open3DConfig.cmake exists
+      shell: pwsh
+      run: |
+        $cmakePath = Get-ChildItem -Recurse "$env:OPEN3D_LIB_DIR" | Where-Object { $_.Name -eq "Open3DConfig.cmake" }
+        if (-Not $cmakePath) {
+          Write-Error "Open3DConfig.cmake not found!"
+          exit 1
+        } else {
+          Write-Host "Found Open3DConfig.cmake at $($cmakePath.FullName)"
+        }
+
+#######
+# BUILD
+
+    - name: Build --- Configure MSVC console (Windows)  # needed for Ninja
+      uses: step-security/msvc-dev-cmd@v1
+
+    - name: Build --- Configure CMake
+      shell: pwsh
+      run: |
+        $timestamp = Get-Date -Format "yyyy-MM-dd-HHmm"
+        $timestamp = $timestamp.Substring(0,13) + "h" + $timestamp.Substring(13)
+        echo "ARTIFACT_NAME=cloudcompare_oseren_$timestamp" | Out-File -FilePath $env:GITHUB_ENV -Append
+        $env:CONDA_LIB_DIR = "C:/Miniconda/envs/CloudCompareDev/Library"
+        $env:GDAL_LIB_DIR = "C:/Miniconda/envs/CloudCompareDevGDAL/Library"
+
+        mkdir build
+
+        cmake `
+            -B build `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH" `
+            `
+            -DXercesC_LIBRARY="$env:CONDA_LIB_DIR/lib/xerces-c_3.lib" `
+            -DXercesC_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
+            `
+            -DGDAL_LIBRARY="$env:GDAL_LIB_DIR/lib/gdal_i.lib" `
+            -DGDAL_INCLUDE_DIR="$env:GDAL_LIB_DIR/include" `
+            `
+            -DLASZIP_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
+            -DLASZIP_LIBRARY="$env:CONDA_LIB_DIR/lib/laszip3.lib" `
+            `
+            -DEIGEN_ROOT_DIR="$env:CONDA_LIB_DIR/include/eigen3" `
+            -DBoost_INCLUDE_DIR="$env:CONDA_LIB_DIR/include" `
+            `
+            -DOpenCV_DIR="$env:OPENCV_DIR" `
+            -DOpenCV_WORLD_DLL="$env:OPENCV_WORLD_DLL" `
+            `
+            -DOpen3D_DIR="$env:OPEN3D_LIB_DIR/CMake" `
+            `
+            -DOPTION_BUILD_CCVIEWER=OFF `
+            -DOPTION_SUPPORT_GAMEPADS=ON `
+            -DPLUGIN_EXAMPLE_GL=OFF `
+            -DPLUGIN_EXAMPLE_IO=OFF `
+            -DPLUGIN_EXAMPLE_STANDARD=OFF `
+            -DPLUGIN_GL_QEDL=ON `
+            -DPLUGIN_GL_QSSAO=ON `
+            -DPLUGIN_IO_QADDITIONAL=ON `
+            -DPLUGIN_IO_QCORE=ON `
+            -DPLUGIN_IO_QE57=ON `
+            -DUSING_STATIC_XERCES=ON `
+            -DOPTION_USE_GDAL=ON `
+            -DPLUGIN_IO_QPHOTOSCAN=OFF `
+            -DPLUGIN_IO_QLAS=ON `
+            -DPLUGIN_IO_QRDB=ON  `
+            -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=ON  `
+            -DPLUGIN_IO_QRDB_INSTALL_DEPENDENCY=ON  `
+            -DPLUGIN_STANDARD_QANIMATION=OFF `
+            -DQANIMATION_WITH_FFMPEG_SUPPORT=OFF `
+            -DPLUGIN_STANDARD_QBROOM=ON `
+            -DPLUGIN_STANDARD_QCANUPO=OFF `
+            -DPLUGIN_STANDARD_QCOMPASS=ON `
+            -DPLUGIN_STANDARD_QCSF=ON `
+            -DPLUGIN_STANDARD_QFACETS=ON `
+            -DPLUGIN_STANDARD_QHOUGH_NORMALS=ON `
+            -DPLUGIN_STANDARD_QHPR=ON `
+            -DPLUGIN_STANDARD_QM3C2=ON `
+            -DPLUGIN_STANDARD_QPCV=ON `
+            -DPLUGIN_STANDARD_QPOISSON_RECON=ON `
+            -DPLUGIN_STANDARD_QSRA=ON `
+            -DPLUGIN_STANDARD_QRANSAC_SD=ON `
+            -DPLUGIN_STANDARD_QPCL=OFF `
+            -DPLUGIN_STANDARD_QCLOUDLAYERS=ON `
+            -DPLUGIN_STANDARD_QVOXFALL=ON `
+            -DPLUGIN_STANDARD_3DMASC=ON `
+            -DPLUGIN_QICPM3C2=ON `
+            -DINSTALL_QFWF_PLUGIN=ON `
+            -DPLUGIN_G3POINT=ON
+
+    - name: Build
+      run: cmake --build build --parallel
+
+    - name: Install (Windows)
+      run: cmake --install build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: C:/Program Files (x86)/CloudCompareProjects/*

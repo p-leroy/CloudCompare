@@ -1,10 +1,11 @@
 name: CloudCompareDev
 dependencies:
   - ninja
-  - qt6-main==6.8.3
+  - qt6-main=6.8.3
   - eigen=3.4.*
   - ffmpeg=6.1.*
   - xerces-c=3.2.*
   - zlib=1.3.*
   - laszip
-  - clang-format==18.*
+  - clang-format=18.*
+  - boost

@@ -1,0 +1,45 @@
+name: Daily merge master into m3c2_evol and master_sf_vs_sf
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # runs daily at 06:00 UTC
+  workflow_dispatch:       # allows manual trigger
+
+jobs:
+  merge-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/CloudCompare/CloudCompare.git || true
+          git fetch upstream --no-tags --prune
+      - name: Merge master into m3c2_evol if ahead
+        run: |
+          git checkout m3c2_evol
+          COUNT=$(git rev-list --count HEAD..upstream/master)
+          echo "Commits master ahead: $COUNT"
+          if [ $COUNT -gt 0 ]; then
+            git merge upstream/master --no-edit
+            git push origin m3c2_evol
+          else
+            echo "No new commits in master. Skipping merge."
+          fi
+      - name: Merge master into master_sf_vs_sf if ahead
+        run: |
+          git checkout master_sf_vs_sf
+          COUNT=$(git rev-list --count HEAD..upstream/master)
+          echo "Commits master ahead: $COUNT"
+          if [ $COUNT -gt 0 ]; then
+            git merge upstream/master --no-edit
+            git push origin master_sf_vs_sf
+          else
+            echo "No new commits in master. Skipping merge."
+          fi
