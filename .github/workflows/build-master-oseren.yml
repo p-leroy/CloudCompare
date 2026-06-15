@@ -2,9 +2,9 @@ name: Build master_oseren
 
 on:
   push:
-    branches: [ "master_oseren" ]
+    branches: [ "master_oseren_v2" ]
   pull_request:
-    branches: [ "master_oseren" ]
+    branches: [ "master_oseren_v2" ]
   workflow_dispatch:
 
 env:
