@@ -1,12 +1,13 @@
 #include "ccSFvsSFSetRange.h"
+
 #include "ui_sfVsSFSetRange.h"
 
 #include <ccLog.h>
 
-ccSFvsSFSetRange::ccSFvsSFSetRange(QCPAxis* axis, QWidget *parent)
-	: QWidget(parent)
-	, ui(new Ui::sfVsSFSetRange)
-	, m_axis(axis)
+ccSFvsSFSetRange::ccSFvsSFSetRange(QCPAxis* axis, QWidget* parent)
+    : QWidget(parent)
+    , ui(new Ui::sfVsSFSetRange)
+    , m_axis(axis)
 {
 	ui->setupUi(this);
 
@@ -39,7 +40,7 @@ void ccSFvsSFSetRange::setUpper(double upper)
 
 void ccSFvsSFSetRange::applyChanges()
 {
-	if ( ui->doubleSpinBoxMin->value() > ui->doubleSpinBoxMax->value())
+	if (ui->doubleSpinBoxMin->value() > ui->doubleSpinBoxMax->value())
 	{
 		ccLog::Warning("[SF/SF] lower and upper bounds are not coherent");
 	}
@@ -53,7 +54,7 @@ void ccSFvsSFSetRange::applyChanges()
 
 void ccSFvsSFSetRange::changeEvent(QEvent* event)
 {
-	if(event->type() == QEvent::ActivationChange)
+	if (event->type() == QEvent::ActivationChange)
 	{
 		if (!this->isActiveWindow())
 		{

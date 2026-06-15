@@ -112,6 +112,7 @@
 #include "ccRasterizeTool.h"
 #include "ccRegistrationDlg.h"
 #include "ccRenderToFileDlg.h"
+#include "ccSFvsSFWindowDlg.h"
 #include "ccSORFilterDlg.h"
 #include "ccScaleDlg.h"
 #include "ccSectionExtractionTool.h"
@@ -124,7 +125,6 @@
 #include "ccUnrollDlg.h"
 #include "ccVolumeCalcTool.h"
 #include "ccWaveformDialog.h"
-#include "ccSFvsSFWindowDlg.h"
 
 // CCPluginAPI
 #include <ccInfoDlg.h>
@@ -607,7 +607,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionViewFromSensor, &QAction::triggered, this, &MainWindow::doActionSetViewFromSensor);
 	//"Edit > Scalar fields" menu
 	connect(m_UI->actionShowHistogram, &QAction::triggered, this, &MainWindow::showSelectedEntitiesHistogram);
-	connect(m_UI->actionPlotSFvsSF, &QAction::triggered, this, &MainWindow::plotSelectedEntitySFvsSF);	
+	connect(m_UI->actionPlotSFvsSF, &QAction::triggered, this, &MainWindow::plotSelectedEntitySFvsSF);
 	connect(m_UI->actionComputeStatParams, &QAction::triggered, this, &MainWindow::doActionComputeStatParams);
 	connect(m_UI->actionSFGradient, &QAction::triggered, this, &MainWindow::doActionSFGradient);
 	connect(m_UI->actionGaussianFilter, &QAction::triggered, this, &MainWindow::doActionSFGaussianFilter);
@@ -3659,7 +3659,7 @@ void MainWindow::doActionMerge()
 		for (size_t i = 0; i < clouds.size(); ++i)
 		{
 			ccPointCloud* pc      = clouds[i];
-			bool          isInUse = pc->hasDependencyFlag(ccHObject::DEPENDENCY_FLAGS::DP_NOTIFY_OTHER_ON_DELETE);
+            bool isInUse = (pc->getParent() && pc->getParent()->isKindOf(CC_TYPES::MESH));
 
 			if (!firstCloud)
 			{
@@ -8062,10 +8062,10 @@ void MainWindow::showSelectedEntitiesHistogram()
 
 void MainWindow::plotSelectedEntitySFvsSF()
 {
-	for ( ccHObject *entity : getSelectedEntities() )
+	for (ccHObject* entity : getSelectedEntities())
 	{
-		//for "real" point clouds only
-		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud( entity );
+		// for "real" point clouds only
+		ccPointCloud* cloud = ccHObjectCaster::ToPointCloud(entity);
 		if (cloud)
 		{
 			ccSFvsSFWindowDlg* dlg = new ccSFvsSFWindowDlg(cloud, this);

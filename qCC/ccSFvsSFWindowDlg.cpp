@@ -1,7 +1,7 @@
 #include "ccSFvsSFWindowDlg.h"
-#include "ui_sfVsSFWindowDlg.h"
 
 #include "ccSFvsSFSetRange.h"
+#include "ui_sfVsSFWindowDlg.h"
 
 // CCPluginAPI
 #include <ccPersistentSettings.h>
@@ -11,20 +11,16 @@
 
 // qCC_IO
 #include <ImageFileFilter.h>
-
-#include <QSettings>
 #include <QPushButton>
-
-#include <math.h>
-
+#include <QSettings>
 #include <iostream>
+#include <math.h>
 
 // ccSFvsSFPlot
 
-ccSFvsSFPlot::ccSFvsSFPlot(QWidget *parent)
+ccSFvsSFPlot::ccSFvsSFPlot(QWidget* parent)
 {
-	setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectAxes |
-					QCP::iSelectLegend | QCP::iSelectPlottables);
+	setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectAxes | QCP::iSelectLegend | QCP::iSelectPlottables);
 
 	setSelectionRectMode(QCP::srmNone);
 
@@ -37,7 +33,7 @@ ccSFvsSFPlot::ccSFvsSFPlot(QWidget *parent)
 
 void ccSFvsSFPlot::selectionChanged()
 {
-    /*
+	/*
    normally, axis base line, axis tick labels and axis labels are selectable separately, but we want
    the user only to be able to select the axis as a whole, so we tie the selected states of the tick labels
    and the axis base line together. However, the axis label shall be selectable individually.
@@ -47,22 +43,20 @@ void ccSFvsSFPlot::selectionChanged()
   */
 
 	// make top and bottom axes be selected synchronously, and handle axis and tick labels as one selectable object:
-	if (xAxis->selectedParts().testFlag(QCPAxis::spAxis) || xAxis->selectedParts().testFlag(QCPAxis::spTickLabels) ||
-		xAxis2->selectedParts().testFlag(QCPAxis::spAxis) || xAxis2->selectedParts().testFlag(QCPAxis::spTickLabels))
+	if (xAxis->selectedParts().testFlag(QCPAxis::spAxis) || xAxis->selectedParts().testFlag(QCPAxis::spTickLabels) || xAxis2->selectedParts().testFlag(QCPAxis::spAxis) || xAxis2->selectedParts().testFlag(QCPAxis::spTickLabels))
 	{
 		xAxis2->setSelectedParts(QCPAxis::spAxis | QCPAxis::spTickLabels);
 		xAxis->setSelectedParts(QCPAxis::spAxis | QCPAxis::spTickLabels);
 	}
 	// make left and right axes be selected synchronously, and handle axis and tick labels as one selectable object:
-	if (yAxis->selectedParts().testFlag(QCPAxis::spAxis) || yAxis->selectedParts().testFlag(QCPAxis::spTickLabels) ||
-		yAxis2->selectedParts().testFlag(QCPAxis::spAxis) || yAxis2->selectedParts().testFlag(QCPAxis::spTickLabels))
+	if (yAxis->selectedParts().testFlag(QCPAxis::spAxis) || yAxis->selectedParts().testFlag(QCPAxis::spTickLabels) || yAxis2->selectedParts().testFlag(QCPAxis::spAxis) || yAxis2->selectedParts().testFlag(QCPAxis::spTickLabels))
 	{
-		yAxis2->setSelectedParts(QCPAxis::spAxis|QCPAxis::spTickLabels);
-		yAxis->setSelectedParts(QCPAxis::spAxis|QCPAxis::spTickLabels);
+		yAxis2->setSelectedParts(QCPAxis::spAxis | QCPAxis::spTickLabels);
+		yAxis->setSelectedParts(QCPAxis::spAxis | QCPAxis::spTickLabels);
 	}
 }
 
-void ccSFvsSFPlot::onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part)
+void ccSFvsSFPlot::onAxisDoubleClick(QCPAxis* axis, QCPAxis::SelectablePart part)
 {
 	ccSFvsSFSetRange* setRange = new ccSFvsSFSetRange(axis, this);
 	setRange->setLower(axis->range().lower);
@@ -72,13 +66,13 @@ void ccSFvsSFPlot::onAxisDoubleClick(QCPAxis *axis, QCPAxis::SelectablePart part
 	connect(setRange, &ccSFvsSFSetRange::replot, this, &ccSFvsSFPlot::onReplot);
 }
 
-void ccSFvsSFPlot::setAxisRange(QCPAxis *axis, double lower, double upper)
+void ccSFvsSFPlot::setAxisRange(QCPAxis* axis, double lower, double upper)
 {
 	axis->setRange(QCPRange(lower, upper));
 	replot();
 }
 
-void ccSFvsSFPlot::mousePressEvent(QMouseEvent *event)
+void ccSFvsSFPlot::mousePressEvent(QMouseEvent* event)
 {
 	// if an axis is selected, only allow the direction of that axis to be dragged
 	// if no axis is selected, both directions may be dragged
@@ -88,7 +82,7 @@ void ccSFvsSFPlot::mousePressEvent(QMouseEvent *event)
 	else if (yAxis->selectedParts().testFlag(QCPAxis::spAxis))
 		axisRect()->setRangeDrag(yAxis->orientation());
 	else
-		axisRect()->setRangeDrag(Qt::Horizontal|Qt::Vertical);
+		axisRect()->setRangeDrag(Qt::Horizontal | Qt::Vertical);
 
 	// hide density map when dragging
 	emit hideDensityMap(false);
@@ -96,7 +90,7 @@ void ccSFvsSFPlot::mousePressEvent(QMouseEvent *event)
 	QCustomPlot::mousePressEvent(event); // forward event to QCustomPlot event handler
 }
 
-void ccSFvsSFPlot::wheelEvent(QWheelEvent *event)
+void ccSFvsSFPlot::wheelEvent(QWheelEvent* event)
 {
 	// if an axis is selected, only allow the direction of that axis to be zoomed
 	// if no axis is selected, both directions may be zoomed
@@ -106,7 +100,7 @@ void ccSFvsSFPlot::wheelEvent(QWheelEvent *event)
 	else if (yAxis->selectedParts().testFlag(QCPAxis::spAxis))
 		axisRect()->setRangeZoom(yAxis->orientation());
 	else
-		axisRect()->setRangeZoom(Qt::Horizontal|Qt::Vertical);
+		axisRect()->setRangeZoom(Qt::Horizontal | Qt::Vertical);
 
 	// hide density map when wheeling
 	emit hideDensityMap(false);
@@ -118,7 +112,8 @@ void ccSFvsSFPlot::wheelEvent(QWheelEvent *event)
 
 QCPScatterStyle::ScatterShape getShape(int index)
 {
-	switch (index) {
+	switch (index)
+	{
 	case 0:
 		return QCPScatterStyle::ssNone;
 		break;
@@ -154,7 +149,8 @@ QCPScatterStyle::ScatterShape getShape(int index)
 
 QCPColorGradient::GradientPreset getGradient(int index)
 {
-	switch (index) {
+	switch (index)
+	{
 	case 0:
 		return QCPColorGradient::gpGrayscale;
 		break;
@@ -197,11 +193,11 @@ QCPColorGradient::GradientPreset getGradient(int index)
 	}
 }
 
-ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
-	: QDialog(parent)
-	, m_cloud(cloud)
-	, ui(new Ui::sfVsSFWindowDlg)
-{	
+ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud* cloud, QWidget* parent)
+    : QDialog(parent)
+    , m_cloud(cloud)
+    , ui(new Ui::sfVsSFWindowDlg)
+{
 	assert(cloud);
 
 	ui->setupUi(this);
@@ -219,7 +215,7 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 
 	m_graph = m_plot->addGraph();
 	m_graph->setLineStyle(QCPGraph::lsNone);
-	QCPScatterStyle scatterStyle;
+	QCPScatterStyle               scatterStyle;
 	QCPScatterStyle::ScatterShape shape = getShape(ui->comboBoxScatterStyle->currentIndex());
 	scatterStyle.setShape(shape);
 	scatterStyle.setPen(QPen(Qt::blue));
@@ -236,7 +232,7 @@ ccSFvsSFWindowDlg::ccSFvsSFWindowDlg(ccPointCloud *cloud, QWidget *parent)
 
 	// add a color scale:
 	m_colorScale = new QCPColorScale(m_plot);
-	m_colorScale->setType(QCPAxis::atRight); // scale shall be vertical bar with tick/axis labels right (actually atRight is already the default)
+	m_colorScale->setType(QCPAxis::atRight);              // scale shall be vertical bar with tick/axis labels right (actually atRight is already the default)
 	m_plot->plotLayout()->addElement(0, 1, m_colorScale); // add it to the right of the main axis rect
 	m_colorScale->axis()->setLabel("Density [pts / cell]");
 
@@ -345,8 +341,8 @@ void ccSFvsSFWindowDlg::setComboBoxes()
 
 	// try to restore previous confirguration
 	QSettings settings("OSUR", "ccSFvsSFWindowDlg");
-	int previousXIndex = settings.value("xIndex", 0).toInt();
-	int previousYIndex = settings.value("yIndex", 0).toInt();
+	int       previousXIndex = settings.value("xIndex", 0).toInt();
+	int       previousYIndex = settings.value("yIndex", 0).toInt();
 	if (previousXIndex <= ui->comboBoxXAxis->count())
 	{
 		ui->comboBoxXAxis->setCurrentIndex(previousXIndex);
@@ -368,13 +364,13 @@ void ccSFvsSFWindowDlg::refresh()
 	// get data from scalar fields
 	QVector<double> x;
 	QVector<double> y;
-	QString m_xName;
-	QString m_yName;
+	QString         m_xName;
+	QString         m_yName;
 
 	x.resize(m_cloud->size());
 	y.resize(m_cloud->size());
-	CCCoreLib::ScalarField *sfX = m_cloud->getScalarField(xIndex);
-	CCCoreLib::ScalarField *sfY = m_cloud->getScalarField(yIndex);
+	CCCoreLib::ScalarField* sfX = m_cloud->getScalarField(xIndex);
+	CCCoreLib::ScalarField* sfY = m_cloud->getScalarField(yIndex);
 
 	assert(sfX && sfY);
 
@@ -412,8 +408,8 @@ void ccSFvsSFWindowDlg::setXScaleType()
 	{
 		// check that all values are > 0
 		QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
-		bool foundKeyRange;
-		QCPRange keyRange = container->keyRange(foundKeyRange);
+		bool                                  foundKeyRange;
+		QCPRange                              keyRange = container->keyRange(foundKeyRange);
 		if (foundKeyRange && (keyRange.lower > 0) && (keyRange.upper > 0))
 		{
 			m_plot->xAxis->setScaleType(QCPAxis::stLogarithmic);
@@ -448,8 +444,8 @@ void ccSFvsSFWindowDlg::setYScaleType()
 	{
 		// check that all values are > 0
 		QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
-		bool foundValueRange;
-		QCPRange valueRange = container->valueRange(foundValueRange);
+		bool                                  foundValueRange;
+		QCPRange                              valueRange = container->valueRange(foundValueRange);
 		if (foundValueRange && (valueRange.lower > 0) && (valueRange.upper > 0))
 		{
 			m_plot->yAxis->setScaleType(QCPAxis::stLogarithmic);
@@ -537,7 +533,8 @@ void ccSFvsSFWindowDlg::setGradient()
 		QMap<double, QColor> reversedMap;
 		map = colorGradient.colorStops();
 		QMapIterator<double, QColor> i(map);
-		while (i.hasNext()) {
+		while (i.hasNext())
+		{
 			i.next();
 			reversedMap[1.0 - i.key()] = i.value();
 		}
@@ -567,7 +564,7 @@ void ccSFvsSFWindowDlg::setInterpolateColorMap(bool state)
 void ccSFvsSFWindowDlg::setLabelFont()
 {
 	QFont serifFont;
-	int size = ui->spinBoxFontSize->value();
+	int   size = ui->spinBoxFontSize->value();
 
 	if (ui->checkBoxLabelBold->isChecked())
 		serifFont = QFont("Times", size, QFont::Bold);
@@ -584,7 +581,7 @@ void ccSFvsSFWindowDlg::setLabelFont()
 void ccSFvsSFWindowDlg::setTickFont()
 {
 	QFont serifFont;
-	int size = ui->spinBoxTickLabelSize->value();
+	int   size = ui->spinBoxTickLabelSize->value();
 
 	if (ui->checkBoxTickBold->isChecked())
 		serifFont = QFont("Times", size, QFont::Bold);
@@ -609,17 +606,17 @@ void ccSFvsSFWindowDlg::autoscale()
 
 void ccSFvsSFWindowDlg::densityMap()
 {
-	QCPRange keyRange = m_plot->xAxis->range();
+	QCPRange keyRange   = m_plot->xAxis->range();
 	QCPRange valueRange = m_plot->yAxis->range();
 
-	double xRange = keyRange.size();
-	double xMin = keyRange.lower;
-	double xMinLog = log10(xMin);
+	double xRange    = keyRange.size();
+	double xMin      = keyRange.lower;
+	double xMinLog   = log10(xMin);
 	double xRangeLog = log10(keyRange.upper) - log10(keyRange.lower);
 
-	double yRange = valueRange.size();
-	double yMin = valueRange.lower;
-	double yMinLog = log10(yMin);
+	double yRange    = valueRange.size();
+	double yMin      = valueRange.lower;
+	double yMinLog   = log10(yMin);
 	double yRangeLog = log10(valueRange.upper) - log10(valueRange.lower);
 
 	// compute the x and y steps of the map
@@ -653,9 +650,9 @@ void ccSFvsSFWindowDlg::densityMap()
 		int valueIdx;
 
 		if (item.key < keyRange.lower
-			|| item.key > keyRange.upper
-			|| item.value < valueRange.lower
-			|| item.value > valueRange.upper)
+		    || item.key > keyRange.upper
+		    || item.value < valueRange.lower
+		    || item.value > valueRange.upper)
 		{ // the item is outside the displayed range
 			continue;
 		}
@@ -678,7 +675,7 @@ void ccSFvsSFWindowDlg::densityMap()
 			valueIdx = floor((item.value - valueRange.lower + stepY / 2) / stepY);
 		}
 
-		double cell =  m_colorMap->data()->cell(keyIdx, valueIdx);
+		double cell = m_colorMap->data()->cell(keyIdx, valueIdx);
 		m_colorMap->data()->setCell(keyIdx, valueIdx, cell + 1);
 	}
 
@@ -689,9 +686,9 @@ void ccSFvsSFWindowDlg::densityMap()
 	m_colorMap->rescaleDataRange(true);
 
 	// make sure the axis rect and color scale synchronize their bottom and top margins (so they line up):
-	QCPMarginGroup *marginGroup = new QCPMarginGroup(m_plot);
-	m_plot->axisRect()->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
-	m_colorScale->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
+	QCPMarginGroup* marginGroup = new QCPMarginGroup(m_plot);
+	m_plot->axisRect()->setMarginGroup(QCP::msBottom | QCP::msTop, marginGroup);
+	m_colorScale->setMarginGroup(QCP::msBottom | QCP::msTop, marginGroup);
 
 	m_plot->xAxis2->setRange(m_plot->xAxis->range());
 	m_plot->yAxis2->setRange(m_plot->yAxis->range());
@@ -712,12 +709,12 @@ void ccSFvsSFWindowDlg::showMap(bool state)
 
 void ccSFvsSFWindowDlg::simpleLinearRegression()
 {
-	double sum_x = 0;
-	double sum_x2 = 0;
-	double sum_y = 0;
-	double sum_xy = 0;
-	int n = m_graph->dataCount();
-	int validCount = 0;
+	double sum_x      = 0;
+	double sum_x2     = 0;
+	double sum_y      = 0;
+	double sum_xy     = 0;
+	int    n          = m_graph->dataCount();
+	int    validCount = 0;
 
 	QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
 
@@ -762,13 +759,13 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	/* Calculating alpha and beta */
 	// The slope of the fitted line is equal to the correlation between y and x corrected by the ratio of standard deviations of these variables.
 	// The intercept of the fitted line is such that the line passes through the center of mass (x, y) of the data points.
-	double den = (n * sum_x2 - sum_x * sum_x);
+	double den   = (n * sum_x2 - sum_x * sum_x);
 	double alpha = (sum_y * sum_x2 - sum_x * sum_xy) / den;
-	double beta  = (    n * sum_xy - sum_x * sum_y)  / den;
+	double beta  = (n * sum_xy - sum_x * sum_y) / den;
 
 	// compute the coefficient of determination
 	double sumOfSquaresOfResiduals = 0;
-	double totalSumOfSquares = 0;
+	double totalSumOfSquares       = 0;
 	double coefficientOfDetermination;
 	double meanY = sum_y / validCount;
 	double f;
@@ -809,7 +806,7 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	coefficientOfDetermination = 1 - sumOfSquaresOfResiduals / totalSumOfSquares;
 
 	// add the fit to the plot
-	bool foundRange;
+	bool   foundRange;
 	double xMinLin = container->keyRange(foundRange).lower;
 	double xMaxLin = container->keyRange(foundRange).upper;
 	double xMin;
@@ -825,14 +822,14 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 		y_slr[0] = exp((alpha + beta * xMinLin) * log(10));
 		y_slr[1] = exp((alpha + beta * xMaxLin) * log(10));
 	}
-	else if(ui->checkBoxXLog->isChecked() && !ui->checkBoxYLog->isChecked())
+	else if (ui->checkBoxXLog->isChecked() && !ui->checkBoxYLog->isChecked())
 	{
 		x_slr[0] = xMinLin;
 		x_slr[1] = xMaxLin;
 		y_slr[0] = alpha + beta * log10(xMinLin);
 		y_slr[1] = alpha + beta * log10(xMaxLin);
 	}
-	else if(ui->checkBoxXLog->isChecked() && ui->checkBoxYLog->isChecked())
+	else if (ui->checkBoxXLog->isChecked() && ui->checkBoxYLog->isChecked())
 	{
 		x_slr[0] = xMinLin;
 		x_slr[1] = xMaxLin;
@@ -841,8 +838,8 @@ void ccSFvsSFWindowDlg::simpleLinearRegression()
 	}
 	else
 	{
-		xMin = xMinLin;
-		xMax = xMaxLin;
+		xMin     = xMinLin;
+		xMax     = xMaxLin;
 		x_slr[0] = xMin;
 		x_slr[1] = xMax;
 		y_slr[0] = alpha + beta * xMin;
@@ -877,11 +874,11 @@ bool ccSFvsSFWindowDlg::exportToCSV(QString filename) const
 	stream.setRealNumberPrecision(12);
 	stream.setRealNumberNotation(QTextStream::FixedNotation);
 
-	//header
+	// header
 	stream << ui->comboBoxXAxis->currentText() << ", "
 	       << ui->comboBoxYAxis->currentText() << Qt::endl;
 
-	//data
+	// data
 	{
 		QSharedPointer<QCPGraphDataContainer> container = m_graph->data();
 
@@ -906,26 +903,26 @@ void ccSFvsSFWindowDlg::onExportToCSV()
 		return;
 	}
 
-	//persistent settings
+	// persistent settings
 	QSettings settings;
 	settings.beginGroup(ccPS::SaveFile());
 	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
 
 	currentPath += QString("/") + m_plot->windowTitle() + ".csv";
 
-	//ask for a filename
+	// ask for a filename
 	QString filename = QFileDialog::getSaveFileName(this, "Select output file", currentPath, "*.csv");
 	if (filename.isEmpty())
 	{
-		//process cancelled by user
+		// process cancelled by user
 		return;
 	}
 
-	//save last saving location
+	// save last saving location
 	settings.setValue(ccPS::CurrentPath(), QFileInfo(filename).absolutePath());
 	settings.endGroup();
 
-	//save file
+	// save file
 	exportToCSV(filename);
 }
 
@@ -937,27 +934,27 @@ void ccSFvsSFWindowDlg::onExportToImage()
 		return;
 	}
 
-	//persistent settings
+	// persistent settings
 	QSettings settings;
 	settings.beginGroup(ccPS::SaveFile());
 	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
 
 	QString outputFilename = ImageFileFilter::GetSaveFilename("Select output file",
-															  m_plot->windowTitle(),
-															  currentPath,
-															  this);
+	                                                          m_plot->windowTitle(),
+	                                                          currentPath,
+	                                                          this);
 
 	if (outputFilename.isEmpty())
 	{
-		//process cancelled by user (or error)
+		// process cancelled by user (or error)
 		return;
 	}
 
-	//save current export path to persistent settings
+	// save current export path to persistent settings
 	settings.setValue(ccPS::CurrentPath(), QFileInfo(outputFilename).absolutePath());
 	settings.endGroup();
 
-	//save the widget as an image file
+	// save the widget as an image file
 	QPixmap image = m_plot->grab();
 	if (image.save(outputFilename))
 	{
@@ -991,4 +988,3 @@ void ccSFvsSFWindowDlg::showColorScale(bool state)
 
 	m_plot->replot();
 }
-
