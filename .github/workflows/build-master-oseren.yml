@@ -129,9 +129,9 @@ jobs:
         $zipPath = "$env:RUNNER_TEMP/open3d-devel-windows-amd64-0.19.0.zip"
         curl.exe -L $zipUrl -o $zipPath  # Use -L to follow redirects
         Expand-Archive -Path $zipPath -DestinationPath "$env:RUNNER_WORKSPACE"
-        $env:OPEN3D_LIB_DIR = "$env:RUNNER_WORKSPACE/open3d-devel-windows-amd64-0.19.0"
-        echo "OPEN3D_LIB_DIR=$env:OPEN3D_LIB_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append  # Export for all subsequent steps
-        Write-Host "OPEN3D_LIB_DIR set to $env:OPEN3D_LIB_DIR"
+        $Open3DPath = "$env:RUNNER_WORKSPACE/open3d-devel-windows-amd64-0.19.0" -replace '\\', '/'
+        echo "OPEN3D_LIB_DIR=$env:Open3DPath" | Out-File -FilePath $env:GITHUB_ENV -Append  # Export for all subsequent steps
+        Write-Host "OPEN3D_LIB_DIR set to $env:Open3DPath"
               
     - name: Open3D --- Verify that Open3DConfig.cmake exists
       shell: pwsh
