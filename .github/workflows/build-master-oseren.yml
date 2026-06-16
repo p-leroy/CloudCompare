@@ -127,11 +127,18 @@ jobs:
       run: |
         $zipUrl = "https://github.com/isl-org/Open3D/releases/download/v0.19.0/open3d-devel-windows-amd64-0.19.0.zip"
         $zipPath = "$env:RUNNER_TEMP/open3d-devel-windows-amd64-0.19.0.zip"
+        $extractPath = "C:/open3d"
         curl.exe -L $zipUrl -o $zipPath  # Use -L to follow redirects
-        Expand-Archive -Path $zipPath -DestinationPath "$env:RUNNER_WORKSPACE"
-        $Open3DPath = "$env:RUNNER_WORKSPACE/open3d-devel-windows-amd64-0.19.0" -replace '\\', '/'
-        echo "OPEN3D_LIB_DIR=$env:Open3DPath" | Out-File -FilePath $env:GITHUB_ENV -Append  # Export for all subsequent steps
-        Write-Host "OPEN3D_LIB_DIR set to $env:Open3DPath"
+        Write-Host "Extracting to $extractPath..."
+        7z x $zipPath -o"$extractPath" -y
+        $open3dDir = Get-ChildItem -Path $extractPath -Directory | Where-Object { $_.Name -like "open3d-devel*" } | Select-Object -First 1
+        if (-Not $open3dDir) {
+          Write-Error "Could not find extracted Open3D directory!"
+          exit 1
+        }
+        $open3dPath = $open3dDir.FullName -replace '\\', '/'
+        Write-Host "OPEN3D_LIB_DIR set to $open3dPath"
+        echo "OPEN3D_LIB_DIR=$open3dPath" | Out-File -FilePath $env:GITHUB_ENV -Append
               
     - name: Open3D --- Verify that Open3DConfig.cmake exists
       shell: pwsh
