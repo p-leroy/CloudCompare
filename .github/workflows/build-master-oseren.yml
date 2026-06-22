@@ -15,6 +15,29 @@ jobs:
     runs-on: windows-latest
     steps:
 
+#####
+# QT6
+
+    - name: Qt6 --- Install
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: 6.8.3
+        host: windows
+        target: desktop
+        arch: win64_msvc2022_64
+        cache: true
+
+    - name: Qt6 --- Setup environnement
+      shell: pwsh
+      run: |
+        $qtPath = $env:Qt6_Dir
+        Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
+        Write-Host "qtPath is set to $qtPath"
+
+    - name: List all files in Qt installation
+      run: |
+        Get-ChildItem -Path "$QT_ROOT_DIR" -Recurse -File | Select-Object FullName
+
 ##########
 # CHECKOUT
 
@@ -94,28 +117,6 @@ jobs:
         echo "OPENCV_WORLD_DLL=$env:OPENCV_WORLD_DLL" | Out-File -FilePath $env:GITHUB_ENV -Append
         Write-Host "OPENCV_DIR set to $env:OPENCV_DIR"
         Write-Host "OPENCV_WORLD_DLL set to $env:OPENCV_WORLD_DLL"
-
-#####
-# QT6
-
-    - name: Qt6 --- Install
-      uses: jurplel/install-qt-action@v4
-      with:
-        version: 6.8.3
-        host: windows
-        target: desktop
-        arch: win64_msvc2022_64
-        cache: true
-
-    - name: Qt6 --- Setup environnement
-      shell: pwsh
-      run: |
-        $qtPath = $env:Qt6_Dir
-        Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
-
-    - name: List all files in Qt installation
-      run: |
-        Get-ChildItem -Path "$env:Qt6_Dir" -Recurse -File | Select-Object FullName
 
 ########
 # OPEN3D
