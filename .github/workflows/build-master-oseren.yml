@@ -32,12 +32,12 @@ jobs:
       run: |
         $qtPath = $env:Qt6_Dir
         Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
-        Write-Host "qtPath is set to $qtPath"
+        Write-Host "qtPath is set to $env:qtPath"
 
     - name: List all files in Qt installation
       run: |
-        Get-ChildItem -Path "$QT_ROOT_DIR" -Recurse -File | Select-Object FullName
-        Write-Host "$QT_ROOT_DIR is set to $$QT_ROOT_DIR"
+        Get-ChildItem -Path "$env:QT_ROOT_DIR" -Recurse -File | Select-Object FullName
+        Write-Host "QT_ROOT_DIR is set to $env:QT_ROOT_DIR"
 
 ##########
 # CHECKOUT
