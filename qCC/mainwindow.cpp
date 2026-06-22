@@ -3659,7 +3659,7 @@ void MainWindow::doActionMerge()
 		for (size_t i = 0; i < clouds.size(); ++i)
 		{
 			ccPointCloud* pc      = clouds[i];
-            bool isInUse = (pc->getParent() && pc->getParent()->isKindOf(CC_TYPES::MESH));
+			bool          isInUse = (pc->getParent() && pc->getParent()->isKindOf(CC_TYPES::MESH));
 
 			if (!firstCloud)
 			{
