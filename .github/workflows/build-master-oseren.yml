@@ -15,6 +15,24 @@ jobs:
     runs-on: windows-latest
     steps:
 
+    - name: Install vcpkg
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        cd vcpkg
+        .\bootstrap-vcpkg.bat
+        .\vcpkg integrate install
+        echo "VCPKG_ROOT=$PWD" >> $env:GITHUB_ENV
+
+    - name: Install PCRE2 via vcpkg
+      run: |
+        & "$env:VCPKG_ROOT/vcpkg" install pcre2:x64-windows
+        # Ajoutez le dossier bin de vcpkg au PATH
+        echo "$env:VCPKG_ROOT/installed/x64-windows/bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+    - name: Verify pcre2-16.dll
+      run: |
+        Get-ChildItem -Path "$env:VCPKG_ROOT/installed/x64-windows/bin" -Filter "pcre2-16.dll"
+
 #####
 # QT6
 
@@ -32,7 +50,7 @@ jobs:
       run: |
         $qtPath = $env:Qt6_Dir
         Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
-        Write-Host "qtPath is set to $env:qtPath"
+        Write-Host "qtPath is set to $qtPath"
 
     - name: List all files in Qt installation
       run: |
