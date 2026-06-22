@@ -28,7 +28,7 @@ jobs:
           echo "Commits master ahead: $COUNT"
           if [ $COUNT -gt 0 ]; then
             git merge upstream/master --no-edit
-            git push origin m3c2_evol
+            git push origin m3c2_evol_v2
           else
             echo "No new commits in master. Skipping merge."
           fi
@@ -39,7 +39,7 @@ jobs:
           echo "Commits master ahead: $COUNT"
           if [ $COUNT -gt 0 ]; then
             git merge upstream/master --no-edit
-            git push origin master_sf_vs_sf
+            git push origin master_sf_vs_sf_v2
           else
             echo "No new commits in master. Skipping merge."
           fi
