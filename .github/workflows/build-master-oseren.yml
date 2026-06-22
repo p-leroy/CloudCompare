@@ -23,15 +23,15 @@ jobs:
         .\vcpkg integrate install
         echo "VCPKG_ROOT=$PWD" >> $env:GITHUB_ENV
 
-    - name: Install PCRE2 via vcpkg
+    - name: Install double-conversion and pcre2
       run: |
-        & "$env:VCPKG_ROOT/vcpkg" install pcre2:x64-windows
-        # Ajoutez le dossier bin de vcpkg au PATH
-        echo "$env:VCPKG_ROOT/installed/x64-windows/bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+        & "$env:VCPKG_ROOT\vcpkg" install pcre2:x64-windows double-conversion:x64-windows
+        echo "$env:VCPKG_ROOT\installed\x64-windows\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-    - name: Verify pcre2-16.dll
+    - name: Verify pcre2-16.dll and double-conversion.dll
       run: |
         Get-ChildItem -Path "$env:VCPKG_ROOT/installed/x64-windows/bin" -Filter "pcre2-16.dll"
+        Get-ChildItem -Path "$env:VCPKG_ROOT/installed/x64-windows/bin" -Filter "double-conversion.dll"
 
 #####
 # QT6
@@ -44,18 +44,6 @@ jobs:
         target: desktop
         arch: win64_msvc2022_64
         cache: true
-
-    - name: Qt6 --- Setup environnement
-      shell: pwsh
-      run: |
-        $qtPath = $env:Qt6_Dir
-        Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
-        Write-Host "qtPath is set to $qtPath"
-
-    - name: List all files in Qt installation
-      run: |
-        Get-ChildItem -Path "$env:QT_ROOT_DIR" -Recurse -File | Select-Object FullName
-        Write-Host "QT_ROOT_DIR is set to $env:QT_ROOT_DIR"
 
 ##########
 # CHECKOUT
@@ -260,12 +248,27 @@ jobs:
     - name: Install (Windows)
       run: cmake --install build
 
-    - name: Deploy Qt dependencies
+    - name: Copy pcre2-16.dll and double-conversion.dll from local Qt
       run: |
-        $windeployqt = "$env:Qt6_Dir\bin\windeployqt.exe"
-        & $windeployqt --dir "C:/Program Files (x86)/CloudCompareProjects/CloudCompare" `
-          --no-compiler-runtime --no-qt-libs --no-system-d3d-compiler `
-          "C:/Program Files (x86)/CloudCompareProjects/CloudCompare/CloudCompare.exe"
+        # source dir
+        $vcpkgBinPath = "$env:VCPKG_ROOT/installed/x64-windows/bin"
+        
+        # destination dir
+        $destDir = "C:/Program Files (x86)/CloudCompareProjects/CloudCompare"
+
+        # dlls to copy
+        $dlls = @("pcre2-16.dll", "double-conversion.dll")
+
+        # copy dll
+        foreach ($dll in $dlls) {
+          $source = Join-Path $qtBinPath $dll
+          if (Test-Path $source) {
+            Copy-Item $source $destDir -Force
+            Write-Host "Copied $dll from $vcpkgBinPath to $destDir"
+          } else {
+            Write-Warning "$dll not found in $vcpkgBinPath"
+          }
+        }
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
