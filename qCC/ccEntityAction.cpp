@@ -480,13 +480,15 @@ namespace ccEntityAction
 		}
 
 		// semi-persistent parameters
-		static ccPointCloudInterpolator::Parameters::Method s_interpMethod = ccPointCloudInterpolator::Parameters::RADIUS;
-		static ccPointCloudInterpolator::Parameters::Algo   s_interpAlgo   = ccPointCloudInterpolator::Parameters::NORMAL_DIST;
-		static int                                          s_interpKNN    = 6;
+		static ccPointCloudInterpolator::Parameters::Method s_interpMethod    = ccPointCloudInterpolator::Parameters::RADIUS;
+		static ccPointCloudInterpolator::Parameters::Algo   s_interpAlgo      = ccPointCloudInterpolator::Parameters::NORMAL_DIST;
+		static int                                          s_interpKNN       = 6;
+		static bool                                         s_noNormalization = false;
 
 		ccInterpolationDlg iDlg(app->getMainWindow());
 		iDlg.setInterpolationMethod(s_interpMethod);
 		iDlg.setInterpolationAlgorithm(s_interpAlgo);
+		iDlg.setNoNormalization(s_noNormalization);
 		iDlg.knnSpinBox->setValue(s_interpKNN);
 		iDlg.radiusDoubleSpinBox->setValue(dest->getOwnBB().getDiagNormd() / 100);
 
@@ -501,8 +503,9 @@ namespace ccEntityAction
 		params.method = s_interpMethod = iDlg.getInterpolationMethod();
 		params.algo = s_interpAlgo = iDlg.getInterpolationAlgorithm();
 		params.knn = s_interpKNN = iDlg.knnSpinBox->value();
-		params.radius            = iDlg.radiusDoubleSpinBox->value();
-		params.sigma             = iDlg.kernelDoubleSpinBox->value();
+		params.noNormalization = s_noNormalization = iDlg.noNormalization();
+		params.radius                              = iDlg.radiusDoubleSpinBox->value();
+		params.sigma                               = iDlg.kernelDoubleSpinBox->value();
 
 		ccProgressDialog pDlg(true, app->getMainWindow());
 		unsigned         sfCountBefore = dest->getNumberOfScalarFields();
@@ -3091,7 +3094,7 @@ namespace ccEntityAction
 	bool computeStatParams(ccHObject::Container selectedEntities, QWidget* parent /*=nullptr*/)
 	{
 		ccPickOneElementDlg pDlg(QObject::tr("Distribution"), QObject::tr("Distribution Fitting"), parent);
-		pDlg.addElement("Gauss");
+		pDlg.addElement("Normal (Gauss)");
 		pDlg.addElement("Weibull");
 		pDlg.setDefaultIndex(0);
 		if (!pDlg.exec())

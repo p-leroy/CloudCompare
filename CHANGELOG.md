@@ -284,6 +284,11 @@ Improvements:
 		- the default bounding-box is now very slightly larger than the entities bounding-box so as
 			to avoid display display artefacts and small accuracy issue when segmenting the entities
 
+	- Graphical segmentation tool
+		- new tool button to switch between RGB and SF colors (if present)
+			- shortcut 'C'
+		- new icons for better visibility in Dark mode
+
 	- Edit > Sensors > Edit and Edit > Sensors > TLS/GBL > Create
 		- the user can now see and edit the angular ranges
 
@@ -298,6 +303,19 @@ Improvements:
 	- Improved SSAO filter
 		- enhanced default parameters
 		- when activated, the user will now see a dialog that will give full control over the parameters
+
+	- Interpolate SF from another entity
+		- new option 'no normalization' to compute the sum of nearest values (potentially with Normal weights)
+			instead of the average or weighted average.
+		- allows 'Kernel Density Estimation'
+
+	- PTX files
+		- CloudCompare will now handle PTX files with normals
+
+	- DB tree context menu:
+		- the 'Expand branch' and 'Collapse branch' options have been renamed 'Expand' and 'Collapse' and will
+			now apply to all selected DB tree item
+		- the 'Search by name and/or type' entry can now be applied with multiple entities selected at once
 
 	- Others:
 		- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
