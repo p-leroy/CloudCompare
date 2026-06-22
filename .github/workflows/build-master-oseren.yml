@@ -236,6 +236,23 @@ jobs:
     - name: Install (Windows)
       run: cmake --install build
 
+    - name: Copy missing Qt runtime DLLs
+      shell: pwsh
+      run: |
+        $files = @("pcre2-16.dll", "double-conversion.dll")
+        $qtBin = "$env:Qt6_Dir/bin"
+        $dest  = "C:/Program Files (x86)/CloudCompareProjects/CloudCompare"
+
+        foreach ($file in $files) {
+          $src = Join-Path $qtBin $file
+          if (Test-Path $src) {
+            Copy-Item $src $dest -Force
+            Write-Warning "Copied '$file' from Qt bin folder — this DLL is required by Qt6Core.dll but was not bundled by default. Check if this is still needed on future Qt version updates."
+          } else {
+            Write-Host "INFO: '$file' not found in Qt bin folder, skipping (likely not needed for this Qt build)."
+          }
+        }
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
       with:
