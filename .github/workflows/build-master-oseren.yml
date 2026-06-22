@@ -113,6 +113,12 @@ jobs:
         $qtPath = $env:Qt6_Dir
         Add-Content -Path $env:GITHUB_ENV -Value "CMAKE_PREFIX_PATH=$qtPath"
 
+    - name: Check for DLLs in Qt installation
+      run: |
+        Get-ChildItem -Path "$env:Qt6_Dir\bin" -Filter "pcre2-16.dll" -Recurse
+        Get-ChildItem -Path "$env:Qt6_Dir\lib" -Filter "pcre2-16.dll" -Recurse
+        Get-ChildItem -Path "$env:Qt6_Dir" -Filter "pcre2-16.dll" -Recurse
+
 ########
 # OPEN3D
 
