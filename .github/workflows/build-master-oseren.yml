@@ -26,7 +26,6 @@ jobs:
         target: desktop
         arch: win64_msvc2022_64
         cache: true
-        dir: 'D:/a/CloudCompare/Qt'
 
     - name: Qt6 --- Setup environnement
       shell: pwsh
