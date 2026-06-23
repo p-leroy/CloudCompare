@@ -15,24 +15,6 @@ jobs:
     runs-on: windows-latest
     steps:
 
-    # - name: Install vcpkg
-    #   run: |
-    #     git clone https://github.com/microsoft/vcpkg.git
-    #     cd vcpkg
-    #     .\bootstrap-vcpkg.bat
-    #     .\vcpkg integrate install
-    #     echo "VCPKG_ROOT=$PWD" >> $env:GITHUB_ENV
-
-    # - name: Install double-conversion and pcre2
-    #   run: |
-    #     & "$env:VCPKG_ROOT\vcpkg" install pcre2:x64-windows double-conversion:x64-windows
-    #     echo "$env:VCPKG_ROOT\installed\x64-windows\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-
-    # - name: Verify pcre2-16.dll and double-conversion.dll
-    #   run: |
-    #     Get-ChildItem -Path "$env:VCPKG_ROOT/installed/x64-windows/bin" -Filter "pcre2-16.dll"
-    #     Get-ChildItem -Path "$env:VCPKG_ROOT/installed/x64-windows/bin" -Filter "double-conversion.dll"
-
 #####
 # QT6
 
@@ -92,10 +74,8 @@ jobs:
 
     - name: Verify pcre2 and double-conversion
       run: |
+        # Check that the DLLs are in the conda bin directory
         conda activate CloudCompareDev
-        conda activate CloudCompareDev
-        conda install -y pcre2 double-conversion
-        # Vérifiez que les DLL sont dans le dossier bin
         Get-ChildItem -Path "$env:CONDA_PREFIX\Library\bin" -Filter "pcre2-16.dll"
         Get-ChildItem -Path "$env:CONDA_PREFIX\Library\bin" -Filter "double-conversion.dll"
 
@@ -257,29 +237,7 @@ jobs:
     - name: Install (Windows)
       run: cmake --install build
 
-    # - name: Copy pcre2-16.dll and double-conversion.dll from local Qt
-    #   run: |
-    #     # source dir
-    #     $vcpkgBinPath = "$env:VCPKG_ROOT/installed/x64-windows/bin"
-        
-    #     # destination dir
-    #     $destDir = "C:/Program Files (x86)/CloudCompareProjects/CloudCompare"
-
-    #     # dlls to copy
-    #     $dlls = @("pcre2-16.dll", "double-conversion.dll")
-
-    #     # copy dll
-    #     foreach ($dll in $dlls) {
-    #       $source = Join-Path $qtBinPath $dll
-    #       if (Test-Path $source) {
-    #         Copy-Item $source $destDir -Force
-    #         Write-Host "Copied $dll from $vcpkgBinPath to $destDir"
-    #       } else {
-    #         Write-Warning "$dll not found in $vcpkgBinPath"
-    #       }
-    #     }
-
-    - name: Copy pcre2.dll and double-conversion.dll from conda CloudCompareDev
+    - name: Copy pcre2.dll and double-conversion.dll from conda CloudCompareDev (dependency of Qt6Core.dll)
       run: |
         # source dir
         $sourceDir = "C:/Miniconda/envs/CloudCompareDev/Library/bin"
