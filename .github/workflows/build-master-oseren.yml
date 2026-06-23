@@ -246,7 +246,7 @@ jobs:
         $destDir = "C:/Program Files (x86)/CloudCompareProjects/CloudCompare"
         
         # dlls to copy
-        $dlls = @("pcre2-16.dll", "double-conversion.dll")
+        $dlls = @("pcre2-16.dll", "double-conversion.dll", "Lerc.dll", "libdeflate.dll")
         
         # copy dll
         foreach ($dll in $dlls) {
