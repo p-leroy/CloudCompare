@@ -4,13 +4,17 @@ if( PLUGIN_STANDARD_QM3C2 )
     project( QM3C2_PLUGIN )
     set(M3C2_PLUGIN_VERSION "0.2")
     AddPlugin( NAME ${PROJECT_NAME} )
+
     # BOOST
     find_package(Boost REQUIRED)
     message(STATUS "Boost_VERSION: ${Boost_VERSION}")
     message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 
-    target_include_directories( ${PROJECT_NAME} PRIVATE
-    ${Boost_INCLUDE_DIRS})
+    target_include_directories(
+	${PROJECT_NAME}
+	PRIVATE
+	${Boost_INCLUDE_DIRS}
+    )
 
     add_subdirectory( include )
     add_subdirectory( src )
