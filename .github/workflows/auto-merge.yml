@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # Required to push to branches
-      workflows: write  # Required to push workflow file changes
+      actions: write    # Required to push workflow file changes
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
