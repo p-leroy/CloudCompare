@@ -883,6 +883,7 @@ void ccCommandLineParser::registerBuiltInCommands()
 	registerCommand(Command::Shared(new CommandRemoveScanGrids));
 	registerCommand(Command::Shared(new CommandRemoveSensors));
 	registerCommand(Command::Shared(new CommandMatchBBCenters));
+	registerCommand(Command::Shared(new CommandMatchScales));
 	registerCommand(Command::Shared(new CommandMatchBestFitPlane));
 	registerCommand(Command::Shared(new CommandOrientNormalsMST));
 	registerCommand(Command::Shared(new CommandSORFilter));
@@ -904,6 +905,7 @@ void ccCommandLineParser::registerBuiltInCommands()
 	registerCommand(Command::Shared(new CommandC2CDist));
 	registerCommand(Command::Shared(new CommandCPS));
 	registerCommand(Command::Shared(new CommandStatTest));
+	registerCommand(Command::Shared(new CommandStatFit));
 	registerCommand(Command::Shared(new CommandDelaunayTri));
 	registerCommand(Command::Shared(new CommandSFArithmetic));
 	registerCommand(Command::Shared(new CommandSFOperation));
@@ -920,6 +922,7 @@ void ccCommandLineParser::registerBuiltInCommands()
 	registerCommand(Command::Shared(new CommandChangeMeshOutputFormat));
 	registerCommand(Command::Shared(new CommandChangeHierarchyOutputFormat));
 	registerCommand(Command::Shared(new CommandChangePLYExportFormat));
+	registerCommand(Command::Shared(new CommandPLYNoSFPrefix));
 	registerCommand(Command::Shared(new CommandForceNormalsComputation));
 	registerCommand(Command::Shared(new CommandSaveClouds));
 	registerCommand(Command::Shared(new CommandSaveMeshes));

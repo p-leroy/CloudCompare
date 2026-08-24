@@ -4409,6 +4409,16 @@ void ccGLWindowInterface::setInteractionMode(INTERACTION_FLAGS flags)
 	}
 }
 
+void ccGLWindowInterface::set3DMouseActive(bool state)
+{
+	// While a 3D mouse is driving the view we set m_mouseMoved so that
+	// decimateMeshOnMove is active (see display parameter setup). This
+	// mirrors the behaviour of a regular mouse drag, giving smooth
+	// interaction with large meshes. When the 3D mouse is released,
+	// m_mouseMoved is cleared so the LOD refinement cycle can run.
+	m_mouseMoved = state;
+}
+
 void ccGLWindowInterface::doDragEnterEvent(QDragEnterEvent* event)
 {
 	const QMimeData* mimeData = event->mimeData();
@@ -6078,16 +6088,6 @@ void ccGLWindowInterface::doPicking()
 						QApplication::processEvents();
 					}
 				}
-
-				// interaction with item(s) such as labels, etc.
-				// DGM TODO: to activate only if some items take left clicks into account!
-				// for (std::set<ccInteractor*>::iterator it=m_activeItems.begin(); it!=m_activeItems.end(); ++it)
-				// if ((*it)->acceptClick(x,y,Qt::LeftButton))
-				//{
-				//	event->accept();
-				//	redraw();
-				//	return;
-				// }
 			}
 		}
 		else
@@ -6709,6 +6709,8 @@ void ccGLWindowInterface::processMouseReleaseEvent(QMouseEvent* event)
 	m_mouseMoved         = false;
 	setWindowCursor(m_defaultCursorShape);
 
+	const auto devicePixelRatio = getDevicePixelRatio();
+
 	if (m_interactionFlags & INTERACT_SIG_BUTTON_RELEASED)
 	{
 		event->accept();
@@ -6743,7 +6745,7 @@ void ccGLWindowInterface::processMouseReleaseEvent(QMouseEvent* event)
 			{
 				ccInteractor* item = *m_activeItems.begin();
 				m_activeItems.clear();
-				if (item->acceptClick(event->x(), height() - 1 - event->y(), Qt::RightButton))
+				if (item->acceptClick(static_cast<int>(devicePixelRatio * event->x()), glHeight() - 1 - static_cast<int>(devicePixelRatio * event->y()), Qt::RightButton))
 				{
 					event->accept();
 					toBeRefreshed();
@@ -6764,11 +6766,10 @@ void ccGLWindowInterface::processMouseReleaseEvent(QMouseEvent* event)
 				const CCVector3* C = vertices->getPointPersistentPtr(2);
 
 				// we need to counter-act the automatic scaling performed in startPicking
-				const auto devicePixelRatio = getDevicePixelRatio();
-				int        pickX            = static_cast<int>((A->x + C->x) / (2 * devicePixelRatio));
-				int        pickY            = static_cast<int>((A->y + C->y) / (2 * devicePixelRatio));
-				int        pickW            = static_cast<int>(std::abs(C->x - A->x) / devicePixelRatio);
-				int        pickH            = static_cast<int>(std::abs(C->y - A->y) / devicePixelRatio);
+				int pickX = static_cast<int>((A->x + C->x) / (2 * devicePixelRatio));
+				int pickY = static_cast<int>((A->y + C->y) / (2 * devicePixelRatio));
+				int pickW = static_cast<int>(std::abs(C->x - A->x) / devicePixelRatio);
+				int pickH = static_cast<int>(std::abs(C->y - A->y) / devicePixelRatio);
 
 				removeFromOwnDB(m_rectPickingPoly);
 				m_rectPickingPoly = nullptr;

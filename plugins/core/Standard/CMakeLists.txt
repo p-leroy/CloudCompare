@@ -18,6 +18,7 @@ add_subdirectory( qMeshBoolean )
 
 #plugins integrated as submodules
 set( submod_plugins
+		${CMAKE_CURRENT_SOURCE_DIR}/cc3DFin
 		${CMAKE_CURRENT_SOURCE_DIR}/q3DMASC
 		${CMAKE_CURRENT_SOURCE_DIR}/qColorimetricSegmenter
 		${CMAKE_CURRENT_SOURCE_DIR}/qG3Point

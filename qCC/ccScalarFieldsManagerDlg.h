@@ -1,3 +1,4 @@
+#pragma once
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -15,38 +16,66 @@
 // #                                                                        #
 // ##########################################################################
 
-#ifndef CC_SOR_FILTER_DLG_HEADER
-#define CC_SOR_FILTER_DLG_HEADER
+// qCC_db
+#include <ccHObject.h>
+#include <ccScalarField.h>
 
+// Qt
 #include <QDialog>
+
+class ccScalarField;
+class ccPointCloud;
 
 namespace Ui
 {
-	class SorFilterDialog;
+	class ScalarFieldsManagerDlg;
 }
 
-//! Dialog to choose which dimension(s) (X, Y or Z) should be exported as SF(s)
-class ccSORFilterDlg : public QDialog
+//! Dialog to edit/create scalar fields
+class ccScalarFieldsManagerDialog : public QDialog
 {
 	Q_OBJECT
 
   public:
 	//! Default constructor
-	explicit ccSORFilterDlg(QWidget* parent = nullptr);
+	ccScalarFieldsManagerDialog(const ccHObject::Container& selectedEntities,
+	                            QWidget*                    parent = nullptr);
 
-	~ccSORFilterDlg();
+	//! Destructor
+	~ccScalarFieldsManagerDialog() override;
 
-	int  KNN() const;
-	void setKNN(int knn);
+	//! Sets active point cloud
+	void setActivePointCloud(ccPointCloud* pc);
 
-	double nSigma() const;
-	void   setNSigma(double nSigma);
+  protected:
+	void setSelectedEntities(const ccHObject::Container& entities);
 
-	void setMaxThreadCount(int count);
-	int  maxThreadCount() const;
+	void onEntityChanged(int index);
 
-  private:
-	Ui::SorFilterDialog* m_ui;
+	void buildTable();
+	void updateDisplay();
+
+	void deleteSF();
+	void renameSF(int sfIdx, const QString& newName);
+	void addConstantSF();
+	void showHistogram();
+	void doArithmetic();
+
+	void appendSFToTable(int sfIdx);
+
+  protected:
+	//! SF attributes
+	enum SFAttributes
+	{
+		NAME = 0,
+		MINVAL,
+		MAXVAL,
+		MEAN,
+		STD
+	};
+
+	ccPointCloud*               m_pointCloud;      //!< Active point cloud
+	unsigned                    m_sfCount;         //!< Number of scalar fields
+	std::vector<ccPointCloud*>  m_availableClouds; //!< Point clouds (derived from the initial selection)
+	Ui::ScalarFieldsManagerDlg* m_ui;              //!< Associated Qt UI
 };
-
-#endif // CC_SOR_FILTER_DLG_HEADER

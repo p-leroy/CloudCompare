@@ -228,6 +228,12 @@ namespace ccLibAlgorithms
 			case CCCoreLib::Neighbourhood::EigenValue3:
 				sfName = "3rd eigenvalue";
 				break;
+			case CCCoreLib::Neighbourhood::DegreeOfPlanarity:
+				sfName = "Degree of planarity (M)";
+				break;
+			case CCCoreLib::Neighbourhood::DegreeOfLinearity:
+				sfName = "Degree of linearity (K)";
+				break;
 			default:
 				assert(false);
 				ccLog::Error("Internal error: invalid sub option for Feature computation");
@@ -294,6 +300,7 @@ namespace ccLibAlgorithms
 			if (entities[i]->isKindOf(CC_TYPES::POINT_CLOUD))
 			{
 				ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(entities[i]);
+				assert(nullptr != cloud);
 
 				ccPointCloud* pc    = nullptr;
 				int           sfIdx = -1;
@@ -466,9 +473,10 @@ namespace ccLibAlgorithms
 			switch (algo)
 			{
 			case CCLIB_ALGO_SF_GRADIENT:
+			{
 				// for scalar field gradient, we can apply it directly on meshes
-				bool lockedVertices;
-				cloud = ccHObjectCaster::ToGenericPointCloud(entities[i], &lockedVertices);
+				bool lockedVertices = false;
+				cloud               = ccHObjectCaster::ToGenericPointCloud(entities[i], &lockedVertices);
 				if (lockedVertices)
 				{
 					ccUtils::DisplayLockedVerticesWarning(entities[i]->getName(), selNum == 1);
@@ -497,12 +505,15 @@ namespace ccLibAlgorithms
 						cloud = nullptr;
 					}
 				}
-				break;
+			}
+			break;
 
 			// by default, we apply processings on clouds only
 			default:
 				if (entities[i]->isKindOf(CC_TYPES::POINT_CLOUD))
+				{
 					cloud = ccHObjectCaster::ToGenericPointCloud(entities[i]);
+				}
 				break;
 			}
 
@@ -630,20 +641,38 @@ namespace ccLibAlgorithms
 		unsigned count = static_cast<unsigned>(entities.size());
 
 		// now compute the scales
-		ccProgressDialog pDlg(true, parent);
-		pDlg.setMethodTitle(QObject::tr("Computing entities scales"));
-		pDlg.setInfo(QObject::tr("Entities: %1").arg(count));
-		CCCoreLib::NormalizedProgress nProgress(&pDlg, 2 * count - 1);
-		pDlg.start();
-		QApplication::processEvents();
+		QScopedPointer<ccProgressDialog> pDlg(nullptr);
+		if (parent)
+		{
+			pDlg.reset(new ccProgressDialog(true, parent));
+			pDlg->setMethodTitle(QObject::tr("Computing entities scales"));
+			pDlg->setInfo(QObject::tr("Entities: %1").arg(count));
+		}
+		CCCoreLib::NormalizedProgress nProgress(pDlg.data(), 2 * count - 1);
+		if (pDlg)
+		{
+			pDlg->start();
+			QApplication::processEvents();
+		}
 
 		for (unsigned i = 0; i < count; ++i)
 		{
 			ccHObject* ent = entities[i];
 			// try to get the underlying cloud (or the vertices set for a mesh)
-			bool                 lockedVertices;
-			ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(ent, &lockedVertices);
-			if (cloud && !lockedVertices)
+			bool                 lockedVertices = false;
+			ccGenericPointCloud* cloud          = ccHObjectCaster::ToGenericPointCloud(ent, &lockedVertices);
+
+			if (nullptr == cloud)
+			{
+				// we need a cloud or a mesh
+				ccLog::Warning(QString("[Scale Matching] Entity '%1' can't be rescaled this way!").arg(ent->getName()));
+			}
+			else if (lockedVertices)
+			{
+				// locked entities
+				ccUtils::DisplayLockedVerticesWarning(ent->getName(), false);
+			}
+			else
 			{
 				switch (algo)
 				{
@@ -739,16 +768,6 @@ namespace ccLibAlgorithms
 					break;
 				}
 			}
-			else if (cloud && lockedVertices)
-			{
-				// locked entities
-				ccUtils::DisplayLockedVerticesWarning(ent->getName(), false);
-			}
-			else
-			{
-				// we need a cloud or a mesh
-				ccLog::Warning(QString("[Scale Matching] Entity '%1' can't be rescaled this way!").arg(ent->getName()));
-			}
 
 			// if the reference entity is invalid!
 			if (scales[i] <= 0 && i == refEntityIndex)
@@ -767,7 +786,8 @@ namespace ccLibAlgorithms
 		ccLog::Print(QString("[Scale Matching] Reference entity scale: %1").arg(scales[refEntityIndex]));
 
 		// now we can rescale
-		pDlg.setMethodTitle(QObject::tr("Rescaling entities"));
+		if (pDlg)
+			pDlg->setMethodTitle(QObject::tr("Rescaling entities"));
 		{
 			for (unsigned i = 0; i < count; ++i)
 			{
@@ -785,16 +805,14 @@ namespace ccLibAlgorithms
 
 				ccHObject* ent = entities[i];
 
-				bool                 lockedVertices;
-				ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(ent, &lockedVertices);
-				if (!cloud || lockedVertices)
+				bool                 lockedVertices = false;
+				ccGenericPointCloud* cloud          = ccHObjectCaster::ToGenericPointCloud(ent, &lockedVertices);
+				if (nullptr == cloud || lockedVertices)
+				{
 					continue;
+				}
 
-				double scaled = 1.0;
-				if (algo == ICP_SCALE)
-					scaled = scales[i];
-				else
-					scaled = scales[refEntityIndex] / scales[i];
+				double scaled = algo == ICP_SCALE ? scales[i] : scales[refEntityIndex] / scales[i];
 
 				PointCoordinateType scale_pc = static_cast<PointCoordinateType>(scaled);
 
