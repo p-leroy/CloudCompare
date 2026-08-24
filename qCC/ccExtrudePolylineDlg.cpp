@@ -11,42 +11,33 @@
 // #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 // #  GNU General Public License for more details.                          #
 // #                                                                        #
-// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-// #                                                                        #
 // ##########################################################################
 
-#ifndef CC_SOR_FILTER_DLG_HEADER
-#define CC_SOR_FILTER_DLG_HEADER
+#include "ccExtrudePolylineDlg.h"
 
-#include <QDialog>
-
-namespace Ui
+ccExtrudePolylineDlg::ccExtrudePolylineDlg(QWidget* parent /*=nullptr*/)
+    : QDialog(parent, Qt::Tool)
+    , Ui::ExtrudePolylineDialog()
 {
-	class SorFilterDialog;
+	setupUi(this);
 }
 
-//! Dialog to choose which dimension(s) (X, Y or Z) should be exported as SF(s)
-class ccSORFilterDlg : public QDialog
+double ccExtrudePolylineDlg::heightAbove() const
 {
-	Q_OBJECT
+	return heightAboveSpinBox->value();
+}
 
-  public:
-	//! Default constructor
-	explicit ccSORFilterDlg(QWidget* parent = nullptr);
+double ccExtrudePolylineDlg::depthBelow() const
+{
+	return depthBelowSpinBox->value();
+}
 
-	~ccSORFilterDlg();
+void ccExtrudePolylineDlg::setHeightAbove(double value)
+{
+	heightAboveSpinBox->setValue(value);
+}
 
-	int  KNN() const;
-	void setKNN(int knn);
-
-	double nSigma() const;
-	void   setNSigma(double nSigma);
-
-	void setMaxThreadCount(int count);
-	int  maxThreadCount() const;
-
-  private:
-	Ui::SorFilterDialog* m_ui;
-};
-
-#endif // CC_SOR_FILTER_DLG_HEADER
+void ccExtrudePolylineDlg::setDepthBelow(double value)
+{
+	depthBelowSpinBox->setValue(value);
+}

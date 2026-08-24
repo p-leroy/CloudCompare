@@ -11,42 +11,27 @@
 // #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          #
 // #  GNU General Public License for more details.                          #
 // #                                                                        #
-// #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
-// #                                                                        #
 // ##########################################################################
 
-#ifndef CC_SOR_FILTER_DLG_HEADER
-#define CC_SOR_FILTER_DLG_HEADER
+#ifndef CC_EXTRUDE_POLYLINE_DLG_HEADER
+#define CC_EXTRUDE_POLYLINE_DLG_HEADER
 
-#include <QDialog>
+#include <ui_extrudePolylineDlg.h>
 
-namespace Ui
-{
-	class SorFilterDialog;
-}
-
-//! Dialog to choose which dimension(s) (X, Y or Z) should be exported as SF(s)
-class ccSORFilterDlg : public QDialog
+//! Dialog for extruding a polyline along Z into a zero-thickness mesh surface
+class ccExtrudePolylineDlg : public QDialog
+    , public Ui::ExtrudePolylineDialog
 {
 	Q_OBJECT
 
   public:
-	//! Default constructor
-	explicit ccSORFilterDlg(QWidget* parent = nullptr);
+	explicit ccExtrudePolylineDlg(QWidget* parent = nullptr);
 
-	~ccSORFilterDlg();
+	double heightAbove() const;
+	double depthBelow() const;
 
-	int  KNN() const;
-	void setKNN(int knn);
-
-	double nSigma() const;
-	void   setNSigma(double nSigma);
-
-	void setMaxThreadCount(int count);
-	int  maxThreadCount() const;
-
-  private:
-	Ui::SorFilterDialog* m_ui;
+	void setHeightAbove(double value);
+	void setDepthBelow(double value);
 };
 
-#endif // CC_SOR_FILTER_DLG_HEADER
+#endif // CC_EXTRUDE_POLYLINE_DLG_HEADER

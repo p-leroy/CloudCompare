@@ -4,6 +4,9 @@ CloudCompare Version History
 v2.14.beta (???) - (??/??/202?)
 ----------------------
 New features:
+	- Edit > Polyline > Extrude
+		- vertical extrusion within specified ownward (-Z) and upward (+Z) offsets
+
 	- Edit > Color > Gaussian filter
 	- Edit > Color > Bilateral filter
 	- Edit > Color > Median filter
@@ -21,6 +24,24 @@ New features:
 		- distances between a point cloud and a disc can be computed with 'Tools > Distances > Cloud/primitive dist'
 
 	- New Command line options
+		- New command -MATCH_SCALES {BB_MAX_DIM|BB_VOLUME|PCA_MAX_DIM|ICP} [-REFERENCE {index}] [-RMS_DIFF {value}] [-OVERLAP {percent}]
+			- ports the 'Tools > Registration > Match scales' tool to the command line
+			- rescales all loaded clouds/meshes to match the scale of the reference entity (0-based index, 0 by default)
+			- -RMS_DIFF and -OVERLAP only apply to the ICP algorithm (defaults: 1e-5 and 100 respectively)
+		- New command -PLY_NO_SF_PREFIX
+			- tells the PLY filter not to add the 'scalar_' prefix to the scalar field names when saving
+			- scalar fields coming from an input PLY file already keep their original name
+		- New command -STAT_FIT {GAUSS|WEIBULL}
+			- ports the 'Compute stat. params' tool (distribution fitting) to the command line
+			- fits the distribution on the active scalar field of each loaded cloud (see -SET_ACTIVE_SF)
+			- the fitted parameters are printed to the console, and therefore to the -LOG_FILE file if one is set
+		- New option -OUTPUT_MATRIX_FILE {filename} for the -ICP command
+			- saves the registration matrix to this file instead of the automatically generated '{cloud path}/{cloud name}_REGISTRATION_MATRIX.txt'
+			- the filename is used as is: no timestamp and no '.txt' extension are appended
+		- New option -OUTPUT_INFO_FILE {filename} for the -BEST_FIT_PLANE command
+			- saves the plane information file to this file instead of the automatically generated '{cloud path}/{cloud name}_BEST_FIT_PLANE_INFO.txt'
+			- the filename is used as is: no timestamp and no '.txt' extension are appended
+			- as this command writes one information file per loaded cloud, this option requires that a single cloud is loaded
 		- New command -DISTANCES_FROM_SENSOR [-SQUARED]
 			- to compute the distances from every point of the cloud to the associated sensor origin (if any)
 		- New command -SCATTERING_ANGLES [-DEGREES]
@@ -322,6 +343,21 @@ Improvements:
 			now apply to all selected DB tree item
 		- the 'Search by name and/or type' entry can now be applied with multiple entities selected at once
 
+	- 3D mouse support
+		- 3D mouse support on macOS, Linux and Windows (thanks to https://github.com/braunsi23 and Paul Rascle!)
+		- on Windows, option to compile with the 3DxWare SDK or the generic hidapi library
+
+	- Tools > Other > Compute geometric feature
+		- new geometric features: (from "Obtaining a Best Fitting Plane Through 3D Georeferenced Data", Fernandez, 2005)
+			- Degree of planarity (M): ln(L1 / L3)
+			- Degree of linearity (K): ln(L1 / L2) / ln(L2 / L3)
+
+	- SOR/Cleaning filters
+		- the user can now choose the number of threads to use
+
+	- ICP
+		- new option to define/restrict the scaling range if 'adjust scale' is enabled
+
 	- Others:
 		- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
 		- the shortcut to the 'Level' tool in the 'View' toolbar (left) has been removed. Contrarily to the other options in this toolbar,
@@ -335,8 +371,11 @@ Improvements:
 		- CloudCompare is now built upon Qt 6.
 		- Removed Gamepad support (QGamepad is no longer part of Qt starting from Qt6).
 		- point picking now works on mesh displayed with wireframe
+		- the ASCII loading dialog now warns the user when a file has more columns than it can handle
+			(only the first 512 columns are loaded, the other ones were previously ignored silently)
 
 Bug fixes:
+	- ASCII files saved with legacy Mac line endings (a lone CR) were read as a single line, silently loading only one point
 	- the weights derived from normals comparison during ICP registration of 2 clouds could be wrong (the wrong normals were compared)
 	- editing the Global Shift & Scale information of a polyline would make CC crash
 	- segmenting a cloud with polylines depending on it but not directly present below the cloud entity in the DB tree could lead
@@ -382,6 +421,7 @@ Bug fixes:
 	- Despite what the tooltip was saying, using 0 as max edge length in the contour extraction option of the Cross Section tool would not lead to the
 		extraction of the convex hull.
 	- When using some tools and changing the selection was CloudCompare was still working, the tool could be applied to the newly selected entities
+	- The sphere detection feature of the point-pair-based-alignment tool could lead to a crash (2.14.alpha and 2.14.beta only)
 
 Unresolved anomalies:
 	- 'LAS.vlrs' meta-data items saved in BIN files with any version prior to 2.14.beta cannot be restored anymore due to Qt 6
