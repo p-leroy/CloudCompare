@@ -63,6 +63,9 @@
 #include <ccGLWindowInterface.h>
 #include <ccRenderingTools.h>
 
+// CCPluginAPI
+#include <ccQtHelpers.h>
+
 // local includes
 #include "ccConsole.h"
 #include "ccEntityAction.h"
@@ -91,6 +94,7 @@
 #include "ccColorScaleEditorDlg.h"
 #include "ccComparisonDlg.h"
 #include "ccEntitySelectionDlg.h"
+#include "ccExtrudePolylineDlg.h"
 #include "ccFilterByValueDlg.h"
 #include "ccFitSphereDlg.h"
 #include "ccGBLSensorProjectionDlg.h"
@@ -113,6 +117,7 @@
 #include "ccRegistrationDlg.h"
 #include "ccRenderToFileDlg.h"
 #include "ccSORFilterDlg.h"
+#include "ccScalarFieldsManagerDlg.h"
 #include "ccScaleDlg.h"
 #include "ccSectionExtractionTool.h"
 #include "ccSensorComputeDistancesDlg.h"
@@ -139,7 +144,7 @@
 #include "pluginManager/ccPluginUIManager.h"
 
 // 3D mouse handler
-#ifdef CC_3DXWARE_SUPPORT
+#ifdef CC_3DMOUSE_SUPPORT
 #include "cc3DMouseManager.h"
 #endif
 
@@ -444,19 +449,16 @@ void MainWindow::decreasePointSize()
 
 void MainWindow::setupInputDevices()
 {
-#ifdef CC_3DXWARE_SUPPORT
+#ifdef CC_3DMOUSE_SUPPORT
 	m_3DMouseManager = new cc3DMouseManager(this, this);
 	m_UI->menuFile->insertMenu(m_UI->actionCloseAll, m_3DMouseManager->menu());
-#endif
-
-#if defined(CC_3DXWARE_SUPPORT)
 	m_UI->menuFile->insertSeparator(m_UI->actionCloseAll);
 #endif
 }
 
 void MainWindow::destroyInputDevices()
 {
-#ifdef CC_3DXWARE_SUPPORT
+#ifdef CC_3DMOUSE_SUPPORT
 	delete m_3DMouseManager;
 	m_3DMouseManager = nullptr;
 #endif
@@ -580,6 +582,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionEnhanceMeshSF, &QAction::triggered, this, &MainWindow::doActionEnhanceMeshSF);
 	//"Edit > Polyline" menu
 	connect(m_UI->actionSamplePointsOnPolyline, &QAction::triggered, this, &MainWindow::doActionSamplePointsOnPolyline);
+	connect(m_UI->actionExtrudePolyline, &QAction::triggered, this, &MainWindow::doActionExtrudePolyline);
 	connect(m_UI->actionSmoothPolyline, &QAction::triggered, this, &MainWindow::doActionSmoohPolyline);
 
 	//"Edit > Plane" menu
@@ -605,6 +608,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionComputeScatteringAngles, &QAction::triggered, this, &MainWindow::doActionComputeScatteringAngles);
 	connect(m_UI->actionViewFromSensor, &QAction::triggered, this, &MainWindow::doActionSetViewFromSensor);
 	//"Edit > Scalar fields" menu
+	connect(m_UI->actionOpenSFManager, &QAction::triggered, this, &MainWindow::doActionOpenSelectedEntitiesSFManager);
 	connect(m_UI->actionShowHistogram, &QAction::triggered, this, &MainWindow::showSelectedEntitiesHistogram);
 	connect(m_UI->actionComputeStatParams, &QAction::triggered, this, &MainWindow::doActionComputeStatParams);
 	connect(m_UI->actionSFGradient, &QAction::triggered, this, &MainWindow::doActionSFGradient);
@@ -2863,6 +2867,112 @@ void MainWindow::doActionSamplePointsOnPolyline()
 	refreshAll();
 }
 
+void MainWindow::doActionExtrudePolyline()
+{
+	static double s_extrudeUp   = 10.0;
+	static double s_extrudeDown = 0.0;
+
+	ccExtrudePolylineDlg dlg(this);
+	dlg.setHeightAbove(s_extrudeUp);
+	dlg.setDepthBelow(s_extrudeDown);
+	if (!dlg.exec())
+		return;
+
+	s_extrudeUp   = dlg.heightAbove();
+	s_extrudeDown = dlg.depthBelow();
+
+	if (s_extrudeUp == 0.0 && s_extrudeDown == 0.0)
+	{
+		ccLog::Warning(tr("[ExtrudePolyline] Both height and depth are zero, nothing to do"));
+		return;
+	}
+
+	bool errors = false;
+
+	for (ccHObject* entity : getSelectedEntities())
+	{
+		if (!entity->isKindOf(CC_TYPES::POLY_LINE))
+			continue;
+
+		ccPolyline* polyline = ccHObjectCaster::ToPolyline(entity);
+		assert(polyline);
+
+		const unsigned vertCount  = polyline->size();
+		const bool     isClosed   = polyline->isClosed();
+		const unsigned segCount   = isClosed ? vertCount : vertCount - 1;
+		const unsigned totalVerts = vertCount * 2;
+		const unsigned triCount   = segCount * 2;
+
+		ccPointCloud* vertices = new ccPointCloud("vertices");
+		if (!vertices->reserve(totalVerts))
+		{
+			ccLog::Error(tr("Not enough memory!"));
+			delete vertices;
+			errors = true;
+			continue;
+		}
+
+		// bottom line (lowered by 's_extrudeDown')
+		for (unsigned i = 0; i < vertCount; ++i)
+		{
+			CCVector3 p = *polyline->getPoint(i);
+			p.z -= static_cast<PointCoordinateType>(s_extrudeDown);
+			vertices->addPoint(p);
+		}
+		// top line (raised by 's_extrudeUp')
+		for (unsigned i = 0; i < vertCount; ++i)
+		{
+			CCVector3 p = *polyline->getPoint(i);
+			p.z += static_cast<PointCoordinateType>(s_extrudeUp);
+			vertices->addPoint(p);
+		}
+
+		ccMesh* mesh = new ccMesh(vertices);
+		mesh->addChild(vertices);
+		vertices->setEnabled(false);
+
+		if (!mesh->reserve(triCount))
+		{
+			ccLog::Error(tr("Not enough memory!"));
+			delete mesh;
+			errors = true;
+			continue;
+		}
+
+		// for each side segment, build a quad as two triangles
+		for (unsigned i = 0; i < segCount; ++i)
+		{
+			const unsigned b0 = i;
+			const unsigned b1 = (i + 1) % vertCount;
+			const unsigned t0 = vertCount + b0;
+			const unsigned t1 = vertCount + b1;
+
+			mesh->addTriangle(b0, b1, t0);
+			mesh->addTriangle(b1, t1, t0);
+		}
+
+		mesh->setName(polyline->getName() + "_extruded");
+		mesh->copyGlobalShiftAndScale(*polyline);
+		mesh->setDisplay(polyline->getDisplay());
+		mesh->computePerVertexNormals();
+		mesh->showNormals(true);
+
+		if (polyline->getParent())
+		{
+			polyline->getParent()->addChild(mesh);
+		}
+
+		addToDB(mesh);
+	}
+
+	if (errors)
+	{
+		ccLog::Error(tr("[ExtrudePolyline] Errors occurred during the process! Result may be incomplete!"));
+	}
+
+	refreshAll();
+}
+
 void MainWindow::doActionSmoohPolyline()
 {
 	static int    s_iterationCount = 5;
@@ -3253,6 +3363,18 @@ void MainWindow::doApplyActiveSFAction(int action)
 void MainWindow::doActionRenameSF()
 {
 	if (!ccEntityAction::sfRename(m_selectedEntities, this))
+	{
+		return;
+	}
+
+	updateUI();
+}
+
+void MainWindow::doActionOpenSelectedEntitiesSFManager()
+{
+	ccScalarFieldsManagerDialog sfmDlg(m_selectedEntities, this);
+
+	if (!sfmDlg.exec())
 	{
 		return;
 	}
@@ -3916,6 +4038,13 @@ void MainWindow::doActionRegister()
 		parameters.maxThreadCount          = rDlg.getMaxThreadCount();
 		parameters.useC2MSignedDistances   = rDlg.useC2MSignedDistances(parameters.robustC2MSignedDistances);
 		parameters.normalsMatching         = rDlg.normalsMatchingOption();
+
+		if (parameters.adjustScale)
+		{
+			auto scaleRange     = rDlg.constrainedScaleRange();
+			parameters.minScale = scaleRange.first;
+			parameters.maxScale = scaleRange.second;
+		}
 	}
 	bool useDataSFAsWeights  = rDlg.useDataSFAsWeights();
 	bool useModelSFAsWeights = rDlg.useModelSFAsWeights();
@@ -5852,8 +5981,11 @@ void MainWindow::doActionSORFilter()
 	// set semi-persistent/dynamic parameters
 	static int    s_sorFilterKnn    = 6;
 	static double s_sorFilterNSigma = 1.0;
+	static int    s_maxThreadCount  = ccQtHelpers::GetMaxThreadCount();
+
 	sorDlg.setKNN(s_sorFilterKnn);
 	sorDlg.setNSigma(s_sorFilterNSigma);
+	sorDlg.setMaxThreadCount(s_maxThreadCount);
 	if (!sorDlg.exec())
 	{
 		return;
@@ -5862,6 +5994,7 @@ void MainWindow::doActionSORFilter()
 	// update semi-persistent/dynamic parameters
 	s_sorFilterKnn    = sorDlg.KNN();
 	s_sorFilterNSigma = sorDlg.nSigma();
+	s_maxThreadCount  = sorDlg.maxThreadCount();
 
 	ccProgressDialog pDlg(true, this);
 	pDlg.setAutoClose(false);
@@ -5885,12 +6018,19 @@ void MainWindow::doActionSORFilter()
 			continue;
 		}
 
+		if (static_cast<int>(cloud->size()) <= s_sorFilterKnn)
+		{
+			ccLog::Warning(tr("Cloud %1 has not enough points").arg(cloud->getName()));
+			continue;
+		}
+
 		// computation
 		CCCoreLib::ReferenceCloud* selection = CCCoreLib::CloudSamplingTools::sorFilter(cloud,
 		                                                                                s_sorFilterKnn,
 		                                                                                s_sorFilterNSigma,
 		                                                                                cloud->getOctree().data(),
-		                                                                                &pDlg);
+		                                                                                &pDlg,
+		                                                                                s_maxThreadCount);
 
 		if (selection)
 		{
@@ -5950,22 +6090,36 @@ void MainWindow::doActionFilterNoise()
 	static double s_noiseFilterAbsError             = 1.0;
 	static double s_noiseFilterNSigma               = 1.0;
 	static bool   s_noiseFilterRemoveIsolatedPoints = false;
+	static int    s_maxThreadCount                  = ccQtHelpers::GetMaxThreadCount();
 	noiseDlg.radiusDoubleSpinBox->setValue(kernelRadius);
 	noiseDlg.knnSpinBox->setValue(s_noiseFilterKnn);
 	noiseDlg.nSigmaDoubleSpinBox->setValue(s_noiseFilterNSigma);
 	noiseDlg.absErrorDoubleSpinBox->setValue(s_noiseFilterAbsError);
 	noiseDlg.removeIsolatedPointsCheckBox->setChecked(s_noiseFilterRemoveIsolatedPoints);
+	noiseDlg.maxThreadCountSpinBox->setValue(s_maxThreadCount);
+
 	if (s_noiseFilterUseAbsError)
+	{
 		noiseDlg.absErrorRadioButton->setChecked(true);
+	}
 	else
+	{
 		noiseDlg.relativeRadioButton->setChecked(true);
+	}
+
 	if (s_noiseFilterUseKnn)
+	{
 		noiseDlg.knnRadioButton->setChecked(true);
+	}
 	else
+	{
 		noiseDlg.radiusRadioButton->setChecked(true);
+	}
 
 	if (!noiseDlg.exec())
+	{
 		return;
+	}
 
 	// update semi-persistent/dynamic parameters
 	kernelRadius                      = noiseDlg.radiusDoubleSpinBox->value();
@@ -5975,6 +6129,7 @@ void MainWindow::doActionFilterNoise()
 	s_noiseFilterNSigma               = noiseDlg.nSigmaDoubleSpinBox->value();
 	s_noiseFilterAbsError             = noiseDlg.absErrorDoubleSpinBox->value();
 	s_noiseFilterRemoveIsolatedPoints = noiseDlg.removeIsolatedPointsCheckBox->isChecked();
+	s_maxThreadCount                  = noiseDlg.maxThreadCountSpinBox->value();
 
 	ccProgressDialog pDlg(true, this);
 	pDlg.setAutoClose(false);
@@ -6008,7 +6163,8 @@ void MainWindow::doActionFilterNoise()
 		                                                                                  s_noiseFilterUseAbsError,
 		                                                                                  s_noiseFilterAbsError,
 		                                                                                  cloud->getOctree().data(),
-		                                                                                  &pDlg);
+		                                                                                  &pDlg,
+		                                                                                  s_maxThreadCount);
 
 		if (selection)
 		{
@@ -7284,7 +7440,7 @@ void MainWindow::activateTranslateRotateMode()
 
 	if (!m_transTool)
 		m_transTool = new ccGraphicalTransformationTool(this);
-	assert(m_transTool->getNumberOfValidEntities() == 0);
+
 	m_transTool->linkWith(win);
 
 	bool rejectedEntities = false;
@@ -11631,6 +11787,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_UI->actionSplitCloudUsingSF->setEnabled(atLeastOneSF);
 	m_UI->actionComputeStatParams->setEnabled(atLeastOneSF);
 	m_UI->actionComputeStatParams2->setEnabled(atLeastOneSF);
+	m_UI->actionOpenSFManager->setEnabled(atLeastOneCloud);
 	m_UI->actionShowHistogram->setEnabled(atLeastOneSF);
 	m_UI->actionGaussianFilter->setEnabled(atLeastOneSF);
 	m_UI->actionBilateralFilter->setEnabled(atLeastOneSF);
@@ -11682,6 +11839,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 
 	m_UI->actionConvertPolylinesToMesh->setEnabled(atLeastOnePolyline || exactlyOneGroup);
 	m_UI->actionSamplePointsOnPolyline->setEnabled(atLeastOnePolyline);
+	m_UI->actionExtrudePolyline->setEnabled(atLeastOnePolyline);
 	m_UI->actionSmoothPolyline->setEnabled(atLeastOnePolyline);
 
 	m_UI->actionMeshTwoPolylines->setEnabled(selInfo.selCount == 2 && selInfo.polylineCount == 2);
@@ -12282,6 +12440,7 @@ void MainWindow::populateActionList()
 	m_actions.push_back(m_UI->actionLabelConnectedComponents);
 	m_actions.push_back(m_UI->actionSegment);
 	m_actions.push_back(m_UI->actionTranslateRotate);
+	m_actions.push_back(m_UI->actionOpenSFManager);
 	m_actions.push_back(m_UI->actionShowHistogram);
 	m_actions.push_back(m_UI->actionComputeStatParams);
 	m_actions.push_back(m_UI->actionFilterByValue);
@@ -12456,6 +12615,7 @@ void MainWindow::populateActionList()
 	m_actions.push_back(m_UI->actionExportPlaneInfo);
 	m_actions.push_back(m_UI->actionLock_rotation_about_arbitrary_axis);
 	m_actions.push_back(m_UI->actionSamplePointsOnPolyline);
+	m_actions.push_back(m_UI->actionExtrudePolyline);
 	m_actions.push_back(m_UI->actionNoTranslation);
 	m_actions.push_back(m_UI->actionComputeGeometricFeature);
 	m_actions.push_back(m_UI->actionBBMinCornerToOrigin);

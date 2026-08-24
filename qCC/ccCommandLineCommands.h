@@ -266,6 +266,13 @@ struct CommandMatchBBCenters : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandMatchScales : public ccCommandLineInterface::Command
+{
+	CommandMatchScales();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandMatchBestFitPlane : public ccCommandLineInterface::Command
 {
 	CommandMatchBestFitPlane();
@@ -418,6 +425,13 @@ struct CommandStatTest : public ccCommandLineInterface::Command
 	bool process(ccCommandLineInterface& cmd) override;
 };
 
+struct CommandStatFit : public ccCommandLineInterface::Command
+{
+	CommandStatFit();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
 struct CommandDelaunayTri : public ccCommandLineInterface::Command
 {
 	CommandDelaunayTri();
@@ -505,6 +519,13 @@ struct CommandICP : public ccCommandLineInterface::Command
 struct CommandChangePLYExportFormat : public ccCommandLineInterface::Command
 {
 	CommandChangePLYExportFormat();
+
+	bool process(ccCommandLineInterface& cmd) override;
+};
+
+struct CommandPLYNoSFPrefix : public ccCommandLineInterface::Command
+{
+	CommandPLYNoSFPrefix();
 
 	bool process(ccCommandLineInterface& cmd) override;
 };

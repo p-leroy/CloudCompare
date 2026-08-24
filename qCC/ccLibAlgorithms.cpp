@@ -228,6 +228,12 @@ namespace ccLibAlgorithms
 			case CCCoreLib::Neighbourhood::EigenValue3:
 				sfName = "3rd eigenvalue";
 				break;
+			case CCCoreLib::Neighbourhood::DegreeOfPlanarity:
+				sfName = "Degree of planarity (M)";
+				break;
+			case CCCoreLib::Neighbourhood::DegreeOfLinearity:
+				sfName = "Degree of linearity (K)";
+				break;
 			default:
 				assert(false);
 				ccLog::Error("Internal error: invalid sub option for Feature computation");
@@ -635,12 +641,19 @@ namespace ccLibAlgorithms
 		unsigned count = static_cast<unsigned>(entities.size());
 
 		// now compute the scales
-		ccProgressDialog pDlg(true, parent);
-		pDlg.setMethodTitle(QObject::tr("Computing entities scales"));
-		pDlg.setInfo(QObject::tr("Entities: %1").arg(count));
-		CCCoreLib::NormalizedProgress nProgress(&pDlg, 2 * count - 1);
-		pDlg.start();
-		QApplication::processEvents();
+		QScopedPointer<ccProgressDialog> pDlg(nullptr);
+		if (parent)
+		{
+			pDlg.reset(new ccProgressDialog(true, parent));
+			pDlg->setMethodTitle(QObject::tr("Computing entities scales"));
+			pDlg->setInfo(QObject::tr("Entities: %1").arg(count));
+		}
+		CCCoreLib::NormalizedProgress nProgress(pDlg.data(), 2 * count - 1);
+		if (pDlg)
+		{
+			pDlg->start();
+			QApplication::processEvents();
+		}
 
 		for (unsigned i = 0; i < count; ++i)
 		{
@@ -773,7 +786,8 @@ namespace ccLibAlgorithms
 		ccLog::Print(QString("[Scale Matching] Reference entity scale: %1").arg(scales[refEntityIndex]));
 
 		// now we can rescale
-		pDlg.setMethodTitle(QObject::tr("Rescaling entities"));
+		if (pDlg)
+			pDlg->setMethodTitle(QObject::tr("Rescaling entities"));
 		{
 			for (unsigned i = 0; i < count; ++i)
 			{
