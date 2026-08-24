@@ -8,12 +8,14 @@ on:
 jobs:
   merge-branches:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # Required to push to branches
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_WITH_WORKFLOW }}
 
       - name: Configure git
         run: |
