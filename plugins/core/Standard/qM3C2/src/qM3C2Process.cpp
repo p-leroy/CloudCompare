@@ -28,6 +28,7 @@
 
 //qCC_plugins
 #include <ccMainAppInterface.h>
+#include <ccBackgroundTask.h>
 #include <ccQtHelpers.h>
 
 //qCC_db
@@ -1820,7 +1821,8 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 				}
 				assert(maxThreadCount > 0 && maxThreadCount <= QThread::idealThreadCount());
 				QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
-				QtConcurrent::blockingMap(pointIndexes, ComputeM3C2DistForPoint);
+				auto future = QtConcurrent::map(pointIndexes, ComputeM3C2DistForPoint);
+				ccBackgroundTask::Wait(future);
 			}
 			else
 			{
