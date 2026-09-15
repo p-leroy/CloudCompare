@@ -155,7 +155,7 @@ Improvements:
 		- use of a LUT texture with uncompressed normals
 		- use of a color scale texture when displaying scalar fields
 		- visibility filtering done in the same program
-		- (does not work with partial or textured meshes yet)
+		- (does not work for meshes with partial visibility or multi-textured yet)
 
 	- Display > Lock rotation about an axis
 		- now a proper 'turntable' rotation mode
@@ -360,12 +360,21 @@ Improvements:
 		- new geometric features: (from "Obtaining a Best Fitting Plane Through 3D Georeferenced Data", Fernandez, 2005)
 			- Degree of planarity (M): ln(L1 / L3)
 			- Degree of linearity (K): ln(L1 / L2) / ln(L2 / L3)
+		- the approximate density can be computed again (it was only reachable with the -APPROX_DENSITY
+			command line option since 2.10)
+			- it only looks at the nearest neighbor, so it ignores the radius and is much faster than the
+				exact density on large neighborhoods
+			- the 'number of neighbors' variant is in fact the inverse of the distance to the nearest
+				neighbor, and its scalar field is now named accordingly
 
 	- SOR/Cleaning filters
 		- the user can now choose the number of threads to use
 
 	- ICP
 		- new option to define/restrict the scaling range if 'adjust scale' is enabled
+
+	- Cross Section (clipping box) tool
+		- new 'invert' button to invert the selection (i.e. the 'inside' and 'outside' of the box)
 
 	- Others:
 		- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
@@ -382,6 +391,7 @@ Improvements:
 		- point picking now works on mesh displayed with wireframe
 		- the ASCII loading dialog now warns the user when a file has more columns than it can handle
 			(only the first 512 columns are loaded, the other ones were previously ignored silently)
+		- the PoissonRecon library (used by the Poisson Surface reconstruction plugin) has been updated to version 18.76
 
 Bug fixes:
 	- ASCII files saved with legacy Mac line endings (a lone CR) were read as a single line, silently loading only one point
@@ -431,6 +441,8 @@ Bug fixes:
 		extraction of the convex hull.
 	- When using some tools and changing the selection was CloudCompare was still working, the tool could be applied to the newly selected entities
 	- The sphere detection feature of the point-pair-based-alignment tool could lead to a crash (2.14.alpha and 2.14.beta only)
+	- The Ransac Shape Detection plugin could output spheres or cylinders outside the min/max radius limits
+		(the limits were not checked after the shape refinement step), and it never refined the detected tori
 
 Unresolved anomalies:
 	- 'LAS.vlrs' meta-data items saved in BIN files with any version prior to 2.14.beta cannot be restored anymore due to Qt 6
