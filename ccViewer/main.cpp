@@ -45,12 +45,6 @@
 
 int main(int argc, char* argv[])
 {
-
-#ifdef Q_OS_WIN
-	// enables automatic scaling based on the monitor's pixel density
-	ccViewerApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#endif
-
 	ccViewerApplication::InitOpenGL();
 
 	// Convert the input arguments to QString before the application is initialized
@@ -81,7 +75,8 @@ int main(int argc, char* argv[])
 
 	QDir::setCurrent(workingDir.absolutePath());
 
-	QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+	QSurfaceFormat format;
+	format.setRenderableType(QSurfaceFormat::OpenGL);
 	format.setVersion(2, 1);
 	format.setProfile(QSurfaceFormat::CoreProfile);
 	QSurfaceFormat::setDefaultFormat(format);
@@ -189,7 +184,6 @@ int main(int argc, char* argv[])
 
 	// release global structures
 	FileIOFilter::UnregisterAll();
-	ccPointCloud::ReleaseShaders();
 
 	return result;
 }

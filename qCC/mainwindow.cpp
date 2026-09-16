@@ -64,6 +64,7 @@
 #include <ccRenderingTools.h>
 
 // CCPluginAPI
+#include <ccBackgroundTask.h>
 #include <ccQtHelpers.h>
 
 // local includes
@@ -92,6 +93,7 @@
 #include "ccClippingBoxTool.h"
 #include "ccColorFromScalarDlg.h"
 #include "ccColorScaleEditorDlg.h"
+#include "ccCommon.h"
 #include "ccComparisonDlg.h"
 #include "ccEntitySelectionDlg.h"
 #include "ccExtrudePolylineDlg.h"
@@ -6026,13 +6028,17 @@ void MainWindow::doActionSORFilter()
 			continue;
 		}
 
-		// computation
-		CCCoreLib::ReferenceCloud* selection = CCCoreLib::CloudSamplingTools::sorFilter(cloud,
-		                                                                                s_sorFilterKnn,
-		                                                                                s_sorFilterNSigma,
-		                                                                                cloud->getOctree().data(),
-		                                                                                &pDlg,
-		                                                                                s_maxThreadCount);
+		// computation (in a worker thread, so that the progress dialog keeps refreshing)
+		CCCoreLib::ReferenceCloud* selection = ccBackgroundTask::Run(
+		    [&]()
+		    {
+			    return CCCoreLib::CloudSamplingTools::sorFilter(cloud,
+			                                                    s_sorFilterKnn,
+			                                                    s_sorFilterNSigma,
+			                                                    cloud->getOctree().data(),
+			                                                    &pDlg,
+			                                                    s_maxThreadCount);
+		    });
 
 		if (selection)
 		{
@@ -6156,17 +6162,22 @@ void MainWindow::doActionFilterNoise()
 		}
 
 		// computation
-		CCCoreLib::ReferenceCloud* selection = CCCoreLib::CloudSamplingTools::noiseFilter(cloud,
-		                                                                                  static_cast<PointCoordinateType>(kernelRadius),
-		                                                                                  s_noiseFilterNSigma,
-		                                                                                  s_noiseFilterRemoveIsolatedPoints,
-		                                                                                  s_noiseFilterUseKnn,
-		                                                                                  s_noiseFilterKnn,
-		                                                                                  s_noiseFilterUseAbsError,
-		                                                                                  s_noiseFilterAbsError,
-		                                                                                  cloud->getOctree().data(),
-		                                                                                  &pDlg,
-		                                                                                  s_maxThreadCount);
+		// computation (in a worker thread, so that the progress dialog keeps refreshing)
+		CCCoreLib::ReferenceCloud* selection = ccBackgroundTask::Run(
+		    [&]()
+		    {
+			    return CCCoreLib::CloudSamplingTools::noiseFilter(cloud,
+			                                                      static_cast<PointCoordinateType>(kernelRadius),
+			                                                      s_noiseFilterNSigma,
+			                                                      s_noiseFilterRemoveIsolatedPoints,
+			                                                      s_noiseFilterUseKnn,
+			                                                      s_noiseFilterKnn,
+			                                                      s_noiseFilterUseAbsError,
+			                                                      s_noiseFilterAbsError,
+			                                                      cloud->getOctree().data(),
+			                                                      &pDlg,
+			                                                      s_maxThreadCount);
+		    });
 
 		if (selection)
 		{
