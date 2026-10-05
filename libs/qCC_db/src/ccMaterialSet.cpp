@@ -27,7 +27,6 @@
 
 ccMaterialSet::ccMaterialSet(const QString& name)
     : std::vector<ccMaterial::CShared>()
-    , CCShareable()
     , ccHObject(name)
 {
 	setFlagState(CC_LOCKED, true);
@@ -93,7 +92,7 @@ int ccMaterialSet::addMaterial(ccMaterial::CShared mtl, bool allowDuplicateNames
 					if (findMaterialByName(newMtlName) < 0)
 					{
 						// we duplicate the material and we change its name
-						ccMaterial::Shared newMtl(new ccMaterial(*mtl));
+						auto newMtl = std::make_shared<ccMaterial>(*mtl);
 						newMtl->setName(newMtlName);
 						mtl = newMtl;
 						break;
@@ -118,11 +117,43 @@ int ccMaterialSet::addMaterial(ccMaterial::CShared mtl, bool allowDuplicateNames
 	return static_cast<int>(size()) - 1;
 }
 
+//! Returns the local equivalent of a file name that may use Windows separators
+/** OBJ and MTL files exported on Windows can reference other files with backslashes,
+    and sometimes with an absolute path. Those can't be opened as is on other systems.
+    \param path directory the file should be in
+    \param filename file name as read from the OBJ or MTL file
+    \return the input file name, or a local equivalent if the input one can't be found
+**/
+static QString GetLocalFilename(const QString& path, const QString& filename)
+{
+	if (filename.isEmpty() || !filename.contains('\\') || QFileInfo::exists(path + '/' + filename))
+	{
+		// nothing to do
+		return filename;
+	}
+
+	// same relative path, with local separators
+	QString localFilename = QString(filename).replace('\\', '/');
+	if (QFileInfo::exists(path + '/' + localFilename))
+	{
+		return localFilename;
+	}
+
+	// absolute path from another machine: look for the file next to the material file
+	QString shortFilename = localFilename.mid(localFilename.lastIndexOf('/') + 1);
+	if (QFileInfo::exists(path + '/' + shortFilename))
+	{
+		return shortFilename;
+	}
+
+	return filename;
+}
+
 // MTL PARSER INSPIRED BY KIXOR.NET "objloader" (http://www.kixor.net/dev/objloader/)
 bool ccMaterialSet::ParseMTL(const QString& path, const QString& filename, ccMaterialSet& materials, QStringList& errors)
 {
 	// open mtl file
-	QString fullPathFilename = path + '/' + filename;
+	QString fullPathFilename = path + '/' + GetLocalFilename(path, filename);
 	QFile   file(fullPathFilename);
 	if (!file.open(QFile::ReadOnly))
 	{
@@ -166,7 +197,7 @@ bool ccMaterialSet::ParseMTL(const QString& path, const QString& filename, ccMat
 			QString materialName = currentLine.mid(7).trimmed(); // we must take the whole line! (see OBJ filter)
 			if (materialName.isEmpty())
 				materialName = "undefined";
-			currentMaterial = ccMaterial::Shared(new ccMaterial(materialName));
+			currentMaterial = std::make_shared<ccMaterial>(materialName);
 		}
 		else if (currentMaterial) // we already have a "current" material
 		{
@@ -311,7 +342,7 @@ bool ccMaterialSet::ParseMTL(const QString& path, const QString& filename, ccMat
 					textureFilename = textureFilename.left(textureFilename.size() - 1);
 				}
 
-				QString fullTexName = rootPath + '/' + textureFilename;
+				QString fullTexName = rootPath + '/' + GetLocalFilename(rootPath, textureFilename);
 				if (!currentMaterial->loadAndSetTexture(fullTexName))
 				{
 					errors << QString("Failed to load texture file: %1").arg(fullTexName);
@@ -441,13 +472,12 @@ bool ccMaterialSet::append(const ccMaterialSet& source)
 	return true;
 }
 
-ccMaterialSet* ccMaterialSet::clone() const
+ccMaterialSet::Shared ccMaterialSet::clone() const
 {
-	ccMaterialSet* cloneSet = new ccMaterialSet(getName());
+	auto cloneSet = std::make_shared<ccMaterialSet>(getName());
 	if (!cloneSet->append(*this))
 	{
 		ccLog::Warning("[ccMaterialSet::clone] Not enough memory");
-		cloneSet->release();
 		cloneSet = nullptr;
 	}
 
@@ -502,9 +532,9 @@ bool ccMaterialSet::toFile_MeOnly(QFile& out, short dataVersion) const
 	return true;
 }
 
-bool ccMaterialSet::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccMaterialSet::fromFile_MeOnly(QFile& in, LoadingContext& context)
 {
-	if (!ccHObject::fromFile_MeOnly(in, dataVersion, flags, oldToNewIDMap))
+	if (!ccHObject::fromFile_MeOnly(in, context))
 		return false;
 
 	// Materials count (dataVersion>=20)
@@ -519,14 +549,14 @@ bool ccMaterialSet::fromFile_MeOnly(QFile& in, short dataVersion, int flags, Loa
 	{
 		for (uint32_t i = 0; i < count; ++i)
 		{
-			ccMaterial::Shared mtl(new ccMaterial);
-			if (!mtl->fromFile(in, dataVersion, flags, oldToNewIDMap))
+			auto mtl = std::make_shared<ccMaterial>();
+			if (!mtl->fromFile(in, context))
 				return false;
 			addMaterial(mtl, true); // if we load a file, we can't allow that materials are not in the same order as before!
 		}
 	}
 
-	if (dataVersion >= 37)
+	if (context.dataVersion >= 37)
 	{
 		QDataStream inStream(&in);
 

@@ -41,7 +41,7 @@ class ccColorFromScalarDlg : public QDialog
 	//! Default constructor
 	ccColorFromScalarDlg(QWidget* parent, ccPointCloud* pointCloud);
 
-	~ccColorFromScalarDlg();
+	~ccColorFromScalarDlg() override;
 
 	static constexpr int c_channelCount = 4;
 	void                 refreshDisplay();
@@ -160,12 +160,12 @@ class ccColorFromScalarDlg : public QDialog
 	void disableAllButCancel();
 
   protected:
-	void resizeEvent(QResizeEvent* event);
+	void resizeEvent(QResizeEvent* event) override;
 	bool m_prevFixed[c_channelCount];
 	//! Associated histogram view
 	ccHistogramWindow* m_histograms[c_channelCount]; // 0 - red, 1 - green, 2 - blue, 3 - alpha
 	// scalar fields
-	ccScalarField* m_scalars[c_channelCount]; // 0 - red, 1 - green, 2 - blue, 3 - alpha
+	ccScalarField::Shared m_scalars[c_channelCount]; // 0 - red, 1 - green, 2 - blue, 3 - alpha
 	// gui elements
 	QComboBox*      m_combos[c_channelCount];
 	QDoubleSpinBox* m_boxes_min[c_channelCount];
@@ -188,5 +188,5 @@ class ccColorFromScalarDlg : public QDialog
 	bool m_systemInvalid;
 
   private:
-	Ui::ColorFromScalarDialog* m_ui;
+	std::unique_ptr<Ui::ColorFromScalarDialog> m_ui;
 };

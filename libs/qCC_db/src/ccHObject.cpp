@@ -91,21 +91,11 @@ ccHObject::~ccHObject()
 		if ((it->second & DP_DELETE_OTHER) == DP_DELETE_OTHER)
 		{
 			it->first->removeDependencyFlag(this, DP_NOTIFY_OTHER_ON_DELETE); // in order to avoid any loop!
-			// delete object
-			if (it->first->isShareable())
+
+			if (!it->first->isKindOf(CC_TYPES::ARRAY) // DGM FIXME: for now arrays annd material sets are in fact shared pointers held by another entity, so we can't delete them like this
+			    && !it->first->isKindOf(CC_TYPES::MATERIAL_SET))
 			{
-				CCShareable* shareable = dynamic_cast<CCShareable*>(it->first);
-				if (shareable)
-				{
-					shareable->release();
-				}
-				else
-				{
-					assert(false);
-				}
-			}
-			else
-			{
+				// delete object
 				delete it->first;
 			}
 		}
@@ -220,7 +210,7 @@ ccHObject* ccHObject::New(CC_CLASS_ENUM objectType, const char* name /*=nullptr*
 	case CC_TYPES::POINT_OCTREE:
 	case CC_TYPES::POINT_KDTREE:
 		// construction this way is not supported (yet)
-		ccLog::ErrorDebug("[ccHObject::New] This object (type %i) can't be constructed this way (yet)!", objectType);
+		ccLog::ErrorDebugf("[ccHObject::New] This object (type %1) can't be constructed this way (yet)!", objectType);
 		break;
 	default:
 		if ((objectType & CC_TYPES::CUSTOM_H_OBJECT) == CC_TYPES::CUSTOM_H_OBJECT)
@@ -230,7 +220,7 @@ ccHObject* ccHObject::New(CC_CLASS_ENUM objectType, const char* name /*=nullptr*
 		else
 		{
 			// unhandled ID
-			ccLog::ErrorDebug("[ccHObject::New] Invalid object type (%i)!", objectType);
+			ccLog::ErrorDebugf("[ccHObject::New] Invalid object type (%i)!", objectType);
 		}
 		break;
 	}
@@ -398,7 +388,7 @@ bool ccHObject::addChild(ccHObject* child, int dependencyFlags /*=DP_PARENT_OF_O
 	// we want to be notified whenever this child is deleted!
 	child->addDependency(this, DP_NOTIFY_OTHER_ON_DELETE); // DGM: potentially redundant with calls to 'addDependency' but we can't miss that ;)
 
-	if (dependencyFlags != 0)
+	if (dependencyFlags != DP_NONE)
 	{
 		addDependency(child, dependencyFlags);
 	}
@@ -407,18 +397,6 @@ bool ccHObject::addChild(ccHObject* child, int dependencyFlags /*=DP_PARENT_OF_O
 	if ((dependencyFlags & DP_PARENT_OF_OTHER) == DP_PARENT_OF_OTHER)
 	{
 		child->setParent(this);
-		if (child->isShareable())
-		{
-			CCShareable* shareable = dynamic_cast<CCShareable*>(child);
-			if (shareable)
-			{
-				shareable->link();
-			}
-			else
-			{
-				assert(false);
-			}
-		}
 		if (!child->getDisplay())
 		{
 			child->setDisplay_recursive(getDisplay());
@@ -983,21 +961,10 @@ void ccHObject::removeChild(int pos)
 
 	if ((flags & DP_DELETE_OTHER) == DP_DELETE_OTHER)
 	{
-		// delete object
-		if (child->isShareable())
+		if (!child->isKindOf(CC_TYPES::ARRAY) // DGM FIXME: for now arrays annd material sets are in fact shared pointers held by another entity, so we can't delete them like this
+		    && !child->isKindOf(CC_TYPES::MATERIAL_SET))
 		{
-			CCShareable* shareable = dynamic_cast<CCShareable*>(child);
-			if (shareable)
-			{
-				shareable->release();
-			}
-			else
-			{
-				assert(false);
-			}
-		}
-		else /* if (!child->isA(CC_TYPES::POINT_OCTREE))*/
-		{
+			// delete object
 			delete child;
 		}
 	}
@@ -1017,19 +984,9 @@ void ccHObject::removeAllChildren()
 		int flags = getDependencyFlagsWith(child);
 		if ((flags & DP_DELETE_OTHER) == DP_DELETE_OTHER)
 		{
-			if (child->isShareable())
-			{
-				CCShareable* shareable = dynamic_cast<CCShareable*>(child);
-				if (shareable)
-				{
-					shareable->release();
-				}
-				else
-				{
-					assert(false);
-				}
-			}
-			else
+
+			if (!child->isKindOf(CC_TYPES::ARRAY) // DGM FIXME: for now arrays annd material sets are in fact shared pointers held by another entity, so we can't delete them like this
+			    && !child->isKindOf(CC_TYPES::MATERIAL_SET))
 			{
 				delete child;
 			}
@@ -1054,11 +1011,15 @@ bool ccHObject::toFile(QFile& out, short dataVersion) const
 
 	// write 'ccObject' header
 	if (!ccObject::toFile(out, dataVersion))
+	{
 		return false;
+	}
 
 	// write own data
 	if (!toFile_MeOnly(out, dataVersion))
+	{
 		return false;
+	}
 
 	//(serializable) child count (dataVersion >= 20)
 	uint32_t serializableCount = 0;
@@ -1071,7 +1032,9 @@ bool ccHObject::toFile(QFile& out, short dataVersion) const
 	}
 
 	if (out.write(reinterpret_cast<const char*>(&serializableCount), sizeof(uint32_t)) < 0)
+	{
 		return WriteError();
+	}
 
 	// write serializable children (if any)
 	for (auto child : m_children)
@@ -1096,9 +1059,9 @@ bool ccHObject::toFile(QFile& out, short dataVersion) const
 	return true;
 }
 
-bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccHObject::fromFile(QFile& in, LoadingContext& context)
 {
-	if (!fromFileNoChildren(in, dataVersion, flags, oldToNewIDMap))
+	if (!fromFileNoChildren(in, context))
 		return false;
 
 	//(serializable) child count (dataVersion>=20)
@@ -1110,11 +1073,11 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& o
 	for (uint32_t i = 0; i < serializableCount; ++i)
 	{
 		// read children class ID
-		CC_CLASS_ENUM classID = ReadClassIDFromFile(in, dataVersion);
+		CC_CLASS_ENUM classID = ReadClassIDFromFile(in, context.dataVersion);
 		if (classID == CC_TYPES::OBJECT)
 			return false;
 
-		if (dataVersion >= 35 && dataVersion <= 47 && ((classID & CC_CUSTOM_BIT) != 0))
+		if (context.dataVersion >= 35 && context.dataVersion <= 47 && ((classID & CC_CUSTOM_BIT) != 0))
 		{
 			// bug fix: for a long time the CC_CAMERA_BIT and CC_QUADRIC_BIT were wrongly defined
 			// with two bits instead of one! The additional and wrongly defined bit was the CC_CUSTOM_BIT :(
@@ -1134,7 +1097,7 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& o
 			// store current position
 			size_t originalFilePos = in.pos();
 			// we need to load the custom object as plain ccCustomHObject
-			child->fromFileNoChildren(in, dataVersion, flags, oldToNewIDMap);
+			child->fromFileNoChildren(in, context);
 			// go back to original position
 			in.seek(originalFilePos);
 			// get custom object name and plugin name
@@ -1161,7 +1124,7 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& o
 		assert(child && child->isSerializable());
 		if (child)
 		{
-			if (child->fromFile(in, dataVersion, flags, oldToNewIDMap))
+			if (child->fromFile(in, context))
 			{
 				addChild(child);
 			}
@@ -1179,7 +1142,7 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& o
 	}
 
 	// read the selection behavior (dataVersion>=23)
-	if (dataVersion >= 23)
+	if (context.dataVersion >= 23)
 	{
 		if (in.read(reinterpret_cast<char*>(&m_selectionBehavior), sizeof(SelectionBehavior)) < 0)
 		{
@@ -1192,9 +1155,9 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& o
 	}
 
 	// read transformation history (dataVersion >= 45)
-	if (dataVersion >= 45)
+	if (context.dataVersion >= 45)
 	{
-		if (!m_glTransHistory.fromFile(in, dataVersion, flags, oldToNewIDMap))
+		if (!m_glTransHistory.fromFile(in, context))
 		{
 			return false;
 		}
@@ -1218,16 +1181,16 @@ short ccHObject::minimumFileVersion() const
 	return minVersion;
 }
 
-bool ccHObject::fromFileNoChildren(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccHObject::fromFileNoChildren(QFile& in, LoadingContext& context)
 {
 	assert(in.isOpen() && (in.openMode() & QIODevice::ReadOnly));
 
 	// read 'ccObject' header
-	if (!ccObject::fromFile(in, dataVersion, flags, oldToNewIDMap))
+	if (!ccObject::fromFile(in, context))
 		return false;
 
 	// read own data
-	return fromFile_MeOnly(in, dataVersion, flags, oldToNewIDMap);
+	return fromFile_MeOnly(in, context);
 }
 
 bool ccHObject::toFile_MeOnly(QFile& out, short dataVersion) const
@@ -1309,7 +1272,7 @@ bool ccHObject::toFile_MeOnly(QFile& out, short dataVersion) const
 	return true;
 }
 
-bool ccHObject::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccHObject::fromFile_MeOnly(QFile& in, LoadingContext& context)
 {
 	assert(in.isOpen() && (in.openMode() & QIODevice::ReadOnly));
 
@@ -1364,7 +1327,7 @@ bool ccHObject::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedI
 
 	if (m_glTransEnabled)
 	{
-		if (!m_glTrans.fromFile(in, dataVersion, flags, oldToNewIDMap))
+		if (!m_glTrans.fromFile(in, context))
 		{
 			m_glTransEnabled = false;
 			return false;
@@ -1372,7 +1335,7 @@ bool ccHObject::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedI
 	}
 
 	//'showNameIn3D' state (dataVersion>=24)
-	if (dataVersion >= 24)
+	if (context.dataVersion >= 24)
 	{
 		if (in.read(reinterpret_cast<char*>(&m_showNameIn3D), sizeof(bool)) < 0)
 		{

@@ -45,6 +45,9 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	**/
 	explicit ccMesh(CCCoreLib::GenericIndexedMesh* giMesh, ccGenericPointCloud* giVertices);
 
+	//! Copy of a ccMesh instance is not supported (because of all the pointers to the members)
+	ccMesh(const ccMesh&) = delete;
+
 	//! Default destructor
 	~ccMesh() override;
 
@@ -65,10 +68,10 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	    \param cloneTexCoords for internal use
 	    \return a copy of this entity
 	**/
-	ccMesh* cloneMesh(ccGenericPointCloud*    vertices         = nullptr,
-	                  ccMaterialSet*          clonedMaterials  = nullptr,
-	                  NormsIndexesTableType*  clonedNormsTable = nullptr,
-	                  TextureCoordsContainer* cloneTexCoords   = nullptr);
+	ccMesh* cloneMesh(ccGenericPointCloud*           vertices         = nullptr,
+	                  ccMaterialSet::Shared          clonedMaterials  = nullptr,
+	                  NormsIndexesTableType::Shared  clonedNormsTable = nullptr,
+	                  TextureCoordsContainer::Shared cloneTexCoords   = nullptr);
 
 	//! Creates a Delaunay 2.5D mesh from a point cloud
 	/** See CCCoreLib::PointProjectionTools::computeTriangulation.
@@ -193,16 +196,17 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	/*********************************************************/
 
 	// inherited from ccGenericMesh
-	bool                   hasTriNormals() const override;
-	void                   getTriangleNormalIndexes(unsigned triangleIndex, int& i1, int& i2, int& i3) const override;
-	bool                   getTriangleNormals(unsigned triangleIndex, CCVector3& Na, CCVector3& Nb, CCVector3& Nc) const override;
-	NormsIndexesTableType* getTriNormsTable() const override
+	bool                          hasTriNormals() const override;
+	void                          getTriangleNormalIndexes(unsigned triangleIndex, int& i1, int& i2, int& i3) const override;
+	void                          getTriangleCompressedNormals(unsigned triangleIndex, CompressedNormType& Na, CompressedNormType& Nb, CompressedNormType& Nc) const override;
+	void                          getTriangleNormals(unsigned triangleIndex, const CCVector3*& Na, const CCVector3*& Nb, const CCVector3*& Nc) const override;
+	NormsIndexesTableType::Shared getTriNormsTable() const override
 	{
 		return m_triNormals;
 	}
 
 	//! Sets per-triangle normals array (may be shared)
-	void setTriNormsTable(NormsIndexesTableType* triNormsTable, bool autoReleaseOldTable = true);
+	void setTriNormsTable(NormsIndexesTableType::Shared triNormsTable, bool autoReleaseOldTable = true);
 
 	//! Removes per-triangle normals
 	void clearTriNormals()
@@ -259,8 +263,8 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	/********************************************************/
 
 	// inherited from ccGenericMesh
-	bool                 hasMaterials() const override;
-	const ccMaterialSet* getMaterialSet() const override
+	bool                        hasMaterials() const override;
+	const ccMaterialSet::Shared getMaterialSet() const override
 	{
 		return m_materials;
 	}
@@ -302,10 +306,10 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	using triangleMaterialIndexesSet = ccArray<int, 1, int>;
 
 	//! Sets per-triangle material indexes array
-	void setTriangleMtlIndexesTable(triangleMaterialIndexesSet* matIndexesTable, bool autoReleaseOldTable = true);
+	void setTriangleMtlIndexesTable(triangleMaterialIndexesSet::Shared matIndexesTable, bool autoReleaseOldTable = true);
 
 	//! Returns the per-triangle material indexes array
-	inline const triangleMaterialIndexesSet* getTriangleMtlIndexesTable() const
+	inline const triangleMaterialIndexesSet::Shared getTriangleMtlIndexesTable() const
 	{
 		return m_triMtlIndexes;
 	}
@@ -318,19 +322,19 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	void setTriangleMtlIndex(unsigned triangleIndex, int mtlIndex);
 
 	//! Sets associated material set (may be shared)
-	void setMaterialSet(ccMaterialSet* materialSet, bool autoReleaseOldMaterialSet = true);
+	void setMaterialSet(ccMaterialSet::Shared materialSet, bool autoRemoveOldMaterialSetFromChildren = true);
 
 	/******************************************************************/
 	/************    PER-TRIANGLE TEXTURE COORDINATE    ***************/
 	/******************************************************************/
 
 	// inherited from ccGenericMesh
-	bool                    hasTextures() const override;
-	TextureCoordsContainer* getTexCoordinatesTable() const override
+	bool                           hasTextures() const override;
+	TextureCoordsContainer::Shared getTexCoordinatesTable() const override
 	{
 		return m_texCoords;
 	}
-	void getTriangleTexCoordinates(unsigned triIndex, TexCoords2D*& tx1, TexCoords2D*& tx2, TexCoords2D*& tx3) const override;
+	void getTriangleTexCoordinates(unsigned triIndex, const TexCoords2D*& tx1, const TexCoords2D*& tx2, const TexCoords2D*& tx3) const override;
 	bool hasPerTriangleTexCoordIndexes() const override
 	{
 		return m_texCoordIndexes && m_texCoordIndexes->isAllocated();
@@ -338,7 +342,7 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	void getTriangleTexCoordinatesIndexes(unsigned triangleIndex, int& i1, int& i2, int& i3) const override;
 
 	//! Sets per-triangle texture coordinates array (may be shared)
-	void setTexCoordinatesTable(TextureCoordsContainer* texCoordsTable, bool autoReleaseOldTable = true);
+	void setTexCoordinatesTable(TextureCoordsContainer::Shared texCoordsTable, bool autoReleaseOldTable = true);
 
 	//! Reserves memory to store per-triangle triplets of tex coords indexes
 	/** Before adding per-triangle tex coords indexes triplets to
@@ -470,17 +474,10 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	               bool                                arbitraryOutputCS = false,
 	               CCCoreLib::GenericProgressCallback* progressCb        = nullptr) const;
 
-	//! Returns whether the mesh has a unique material (i.e. all triangles share the same material)
-	bool hasUniqueMaterial();
-
-	//! Releases OpenGL ressources (textures, VBOs, etc.)
-	static void ReleaseOpenGLRessources();
-
   protected: // methods
 	// inherited from ccHObject
-	void  drawMeOnly(CC_DRAW_CONTEXT& context) override;
 	bool  toFile_MeOnly(QFile& out, short dataVersion) const override;
-	bool  fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap) override;
+	bool  fromFile_MeOnly(QFile& in, LoadingContext& context) override;
 	short minimumFileVersion_MeOnly() const override;
 	void  applyGLTransformation(const ccGLMatrix& trans) override;
 	void  onUpdateOf(ccHObject* obj) override;
@@ -528,18 +525,18 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	ccGenericPointCloud* m_associatedCloud;
 
 	//! Per-triangle normals
-	NormsIndexesTableType* m_triNormals;
+	NormsIndexesTableType::Shared m_triNormals;
 
 	//! Texture coordinates
-	TextureCoordsContainer* m_texCoords;
+	TextureCoordsContainer::Shared m_texCoords;
 
 	//! Materials
-	ccMaterialSet* m_materials;
+	ccMaterialSet::Shared m_materials;
 
 	//! Container of per-triangle vertices indexes (3)
 	using triangleIndexesContainer = ccArray<CCCoreLib::VerticesIndexes, 3, unsigned>;
 	//! Triangles' vertices indexes (3 per triangle)
-	triangleIndexesContainer* m_triVertIndexes;
+	triangleIndexesContainer::Shared m_triVertIndexes;
 
 	//! Iterator on the list of triangles
 	unsigned m_globalIterator;
@@ -550,24 +547,15 @@ class QCC_DB_LIB_API ccMesh : public ccGenericMesh
 	ccBBox m_bBox;
 
 	//! Per-triangle material indexes
-	triangleMaterialIndexesSet* m_triMtlIndexes;
-
-	//! Whether the mesh has a unique material (i.e. all triangles share the same material)
-	std::optional<bool> m_hasUniqueMaterial;
+	triangleMaterialIndexesSet::Shared m_triMtlIndexes;
 
 	//! Set of triplets of indexes referring to mesh texture coordinates
 	using triangleTexCoordIndexesSet = ccArray<Tuple3i, 3, int>;
 	//! Mesh tex coords indexes (per-triangle)
-	triangleTexCoordIndexesSet* m_texCoordIndexes;
+	triangleTexCoordIndexesSet::Shared m_texCoordIndexes;
 
 	//! Set of triplets of indexes referring to mesh normals
 	using triangleNormalsIndexesSet = ccArray<Tuple3i, 3, int>;
 	//! Mesh normals indexes (per-triangle)
-	triangleNormalsIndexesSet* m_triNormalIndexes;
-
-  private:
-	//! Copy of a ccMesh instance is not supported (because of all the pointers to the members)
-	ccMesh(const ccMesh&)
-	{
-	}
+	triangleNormalsIndexesSet::Shared m_triNormalIndexes;
 };

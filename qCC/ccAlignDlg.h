@@ -46,7 +46,7 @@ class ccAlignDlg : public QDialog
 	};
 
 	ccAlignDlg(ccGenericPointCloud* data, ccGenericPointCloud* model, QWidget* parent = nullptr);
-	virtual ~ccAlignDlg();
+	~ccAlignDlg() override;
 
 	unsigned                   getNbTries();
 	double                     getOverlap();
@@ -78,5 +78,5 @@ class ccAlignDlg : public QDialog
 
 	void setColorsAndLabels();
 
-	Ui::AlignDialog* m_ui;
+	std::unique_ptr<Ui::AlignDialog> m_ui;
 };

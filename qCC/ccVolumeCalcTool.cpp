@@ -44,7 +44,7 @@ ccVolumeCalcTool::ccVolumeCalcTool(ccGenericPointCloud* cloud1, ccGenericPointCl
     , cc2Point5DimEditor()
     , m_cloud1(cloud1)
     , m_cloud2(cloud2)
-    , m_ui(new Ui::VolumeCalcDialog)
+    , m_ui(std::make_unique<Ui::VolumeCalcDialog>())
 {
 	m_ui->setupUi(this);
 
@@ -124,10 +124,7 @@ ccVolumeCalcTool::ccVolumeCalcTool(ccGenericPointCloud* cloud1, ccGenericPointCl
 	gridIsUpToDate(false);
 }
 
-ccVolumeCalcTool::~ccVolumeCalcTool()
-{
-	delete m_ui;
-}
+ccVolumeCalcTool::~ccVolumeCalcTool() = default;
 
 void ccVolumeCalcTool::setDisplayedNumberPrecision(int precision)
 {
@@ -376,7 +373,7 @@ ccPointCloud* ccVolumeCalcTool::ConvertGridToCloud(ccRasterGrid& grid,
 		{
 			rasterCloud->showSF(true);
 			rasterCloud->setCurrentDisplayedScalarField(0);
-			ccScalarField* sf = static_cast<ccScalarField*>(rasterCloud->getScalarField(0));
+			auto sf = rasterCloud->getCCScalarField(0);
 			assert(sf);
 			sf->setName("Relative height");
 			sf->setSymmetricalScale(sf->getMin() < 0 && sf->getMax() > 0);
@@ -423,7 +420,7 @@ ccPointCloud* ccVolumeCalcTool::convertGridToCloud(bool exportToOriginalCS) cons
 			{
 				rasterCloud->showSF(true);
 				rasterCloud->setCurrentDisplayedScalarField(0);
-				ccScalarField* sf = static_cast<ccScalarField*>(rasterCloud->getScalarField(0));
+				auto sf = rasterCloud->getCCScalarField(0);
 				assert(sf);
 				sf->setName("Relative height");
 				sf->setSymmetricalScale(sf->getMin() < 0 && sf->getMax() > 0);
@@ -599,7 +596,7 @@ bool ccVolumeCalcTool::ComputeVolume(ccRasterGrid&                     grid,
 	std::unique_ptr<ccProgressDialog> pDlg(nullptr);
 	if (parentWidget)
 	{
-		pDlg.reset(new ccProgressDialog(true, parentWidget));
+		pDlg = std::make_unique<ccProgressDialog>(true, parentWidget);
 	}
 
 	ccRasterGrid groundRaster;
@@ -937,10 +934,7 @@ bool ccVolumeCalcTool::updateGrid()
 		outputReport(reportInfo);
 		return true;
 	}
-	else
-	{
-		return false;
-	}
+	return false;
 }
 
 void ccVolumeCalcTool::exportToClipboard() const

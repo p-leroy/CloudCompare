@@ -17,14 +17,18 @@
 // #                                                                        #
 // ##########################################################################
 
+// qCC_db
+#include <ccScalarField.h>
+
+// System
 #include <cstdint>
 #include <string>
 #include <vector>
 
 class QDataStream;
+class QString;
 
 class ccPointCloud;
-class ccScalarField;
 
 struct laszip_header;
 struct laszip_vlr;
@@ -91,8 +95,10 @@ class LasExtraScalarField
 	static constexpr size_t MAX_EXTRA_FIELDS_IN_VLR = 65535 / VLR_FIELD_SIZE_BYTES;
 
   public: // Static Helper functions that works on collection of LasExtraScalarFields
-	static std::vector<LasExtraScalarField> ParseExtraScalarFields(const laszip_header& laszipHeader);
+	/// Reads the "Extra Bytes" descriptor from the VLR or, if there is none, from the EVLR (read from the file itself)
+	static std::vector<LasExtraScalarField> ParseExtraScalarFields(const laszip_header& laszipHeader, const QString& fileName);
 	static std::vector<LasExtraScalarField> ParseExtraScalarFields(const laszip_vlr_struct& extraBytesVlr);
+	static std::vector<LasExtraScalarField> ParseExtraScalarFields(const char* data, size_t size);
 	static void                             InitExtraBytesVlr(laszip_vlr_struct&                      vlr,
 	                                                          const std::vector<LasExtraScalarField>& extraFields);
 	static void                             UpdateByteOffsets(std::vector<LasExtraScalarField>& extraFields);
@@ -130,7 +136,8 @@ class LasExtraScalarField
 	DimensionSize dimensions{DimensionSize::One};
 	// These fields are from the vlr itself
 	uint8_t options{0};
-	char    name[MAX_NAME_SIZE]               = "";
+	// +1 for the NUL: a name that uses all 32 bytes has none in the file
+	char    name[MAX_NAME_SIZE + 1]           = "";
 	char    description[MAX_DESCRIPTION_SIZE] = "";
 	uint8_t noData[MAX_DIM_SIZE][8]           = {0};
 	uint8_t mins[MAX_DIM_SIZE][8]             = {0};
@@ -139,8 +146,8 @@ class LasExtraScalarField
 	double  offsets[MAX_DIM_SIZE]             = {0.0};
 
 	// These are added by us
-	unsigned       byteOffset{0};
-	ccScalarField* scalarFields[MAX_DIM_SIZE] = {nullptr};
+	unsigned              byteOffset{0};
+	ccScalarField::Shared scalarFields[MAX_DIM_SIZE];
 	// TODO explain better
 	// This strings store the name of the field in CC,
 	// Extra fields name may clash with existing scalar fields name

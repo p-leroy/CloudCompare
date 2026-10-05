@@ -163,7 +163,7 @@ void ccColorScaleEditorDialog::colorScaleChanged(int pos)
 
 void ccColorScaleEditorDialog::relativeModeChanged(int value)
 {
-	setScaleModeToRelative(value == 0 ? true : false);
+	setScaleModeToRelative(value == 0);
 
 	setModified(true);
 }
@@ -207,7 +207,7 @@ bool ccColorScaleEditorDialog::canChangeCurrentScale()
 
 bool ccColorScaleEditorDialog::isRelativeMode() const
 {
-	return (m_ui->scaleModeComboBox->currentIndex() == 0 ? true : false);
+	return (m_ui->scaleModeComboBox->currentIndex() == 0);
 }
 
 void ccColorScaleEditorDialog::setActiveScale(ccColorScale::Shared currentScale)
@@ -525,7 +525,7 @@ QString ccColorScaleEditorDialog::exportCustomLabelsList(ccColorScale::LabelSet&
 			{
 				return "Expecting a numerical value before the text label";
 			}
-			else if (firstQuoteIndex > 0)
+			if (firstQuoteIndex > 0)
 			{
 				int secondQuoteIndex = line.lastIndexOf('"');
 				if (secondQuoteIndex == firstQuoteIndex)
@@ -665,7 +665,7 @@ bool ccColorScaleEditorDialog::saveCurrentScale()
 			ccPointCloud* cloud = static_cast<ccPointCloud*>(entity);
 			for (unsigned j = 0; j < cloud->getNumberOfScalarFields(); ++j)
 			{
-				ccScalarField* sf = static_cast<ccScalarField*>(cloud->getScalarField(j));
+				auto sf = cloud->getCCScalarField(j);
 				if (sf->getColorScale() == m_colorScale)
 				{
 					// trick: we unlink then re-link the color scale to update everything automatically

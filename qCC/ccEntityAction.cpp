@@ -151,10 +151,10 @@ namespace ccEntityAction
 
 				if (colorize)
 				{
-					cloud->colorize(static_cast<float>(colour.redF()),
-					                static_cast<float>(colour.greenF()),
-					                static_cast<float>(colour.blueF()),
-					                static_cast<float>(colour.alphaF()));
+					cloud->colorize(colour.redF(),
+					                colour.greenF(),
+					                colour.blueF(),
+					                colour.alphaF());
 				}
 				else
 				{
@@ -359,7 +359,7 @@ namespace ccEntityAction
 			ccLog::Error(QT_TR_NOOP("None of the selected entities has per-point or per-vertex colors!"));
 			return false;
 		}
-		else if (cloud1->hasColors() && cloud2->hasColors())
+		if (cloud1->hasColors() && cloud2->hasColors())
 		{
 			ccLog::Error(QT_TR_NOOP("Both entities have colors! Remove the colors on the entity you wish to import the colors to!"));
 			return false;
@@ -435,7 +435,7 @@ namespace ccEntityAction
 			ccLog::Error(QT_TR_NOOP("None of the selected entities has per-point or per-vertex colors!"));
 			return false;
 		}
-		else if (cloud1->hasScalarFields() && cloud2->hasScalarFields())
+		if (cloud1->hasScalarFields() && cloud2->hasScalarFields())
 		{
 			// ask the user to chose which will be the 'source' cloud
 			ccOrderChoiceDlg ocDlg(cloud1, QT_TR_NOOP("Source"), cloud2, QT_TR_NOOP("Destination"), app);
@@ -611,30 +611,27 @@ namespace ccEntityAction
 					ccLog::Warning(QObject::tr("[ConvertTextureToColor] Mesh '%1' has no material/texture!").arg(mesh->getName()));
 					continue;
 				}
+				if (mesh->hasColors()
+				    && QMessageBox::warning(parent,
+				                            QT_TR_NOOP("Mesh already has colors"),
+				                            QObject::tr("Mesh '%1' already has colors! Overwrite them?").arg(mesh->getName()),
+				                            QMessageBox::Yes | QMessageBox::No,
+				                            QMessageBox::No)
+				           != QMessageBox::Yes)
+				{
+					continue;
+				}
+
+				if (mesh->convertMaterialsToVertexColors())
+				{
+					mesh->showColors(true);
+					mesh->showSF(false); // just in case
+					mesh->showMaterials(false);
+					mesh->prepareDisplayForRefresh_recursive();
+				}
 				else
 				{
-					if (mesh->hasColors()
-					    && QMessageBox::warning(parent,
-					                            QT_TR_NOOP("Mesh already has colors"),
-					                            QObject::tr("Mesh '%1' already has colors! Overwrite them?").arg(mesh->getName()),
-					                            QMessageBox::Yes | QMessageBox::No,
-					                            QMessageBox::No)
-					           != QMessageBox::Yes)
-					{
-						continue;
-					}
-
-					if (mesh->convertMaterialsToVertexColors())
-					{
-						mesh->showColors(true);
-						mesh->showSF(false); // just in case
-						mesh->showMaterials(false);
-						mesh->prepareDisplayForRefresh_recursive();
-					}
-					else
-					{
-						ccLog::Warning(QObject::tr("[ConvertTextureToColor] Failed to convert texture on mesh '%1'!").arg(mesh->getName()));
-					}
+					ccLog::Warning(QObject::tr("[ConvertTextureToColor] Failed to convert texture on mesh '%1'!").arg(mesh->getName()));
 				}
 			}
 		}
@@ -702,7 +699,7 @@ namespace ccEntityAction
 					ccPickOneElementDlg poeDlg(QT_TR_NOOP("Intensity scalar field"), QT_TR_NOOP("Choose scalar field"), parent);
 					for (unsigned i = 0; i < pc->getNumberOfScalarFields(); ++i)
 					{
-						CCCoreLib::ScalarField* sf = pc->getScalarField(i);
+						auto sf = pc->getCCScalarField(i);
 						assert(sf);
 						QString sfName = QString::fromStdString(sf->getName());
 						poeDlg.addElement(sfName);
@@ -779,15 +776,12 @@ namespace ccEntityAction
 					continue;
 				}
 
-				selectedCloudsWithColors.push_back({ent, pc});
+				selectedCloudsWithColors.emplace_back(ent, pc);
 
 				double sigmaCloud = ccLibAlgorithms::GetDefaultCloudKernelSize(pc);
 
 				// we keep the smallest value
-				if (sigmaCloud < spatialSigma)
-				{
-					spatialSigma = sigmaCloud;
-				}
+				spatialSigma = std::min(sigmaCloud, spatialSigma);
 			}
 		}
 
@@ -808,7 +802,7 @@ namespace ccEntityAction
 		double sigmaSF = -1.0;
 		if (filterParams.filterType == ccPointCloud::RGB_FILTER_TYPES::BILATERAL)
 		{
-			CCCoreLib::ScalarField* sf = selectedCloudsWithColors.front().second->getCurrentDisplayedScalarField();
+			auto sf = selectedCloudsWithColors.front().second->getCurrentDisplayedScalarField();
 			if (sf)
 			{
 				ScalarType sfRange = sf->getMax() - sf->getMin();
@@ -882,7 +876,7 @@ namespace ccEntityAction
 
 		if (parent)
 		{
-			pDlg.reset(new ccProgressDialog(true, parent));
+			pDlg = std::make_unique<ccProgressDialog>(true, parent);
 			pDlg->setAutoClose(false);
 			pDlg->setModal(true);
 		}
@@ -907,7 +901,7 @@ namespace ccEntityAction
 
 					    if (filterParams.applyToSFduringRGB)
 					    {
-						    CCCoreLib::ScalarField* outSF = pc->getCurrentOutScalarField();
+						    auto outSF = pc->getCurrentOutScalarField();
 						    Q_ASSERT(outSF != nullptr);
 						    QString sfName;
 						    if (filterParams.filterType == ccPointCloud::RGB_FILTER_TYPES::BILATERAL)
@@ -957,19 +951,19 @@ namespace ccEntityAction
 
 				    QElapsedTimer eTimer;
 				    eTimer.start();
-				    if (false == pc->applyFilterToRGB(static_cast<PointCoordinateType>(spatialSigma), static_cast<PointCoordinateType>(sigmaSF), filterParams, parent ? pDlg.get() : nullptr))
+				    if (!pc->applyFilterToRGB(static_cast<PointCoordinateType>(spatialSigma), static_cast<PointCoordinateType>(sigmaSF), filterParams, parent ? pDlg.get() : nullptr))
 				    {
 					    errorMessage = QT_TR_NOOP("An error occurred! (see console)");
 					    return false;
 				    }
-				    ccLog::Print("[RGBFilter] Timing: %3.2f s.", eTimer.elapsed() / 1000.0);
+				    ccLog::Printf("[RGBFilter] Timing: %3.2f s.", eTimer.elapsed() / 1000.0);
 
 				    if (filterParams.applyToSFduringRGB)
 				    {
 					    // calc sf min/max for correct display.
 					    pc->setCurrentDisplayedScalarField(sfIdx);
 					    pc->showSF(sfIdx >= 0);
-					    CCCoreLib::ScalarField* sf = pc->getCurrentDisplayedScalarField();
+					    auto sf = pc->getCurrentDisplayedScalarField();
 					    if (sf)
 					    {
 						    sf->computeMinAndMax();
@@ -1024,7 +1018,7 @@ namespace ccEntityAction
 				return false;
 			}
 
-			CCCoreLib::ScalarField* testSF = testPC->getCurrentDisplayedScalarField();
+			auto testSF = testPC->getCurrentDisplayedScalarField();
 			if (!testSF)
 			{
 				ccLog::Error(QT_TR_NOOP("No active scalar field"));
@@ -1088,7 +1082,7 @@ namespace ccEntityAction
 
 		if (parent)
 		{
-			pDlg.reset(new ccProgressDialog(true, parent));
+			pDlg = std::make_unique<ccProgressDialog>(true, parent);
 			pDlg->setAutoClose(false);
 			pDlg->setModal(true);
 		}
@@ -1114,7 +1108,7 @@ namespace ccEntityAction
 				    }
 
 				    // the algorithm will use the currently displayed SF
-				    CCCoreLib::ScalarField* sf = pc->getCurrentDisplayedScalarField();
+				    auto sf = pc->getCurrentDisplayedScalarField();
 				    if (sf)
 				    {
 					    // we set the displayed SF as "OUT" SF
@@ -1122,7 +1116,7 @@ namespace ccEntityAction
 					    Q_ASSERT(outSfIdx >= 0);
 
 					    pc->setCurrentOutScalarField(outSfIdx);
-					    CCCoreLib::ScalarField* outSF = pc->getCurrentOutScalarField();
+					    auto outSF = pc->getCurrentOutScalarField();
 					    Q_ASSERT(outSF != nullptr);
 
 					    QString sfName;
@@ -1178,7 +1172,7 @@ namespace ccEntityAction
 						    return false;
 					    }
 
-					    ccLog::Print("SF [Bilateral/Gaussian/Mean/Median filter] Timing: %3.2f s.", eTimer.elapsed() / 1000.0);
+					    ccLog::Printf("SF [Bilateral/Gaussian/Mean/Median filter] Timing: %3.2f s.", eTimer.elapsed() / 1000.0);
 					    pc->setCurrentDisplayedScalarField(sfIdx);
 					    pc->showSF(sfIdx >= 0);
 					    sf = pc->getCurrentDisplayedScalarField();
@@ -1272,8 +1266,8 @@ namespace ccEntityAction
 			return false;
 		Q_ASSERT(s_randomColorsNumber > 1);
 
-		RGBAColorsTableType* randomColors = new RGBAColorsTableType;
-		if (!randomColors->reserveSafe(static_cast<unsigned>(s_randomColorsNumber)))
+		RGBAColorsTableType randomColors;
+		if (!randomColors.reserveSafe(static_cast<unsigned>(s_randomColorsNumber)))
 		{
 			ccLog::Error(QT_TR_NOOP("Not enough memory!"));
 			return false;
@@ -1283,7 +1277,7 @@ namespace ccEntityAction
 		for (int i = 0; i < s_randomColorsNumber; ++i)
 		{
 			ccColor::Rgba col(ccColor::Generator::Random(), ccColor::MAX);
-			randomColors->addElement(col);
+			randomColors.addElement(col);
 		}
 
 		// apply random colors
@@ -1302,7 +1296,7 @@ namespace ccEntityAction
 				continue;
 			}
 
-			ccScalarField* sf = pc->getCurrentDisplayedScalarField();
+			auto sf = pc->getCurrentDisplayedScalarField();
 			// if there is no displayed SF --> nothing to do!
 			if (sf && sf->currentSize() >= pc->size())
 			{
@@ -1311,28 +1305,25 @@ namespace ccEntityAction
 					ccLog::Error(QT_TR_NOOP("Not enough memory!"));
 					break;
 				}
-				else
+				ScalarType minSF = sf->getMin();
+				ScalarType maxSF = sf->getMax();
+
+				ScalarType step = (maxSF - minSF) / (s_randomColorsNumber - 1);
+				if (step == 0)
+					step = static_cast<ScalarType>(1.0);
+
+				for (unsigned i = 0; i < pc->size(); ++i)
 				{
-					ScalarType minSF = sf->getMin();
-					ScalarType maxSF = sf->getMax();
+					ScalarType val      = sf->getValue(i);
+					unsigned   colIndex = static_cast<unsigned>((val - minSF) / step);
+					if (colIndex == s_randomColorsNumber)
+						--colIndex;
 
-					ScalarType step = (maxSF - minSF) / (s_randomColorsNumber - 1);
-					if (step == 0)
-						step = static_cast<ScalarType>(1.0);
-
-					for (unsigned i = 0; i < pc->size(); ++i)
-					{
-						ScalarType val      = sf->getValue(i);
-						unsigned   colIndex = static_cast<unsigned>((val - minSF) / step);
-						if (colIndex == s_randomColorsNumber)
-							--colIndex;
-
-						pc->setPointColor(i, randomColors->getValue(colIndex));
-					}
-
-					pc->showColors(true);
-					pc->showSF(false); // just in case
+					pc->setPointColor(i, randomColors.getValue(colIndex));
 				}
+
+				pc->showColors(true);
+				pc->showSF(false); // just in case
 
 				pc->prepareDisplayForRefresh_recursive();
 			}
@@ -1349,7 +1340,7 @@ namespace ccEntityAction
 
 			if (nullptr != pc)
 			{
-				ccScalarField* sf = pc->getCurrentDisplayedScalarField();
+				auto sf = pc->getCurrentDisplayedScalarField();
 				// if there is no displayed SF --> nothing to do!
 				if (sf == nullptr)
 				{
@@ -1368,6 +1359,11 @@ namespace ccEntityAction
 					if (ok)
 					{
 						sf->setName(newName.toStdString());
+						if (pc->sfColorScaleShown())
+						{
+							// the color scale title might be impacted
+							pc->prepareDisplayForRefresh();
+						}
 					}
 				}
 			}
@@ -1393,7 +1389,7 @@ namespace ccEntityAction
 					return false;
 				}
 
-				CCCoreLib::ScalarField* sf = pc->getScalarField(sfIdx);
+				auto sf = pc->getCCScalarField(sfIdx);
 				Q_ASSERT(sf->currentSize() == pc->size());
 
 				for (unsigned j = 0; j < pc->size(); j++)
@@ -1490,7 +1486,7 @@ namespace ccEntityAction
 			return false;
 		}
 
-		CCCoreLib::ScalarField* sf = cloud->getScalarField(sfIdx);
+		auto sf = cloud->getCCScalarField(sfIdx);
 		assert(sf);
 		if (!sf)
 		{
@@ -1521,7 +1517,7 @@ namespace ccEntityAction
 				continue;
 			}
 
-			ccScalarField* sf = pc->getCurrentDisplayedScalarField();
+			auto sf = pc->getCurrentDisplayedScalarField();
 			if (sf == nullptr)
 			{
 				ccLog::Warning(QString("Cloud %1 has no active scalar field").arg(pc->getName()));
@@ -1571,7 +1567,7 @@ namespace ccEntityAction
 					CCCoreLib::ReferenceCloud referenceCloud(pc);
 
 					// populate the cloud with the points which have the selected class
-					for (unsigned index = 0; index < static_cast<unsigned>(pc->size()); index++)
+					for (unsigned index = 0; index < pc->size(); index++)
 					{
 						if (static_cast<int>(sf->getValue(index)) == pointClass)
 						{
@@ -1660,11 +1656,8 @@ namespace ccEntityAction
 		{
 			return static_cast<PointCoordinateType>(out);
 		}
-		else
-		{
-			ccLog::Warning(QT_TR_NOOP("[SetSFAsCoord] By default the coordinate equivalent to NaN values will be the minimum SF value"));
-			return minSFValue;
-		}
+		ccLog::Warning(QT_TR_NOOP("[SetSFAsCoord] By default the coordinate equivalent to NaN values will be the minimum SF value"));
+		return minSFValue;
 	}
 
 	bool sfSetAsCoord(ccHObject* entity, QWidget* parent /*=nullptr*/)
@@ -1702,14 +1695,14 @@ namespace ccEntityAction
 
 		dlg.getSFIndexes(xIndex, yIndex, zIndex);
 
-		CCCoreLib::ScalarField* sfX = (xIndex >= 0 ? pc->getScalarField(xIndex) : nullptr);
-		CCCoreLib::ScalarField* sfY = (yIndex >= 0 ? pc->getScalarField(yIndex) : nullptr);
-		CCCoreLib::ScalarField* sfZ = (zIndex >= 0 ? pc->getScalarField(zIndex) : nullptr);
+		auto sfX = (xIndex >= 0 ? pc->getScalarField(xIndex) : nullptr);
+		auto sfY = (yIndex >= 0 ? pc->getScalarField(yIndex) : nullptr);
+		auto sfZ = (zIndex >= 0 ? pc->getScalarField(zIndex) : nullptr);
 
-		std::array<CCCoreLib::ScalarField*, 3> scalarFields{sfX, sfY, sfZ};
+		std::array<CCCoreLib::ScalarField::Shared, 3> scalarFields{sfX, sfY, sfZ};
 
 		PointCoordinateType defaultCoordForNaN = std::numeric_limits<PointCoordinateType>::quiet_NaN();
-		for (CCCoreLib::ScalarField* sf : scalarFields)
+		for (const auto& sf : scalarFields)
 		{
 			if (sf)
 			{
@@ -1728,9 +1721,9 @@ namespace ccEntityAction
 			const CCVector3* P = pc->getPoint(i);
 
 			CCVector3 newP = *P;
-			SetValueFromSF(newP.x, xIndex, sfX, i, defaultCoordForNaN);
-			SetValueFromSF(newP.y, yIndex, sfY, i, defaultCoordForNaN);
-			SetValueFromSF(newP.z, zIndex, sfZ, i, defaultCoordForNaN);
+			SetValueFromSF(newP.x, xIndex, sfX.get(), i, defaultCoordForNaN);
+			SetValueFromSF(newP.y, yIndex, sfY.get(), i, defaultCoordForNaN);
+			SetValueFromSF(newP.z, zIndex, sfZ.get(), i, defaultCoordForNaN);
 
 			*const_cast<CCVector3*>(P) = newP;
 		}
@@ -1782,7 +1775,7 @@ namespace ccEntityAction
 				continue;
 			}
 
-			ccScalarField* sf = pc->getCurrentDisplayedScalarField();
+			auto sf = pc->getCurrentDisplayedScalarField();
 			if (sf != nullptr)
 			{
 				if (std::isnan(defaultValueForNaN) && (sf->countValidValues() < sf->size()))
@@ -1792,7 +1785,7 @@ namespace ccEntityAction
 					break;
 				}
 
-				pc->setCoordFromSF(importDim, sf, defaultValueForNaN);
+				pc->setCoordFromSF(importDim, *sf, defaultValueForNaN);
 			}
 		}
 
@@ -1885,9 +1878,9 @@ namespace ccEntityAction
 			ccLog::Error("Not enough memory");
 		}
 
-		CCCoreLib::ScalarField* sfX = (nxIndex >= 0 ? pc->getScalarField(nxIndex) : nullptr);
-		CCCoreLib::ScalarField* sfY = (nyIndex >= 0 ? pc->getScalarField(nyIndex) : nullptr);
-		CCCoreLib::ScalarField* sfZ = (nzIndex >= 0 ? pc->getScalarField(nzIndex) : nullptr);
+		auto sfX = (nxIndex >= 0 ? pc->getScalarField(nxIndex) : nullptr);
+		auto sfY = (nyIndex >= 0 ? pc->getScalarField(nyIndex) : nullptr);
+		auto sfZ = (nzIndex >= 0 ? pc->getScalarField(nzIndex) : nullptr);
 
 		for (unsigned i = 0; i < pc->size(); ++i)
 		{
@@ -1898,9 +1891,9 @@ namespace ccEntityAction
 				N = pc->getPointNormal(i);
 			}
 
-			SetValueFromSF(N.x, nxIndex, sfX, i, 0);
-			SetValueFromSF(N.y, nyIndex, sfY, i, 0);
-			SetValueFromSF(N.z, nzIndex, sfZ, i, 0);
+			SetValueFromSF(N.x, nxIndex, sfX.get(), i, 0);
+			SetValueFromSF(N.y, nyIndex, sfY.get(), i, 0);
+			SetValueFromSF(N.z, nzIndex, sfZ.get(), i, 0);
 
 			N.normalize();
 			pc->setPointNormal(i, N);
@@ -2056,24 +2049,23 @@ namespace ccEntityAction
 			return false;
 		}
 
-		for (const auto cloud : clouds)
+		for (auto* cloud : clouds)
 		{
-			std::vector<ccScalarField*> fields(5, nullptr);
-			fields[0] = (exportR ? new ccScalarField(GetFirstAvailableSFName(cloud, "R").toStdString()) : nullptr);
-			fields[1] = (exportG ? new ccScalarField(GetFirstAvailableSFName(cloud, "G").toStdString()) : nullptr);
-			fields[2] = (exportB ? new ccScalarField(GetFirstAvailableSFName(cloud, "B").toStdString()) : nullptr);
-			fields[3] = (exportAlpha ? new ccScalarField(GetFirstAvailableSFName(cloud, "Alpha").toStdString()) : nullptr);
-			fields[4] = (exportComposite ? new ccScalarField(GetFirstAvailableSFName(cloud, "Composite").toStdString()) : nullptr);
+			std::vector<ccScalarField::Shared> fields(5, nullptr);
+			fields[0] = (exportR ? std::make_shared<ccScalarField>(GetFirstAvailableSFName(cloud, "R").toStdString()) : nullptr);
+			fields[1] = (exportG ? std::make_shared<ccScalarField>(GetFirstAvailableSFName(cloud, "G").toStdString()) : nullptr);
+			fields[2] = (exportB ? std::make_shared<ccScalarField>(GetFirstAvailableSFName(cloud, "B").toStdString()) : nullptr);
+			fields[3] = (exportAlpha ? std::make_shared<ccScalarField>(GetFirstAvailableSFName(cloud, "Alpha").toStdString()) : nullptr);
+			fields[4] = (exportComposite ? std::make_shared<ccScalarField>(GetFirstAvailableSFName(cloud, "Composite").toStdString()) : nullptr);
 
 			// try to instantiate memory for each field
 			unsigned count = cloud->size();
-			for (ccScalarField*& sf : fields)
+			for (ccScalarField::Shared& sf : fields)
 			{
 				if (sf && !sf->reserveSafe(count))
 				{
 					ccLog::Warning(QObject::tr("[SfFromColor] Not enough memory to instantiate SF '%1' on cloud '%2'").arg(QString::fromStdString(sf->getName()), cloud->getName()));
-					sf->release();
-					sf = nullptr;
+					sf.reset();
 				}
 			}
 
@@ -2096,7 +2088,7 @@ namespace ccEntityAction
 
 			QString fieldsStr;
 
-			for (ccScalarField*& sf : fields)
+			for (ccScalarField::Shared& sf : fields)
 			{
 				if (sf == nullptr)
 					continue;
@@ -2131,8 +2123,7 @@ namespace ccEntityAction
 				else
 				{
 					ccLog::Warning(QObject::tr("[SfFromColor] Failed to add scalar field '%1' to cloud '%2'?!").arg(QString::fromStdString(sf->getName()), cloud->getName()));
-					sf->release();
-					sf = nullptr;
+					sf.reset();
 				}
 			}
 
@@ -2203,7 +2194,7 @@ namespace ccEntityAction
 
 		try
 		{
-			for (const auto entity : selectedEntities)
+			for (auto* entity : selectedEntities)
 			{
 				if (entity->isA(CC_TYPES::POINT_CLOUD))
 				{
@@ -2449,7 +2440,7 @@ namespace ccEntityAction
 
 			bool computePerVertexNormals = (question.clickedButton() == perVertexButton);
 
-			for (auto mesh : meshes)
+			for (auto* mesh : meshes)
 			{
 				Q_ASSERT(mesh != nullptr);
 
@@ -2735,12 +2726,11 @@ namespace ccEntityAction
 						break;
 					}
 
-					ccScalarField* dipSF    = static_cast<ccScalarField*>(pc->getScalarField(dipSFIndex));
-					ccScalarField* dipDirSF = static_cast<ccScalarField*>(pc->getScalarField(dipDirSFIndex));
+					auto dipSF    = pc->getCCScalarField(dipSFIndex);
+					auto dipDirSF = pc->getCCScalarField(dipDirSFIndex);
 					Q_ASSERT(dipSF && dipDirSF);
 
-					success = pc->convertNormalToDipDirSFs(dipSF, dipDirSF);
-
+					success = pc->convertNormalToDipDirSFs(*dipSF, *dipDirSF);
 					if (success)
 					{
 						// apply default 360 degrees color scale!
@@ -2818,7 +2808,7 @@ namespace ccEntityAction
 			if (thisBBox.isValid())
 			{
 				CCVector3           dd   = thisBBox.maxCorner() - thisBBox.minCorner();
-				PointCoordinateType maxd = std::max(dd.x, std::max(dd.y, dd.z));
+				PointCoordinateType maxd = std::max({dd.x, dd.y, dd.z});
 				if (maxBoxSize < 0.0 || maxd > maxBoxSize)
 					maxBoxSize = maxd;
 			}
@@ -2854,7 +2844,7 @@ namespace ccEntityAction
 		const ccComputeOctreeDlg::ComputationMode mode           = coDlg.getMode();
 		const double                              chosenCellSize = coDlg.getMinCellSize();
 
-		for (const auto cloud : clouds)
+		for (auto* cloud : clouds)
 		{
 			// we temporarily detach entity, as it may undergo
 			//'severe' modifications (octree deletion, etc.) --> see ccPointCloud::computeOctree
@@ -2897,12 +2887,12 @@ namespace ccEntityAction
 					    {
 						    return newOctree;
 					    }
-					    return ccOctree::Shared(nullptr);
+					    return {nullptr};
 				    }
 
 				    default:
 					    Q_ASSERT(false);
-					    return ccOctree::Shared(nullptr);
+					    return {nullptr};
 				    }
 			    });
 			qint64 elapsedTime_ms = eTimer.elapsed();
@@ -2923,7 +2913,7 @@ namespace ccEntityAction
 
 			if (octree)
 			{
-				ccLog::Print("[doActionComputeOctree] Timing: %2.3f s", static_cast<double>(elapsedTime_ms) / 1000.0);
+				ccLog::Printf("[doActionComputeOctree] Timing: %2.3f s", elapsedTime_ms / 1000.0);
 				cloud->setEnabled(true); // for vertices!
 				ccOctreeProxy* proxy = cloud->getOctreeProxy();
 				assert(proxy);
@@ -2971,7 +2961,7 @@ namespace ccEntityAction
 					ent->prepareDisplayForRefresh();
 					continue;
 				}
-				else if (mesh->hasNormals()) // per-vertex normals?
+				if (mesh->hasNormals()) // per-vertex normals?
 				{
 					if (mesh->getParent()
 					    && (mesh->getParent()->isA(CC_TYPES::MESH) /*|| mesh->getParent()->isKindOf(CC_TYPES::PRIMITIVE)*/) // TODO
@@ -3106,10 +3096,10 @@ namespace ccEntityAction
 		switch (distribIndex)
 		{
 		case 0: // Gauss
-			sDlg.reset(new ccStatisticalTestDlg("mu", "sigma", QString(), QT_TR_NOOP("Local Statistical Test (Gauss)"), parent));
+			sDlg = std::make_unique<ccStatisticalTestDlg>("mu", "sigma", QString(), QT_TR_NOOP("Local Statistical Test (Gauss)"), parent);
 			break;
 		case 1: // Weibull
-			sDlg.reset(new ccStatisticalTestDlg("a", "b", "shift", QT_TR_NOOP("Local Statistical Test (Weibull)"), parent));
+			sDlg = std::make_unique<ccStatisticalTestDlg>("a", "b", "shift", QT_TR_NOOP("Local Statistical Test (Weibull)"), parent);
 			break;
 		default:
 			ccLog::Error(QT_TR_NOOP("Invalid distribution!"));
@@ -3167,7 +3157,7 @@ namespace ccEntityAction
 				    }
 
 				    // we apply method on currently displayed SF
-				    ccScalarField* inSF = pc->getCurrentDisplayedScalarField();
+				    auto inSF = pc->getCurrentDisplayedScalarField();
 				    if (inSF == nullptr)
 				    {
 					    // TODO handle error?
@@ -3212,12 +3202,12 @@ namespace ccEntityAction
 
 				    if (chi2dist >= 0.0)
 				    {
-					    ccLog::Print("[Chi2 Test] Timing: %3.2f ms.", eTimer.elapsed() / 1000.0);
+					    ccLog::Printf("[Chi2 Test] Timing: %3.2f ms.", eTimer.elapsed() / 1000.0);
 					    ccLog::Print(QObject::tr("[Chi2 Test] %1 test result = %2").arg(distrib->getName()).arg(chi2dist));
 
 					    // we set the theoretical Chi2 distance limit as the minimum displayed SF value so that all points below are grayed
 					    {
-						    ccScalarField* chi2SF = static_cast<ccScalarField*>(pc->getCurrentInScalarField());
+						    auto chi2SF = pc->getCCScalarField(pc->getCurrentInScalarFieldIndex());
 						    Q_ASSERT(chi2SF);
 						    chi2SF->computeMinAndMax();
 						    chi2dist *= chi2dist;
@@ -3287,7 +3277,7 @@ namespace ccEntityAction
 			}
 
 			// we apply method on currently displayed SF
-			ccScalarField* sf = pc->getCurrentDisplayedScalarField();
+			auto sf = pc->getCurrentDisplayedScalarField();
 			if (sf == nullptr)
 			{
 				// TODO report error?
