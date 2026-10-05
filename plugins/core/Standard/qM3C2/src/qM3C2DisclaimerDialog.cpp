@@ -28,8 +28,8 @@ bool DisclaimerDialog::s_disclaimerAccepted = false;
 
 
 DisclaimerDialog::DisclaimerDialog(QWidget *parent)
-	: QDialog(parent)
-	, m_ui( new Ui::DisclaimerDialog )
+    : QDialog(parent)
+    , m_ui(std::make_unique<Ui::DisclaimerDialog>())
 {
 	m_ui->setupUi( this );
 
@@ -48,10 +48,7 @@ DisclaimerDialog::DisclaimerDialog(QWidget *parent)
 	m_ui->label_compilationInformation->setText(compilationInfo);
 }
 
-DisclaimerDialog::~DisclaimerDialog()
-{
-	delete m_ui;
-}
+DisclaimerDialog::~DisclaimerDialog() = default;
 
 bool DisclaimerDialog::show(ccMainAppInterface *app)
 {

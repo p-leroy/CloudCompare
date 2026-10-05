@@ -23,7 +23,6 @@
 
 // Qt
 #include <QOpenGLTexture>
-#include <QSharedPointer>
 
 class ccMaterialDB;
 class QImage;
@@ -34,9 +33,9 @@ class QCC_DB_LIB_API ccMaterial : public ccSerializableObject
 {
   public:
 	//! Const + Shared type
-	using CShared = QSharedPointer<const ccMaterial>;
+	using CShared = std::shared_ptr<const ccMaterial>;
 	//! Shared type
-	using Shared = QSharedPointer<ccMaterial>;
+	using Shared = std::shared_ptr<ccMaterial>;
 
 	//! Default constructor
 	ccMaterial(const QString& name = QString("default"));
@@ -45,7 +44,7 @@ class QCC_DB_LIB_API ccMaterial : public ccSerializableObject
 	ccMaterial(const ccMaterial& mtl);
 
 	//! Destructor
-	~ccMaterial();
+	~ccMaterial() override;
 
 	//! Returns the material name
 	inline const QString& getName() const
@@ -205,7 +204,7 @@ class QCC_DB_LIB_API ccMaterial : public ccSerializableObject
 	/** \warning Doesn't save the texture image!
 	 **/
 	bool  toFile(QFile& out, short dataVersion) const override;
-	bool  fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap) override;
+	bool  fromFile(QFile& in, LoadingContext& context) override;
 	short minimumFileVersion() const override;
 
 	//! Returns unique identifier (UUID)

@@ -127,11 +127,8 @@ ccScalarFieldArithmeticsDlg::Operation ccScalarFieldArithmeticsDlg::getOperation
 	{
 		return static_cast<ccScalarFieldArithmeticsDlg::Operation>(opIndex);
 	}
-	else
-	{
-		assert(false);
-		return INVALID;
-	}
+	assert(false);
+	return INVALID;
 }
 
 ccScalarFieldArithmeticsDlg::Operation ccScalarFieldArithmeticsDlg::GetOperationByName(const QString& name)
@@ -176,7 +173,7 @@ QString ccScalarFieldArithmeticsDlg::GetOperationName(Operation op, const QStrin
 		break;
 	}
 
-	return QString();
+	return {};
 }
 
 bool ccScalarFieldArithmeticsDlg::apply(ccPointCloud* cloud)
@@ -221,8 +218,8 @@ bool ccScalarFieldArithmeticsDlg::Apply(ccPointCloud* cloud,
 		return false;
 	}
 
-	unsigned                sfCount = cloud->getNumberOfScalarFields();
-	CCCoreLib::ScalarField* sf1     = nullptr;
+	unsigned                       sfCount = cloud->getNumberOfScalarFields();
+	CCCoreLib::ScalarField::Shared sf1;
 	{
 		if (sf1Idx >= static_cast<int>(sfCount))
 		{
@@ -235,7 +232,7 @@ bool ccScalarFieldArithmeticsDlg::Apply(ccPointCloud* cloud,
 	}
 	double sf1PreviousOffset = sf1->getOffset(); // remember the offset, as we may have to change it BEFORE reading the values
 
-	CCCoreLib::ScalarField* sf2 = nullptr;
+	CCCoreLib::ScalarField::Shared sf2;
 	if (op <= MAX)
 	{
 		if (!sf2Desc || (!sf2Desc->isConstantValue && sf2Desc->sfIndex >= static_cast<int>(sfCount)))
@@ -325,10 +322,8 @@ bool ccScalarFieldArithmeticsDlg::Apply(ccPointCloud* cloud,
 				                        .arg(sf1->getOffset()));
 				return true;
 			}
-			else
-			{
-				sf1->setOffset(sf1->getOffset() + sf2->getOffset());
-			}
+
+			sf1->setOffset(sf1->getOffset() + sf2->getOffset());
 			break;
 		}
 		case MINUS:
@@ -346,10 +341,7 @@ bool ccScalarFieldArithmeticsDlg::Apply(ccPointCloud* cloud,
 				                        .arg(sf1->getOffset()));
 				return true;
 			}
-			else
-			{
-				sf1->setOffset(sf1->getOffset() - sf2->getOffset());
-			}
+			sf1->setOffset(sf1->getOffset() - sf2->getOffset());
 			break;
 		}
 		case MULTIPLY:
@@ -479,7 +471,7 @@ bool ccScalarFieldArithmeticsDlg::Apply(ccPointCloud* cloud,
 
 		sfIdx = sf1Idx;
 	}
-	CCCoreLib::ScalarField* sfDest = cloud->getScalarField(sfIdx);
+	CCCoreLib::ScalarField::Shared sfDest = cloud->getScalarField(sfIdx);
 	assert(sfDest);
 
 	unsigned valCount = sf1->currentSize();

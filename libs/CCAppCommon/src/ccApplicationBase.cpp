@@ -28,9 +28,9 @@
 #include <ccPersistentSettings.h>
 
 // qCC_db
-#include <ccColorScalesManager.h>
+#include <ccGenericMesh.h>
+#include <ccLog.h>
 #include <ccMaterial.h>
-#include <ccMesh.h>
 #include <ccPointCloud.h>
 
 // qCC_glWindow
@@ -98,6 +98,8 @@ ccApplicationBase::ccApplicationBase(int& argc, char** argv, bool isCommandLine,
 {
 	setOrganizationName("CCCorp");
 
+	ccLog::Start();
+
 	setupPaths();
 
 #ifdef Q_OS_MAC
@@ -136,8 +138,7 @@ ccApplicationBase::ccApplicationBase(int& argc, char** argv, bool isCommandLine,
 
 	connect(this, &ccApplicationBase::aboutToQuit, [=]()
 	        { ccMaterial::ReleaseTextures();
-			  ccColorScalesManager::ReleaseUniqueInstance();
-	          ccMesh::ReleaseOpenGLRessources();
+	          ccGenericMesh::ReleaseOpenGLRessources();
 	          ccPointCloud::ReleaseOpenGLRessources(); });
 }
 
@@ -276,10 +277,14 @@ bool ccApplicationBase::setAppStyle(QString styleKey)
 		QFile f(resourcePath);
 		if (!f.exists())
 		{
-			f.close();
+			ccLog::Warning(tr("Style sheet file does not exist: ") + resourcePath);
 			return false;
 		}
-		f.open(QFile::ReadOnly | QFile::Text);
+		if (!f.open(QFile::ReadOnly | QFile::Text))
+		{
+			ccLog::Warning(tr("Failed to open style sheet file: ") + resourcePath);
+			return false;
+		}
 		QTextStream ts(&f);
 		setStyleSheet(ts.readAll());
 		f.close();

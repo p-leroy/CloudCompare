@@ -65,9 +65,9 @@ ccScalarFieldsManagerDialog::ccScalarFieldsManagerDialog(const ccHObject::Contai
 	// save edits when the user renames a scalar field in the table
 	connect(m_ui->sfTableWidget, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item)
 	        {
-			// since the first column is the only editable one, 
+			// since the first column is the only editable one,
 			// save the remaning back to the point cloud
-			if (item && item->column() == SFAttributes::NAME) 
+			if (item && item->column() == SFAttributes::NAME)
 			{
 				this->renameSF(item->row(), item->text().trimmed());
 			} });
@@ -151,7 +151,7 @@ void ccScalarFieldsManagerDialog::buildTable()
 
 void ccScalarFieldsManagerDialog::appendSFToTable(int sfIdx)
 {
-	ccScalarField* sf = static_cast<ccScalarField*>(m_pointCloud->getScalarField(sfIdx));
+	auto sf = m_pointCloud->getCCScalarField(sfIdx);
 	if (!sf)
 	{
 		return;
@@ -238,7 +238,7 @@ void ccScalarFieldsManagerDialog::deleteSF()
 	int row = m_ui->sfTableWidget->currentRow();
 	if (row < 0)
 	{
-		ccLog::Warning("Delete SF", "Please select a scalar field from the table first.");
+		ccLog::Warning("Delete SF: please select a scalar field from the table first.");
 		return;
 	}
 
@@ -279,7 +279,7 @@ void ccScalarFieldsManagerDialog::showHistogram()
 	int row = m_ui->sfTableWidget->currentRow();
 	if (row < 0)
 	{
-		ccLog::Warning("Delete SF", "Please select a scalar field from the table first.");
+		ccLog::Warning("Delete SF: please select a scalar field from the table first.");
 		return;
 	}
 
@@ -293,8 +293,8 @@ void ccScalarFieldsManagerDialog::showHistogram()
 	for (int i = 0; i < selectedRows.count(); ++i)
 	{
 		// Get the SF info and data
-		int            sfIdx = selectedRows[i].row();
-		ccScalarField* sf    = static_cast<ccScalarField*>(m_pointCloud->getScalarField(sfIdx));
+		int  sfIdx = selectedRows[i].row();
+		auto sf    = m_pointCloud->getCCScalarField(sfIdx);
 		if (!sf)
 		{
 			continue;
@@ -327,16 +327,16 @@ void ccScalarFieldsManagerDialog::showHistogram()
 	}
 }
 
-void ccScalarFieldsManagerDialog::renameSF(int row, const QString& newName)
+void ccScalarFieldsManagerDialog::renameSF(int sfIdx, const QString& newName)
 {
-	ccScalarField* sf = static_cast<ccScalarField*>(m_pointCloud->getScalarField(row));
+	auto sf = m_pointCloud->getCCScalarField(sfIdx);
 	if (!sf)
 	{
 		return;
 	}
 
 	QString oldName = QString::fromStdString(sf->getName());
-	m_pointCloud->renameScalarField(row, newName.toStdString());
+	m_pointCloud->renameScalarField(sfIdx, newName.toStdString());
 
 	updateDisplay();
 
