@@ -369,8 +369,8 @@ void ccSFvsSFWindowDlg::refresh()
 
 	x.resize(m_cloud->size());
 	y.resize(m_cloud->size());
-	CCCoreLib::ScalarField* sfX = m_cloud->getScalarField(xIndex);
-	CCCoreLib::ScalarField* sfY = m_cloud->getScalarField(yIndex);
+	CCCoreLib::ScalarField::Shared sfX = m_cloud->getScalarField(xIndex);
+	CCCoreLib::ScalarField::Shared sfY = m_cloud->getScalarField(yIndex);
 
 	assert(sfX && sfY);
 

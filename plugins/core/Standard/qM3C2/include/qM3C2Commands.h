@@ -56,9 +56,9 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 		ccPointCloud* corePointsCloud = (cmd.clouds().size() > 2 ? cmd.clouds()[2].pc : nullptr);
 		unsigned int Np;
 		int sfIdx;
-		CCCoreLib::ScalarField* Nx;
-		CCCoreLib::ScalarField* Ny;
-		CCCoreLib::ScalarField* Nz;
+		CCCoreLib::ScalarField::Shared Nx;
+		CCCoreLib::ScalarField::Shared Ny;
+		CCCoreLib::ScalarField::Shared Nz;
 		bool ok = true;
 		CCVector3 normal;
 
@@ -100,7 +100,7 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud Ny!");
 							ok = false;
-							Nx->release();
+							Nx->clear();
 						}
 					}
 					if (ok) // Nx and Ny allocated, try to allocate Nz
@@ -111,8 +111,8 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud Nz!");
 							ok = false;
-							Nx->release();
-							Ny->release();
+							Nx->clear();
+							Ny->clear();
 						}
 					}
 					if (ok) // Nx, Ny and Nz allocated
@@ -168,7 +168,7 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud2 Ny!");
 							ok = false;
-							Nx->release();
+							Nx->clear();
 						}
 					}
 					if (ok) // Nx and Ny allocated, try to allocate Nz
@@ -179,8 +179,8 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud 2Nz!");
 							ok = false;
-							Nx->release();
-							Ny->release();
+							Nx->clear();
+							Ny->clear();
 						}
 					}
 					if (ok) // Nx, Ny and Nz allocated

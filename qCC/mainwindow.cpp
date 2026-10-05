@@ -613,7 +613,7 @@ void MainWindow::connectActions()
 	//"Edit > Scalar fields" menu
 	connect(m_ui->actionOpenSFManager, &QAction::triggered, this, &MainWindow::doActionOpenSelectedEntitiesSFManager);
 	connect(m_ui->actionShowHistogram, &QAction::triggered, this, &MainWindow::showSelectedEntitiesHistogram);
-	connect(m_UI->actionPlotSFvsSF, &QAction::triggered, this, &MainWindow::plotSelectedEntitySFvsSF);
+	connect(m_ui->actionPlotSFvsSF, &QAction::triggered, this, &MainWindow::plotSelectedEntitySFvsSF);
 	connect(m_ui->actionComputeStatParams, &QAction::triggered, this, &MainWindow::doActionComputeStatParams);
 	connect(m_ui->actionSFGradient, &QAction::triggered, this, &MainWindow::doActionSFGradient);
 	connect(m_ui->actionGaussianFilter, &QAction::triggered, this, &MainWindow::doActionSFGaussianFilter);
@@ -11831,7 +11831,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_ui->actionComputeStatParams2->setEnabled(atLeastOneSF);
 	m_ui->actionOpenSFManager->setEnabled(atLeastOneCloud);
 	m_ui->actionShowHistogram->setEnabled(atLeastOneSF);
-	m_UI->actionPlotSFvsSF->setEnabled(atLeastOneCloud);
+	m_ui->actionPlotSFvsSF->setEnabled(atLeastOneCloud);
 	m_ui->actionGaussianFilter->setEnabled(atLeastOneSF);
 	m_ui->actionBilateralFilter->setEnabled(atLeastOneSF);
 	m_ui->actionDeleteScalarField->setEnabled(atLeastOneSF);

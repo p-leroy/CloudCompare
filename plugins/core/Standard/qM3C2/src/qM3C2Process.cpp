@@ -84,8 +84,8 @@ static const char SECTOR_GAP_SF[]               = "sectorGap";
 static ccPointCloud *projectionCloud;
 static int projCloud_sfIdx_index;
 static int projCloud_sfIdx_cloud;
-static CCCoreLib::ScalarField *projCloud_SF_index;
-static CCCoreLib::ScalarField *projCloud_SF_cloud;
+static CCCoreLib::ScalarField::Shared projCloud_SF_index;
+static CCCoreLib::ScalarField::Shared projCloud_SF_cloud;
 static bool storeProjectionInfo = false;
 static bool exportSearchDepth = false;
 static bool computeWelch = false;
@@ -1000,58 +1000,36 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         projCloud_SF_cloud = projectionCloud->getScalarField(projCloud_sfIdx_cloud);
         projectionCloud->setName("projectionCloud");
         // add the index to the output cloud
-        s_M3C2Params.indexSF = new ccScalarField("index");
-        s_M3C2Params.indexSF->link(); //will be released anyway at the end of the process
-    }
-    // EXPORT SEARCH DEPTH
-    exportSearchDepth = dlg.exportSearchDepth();
+		s_M3C2Params.indexSF = std::make_shared<ccScalarField>("index");
+	}
+	// EXPORT SEARCH DEPTH
+	exportSearchDepth = dlg.exportSearchDepth();
     if (exportSearchDepth)
     {
-        s_M3C2Params.searchDepth1SF = new ccScalarField(SEARCH_DEPTH1_SF_NAME);
-        s_M3C2Params.searchDepth1SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.searchDepth2SF = new ccScalarField(SEARCH_DEPTH2_SF_NAME);
-        s_M3C2Params.searchDepth2SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.meanMinusMed1SF = new ccScalarField(MEAN_MINUS_MEDIAN_1_SF);
-        s_M3C2Params.meanMinusMed1SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.meanMinusMed2SF = new ccScalarField(MEAN_MINUS_MEDIAN_2_SF);
-        s_M3C2Params.meanMinusMed2SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.normalsAngleSF = new ccScalarField(NORMALS_ANGLE_SF);
-        s_M3C2Params.normalsAngleSF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.sector1SF = new ccScalarField(SECTOR_SF);
-        s_M3C2Params.sector1SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.gap1SF = new ccScalarField(GAP_SF);
-        s_M3C2Params.gap1SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.sector2SF = new ccScalarField(SECTOR2_SF);
-        s_M3C2Params.sector2SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.gap2SF = new ccScalarField(GAP2_SF);
-        s_M3C2Params.gap2SF->link(); //will be released anyway at the end of the process
-        s_M3C2Params.sectorGapSF = new ccScalarField(SECTOR_GAP_SF);
-        s_M3C2Params.sectorGapSF->link(); //will be released anyway at the end of the process
-    }
-    // COMPUTE WELCH
-    computeWelch = dlg.computeWelch();
+		s_M3C2Params.searchDepth1SF  = std::make_shared<ccScalarField>(SEARCH_DEPTH1_SF_NAME);
+		s_M3C2Params.searchDepth2SF  = std::make_shared<ccScalarField>(SEARCH_DEPTH2_SF_NAME);
+		s_M3C2Params.meanMinusMed1SF = std::make_shared<ccScalarField>(MEAN_MINUS_MEDIAN_1_SF);
+		s_M3C2Params.meanMinusMed2SF = std::make_shared<ccScalarField>(MEAN_MINUS_MEDIAN_2_SF);
+		s_M3C2Params.normalsAngleSF  = std::make_shared<ccScalarField>(NORMALS_ANGLE_SF);
+		s_M3C2Params.sector1SF       = std::make_shared<ccScalarField>(SECTOR_SF);
+		s_M3C2Params.gap1SF          = std::make_shared<ccScalarField>(GAP_SF);
+		s_M3C2Params.sector2SF       = std::make_shared<ccScalarField>(SECTOR2_SF);
+		s_M3C2Params.gap2SF          = std::make_shared<ccScalarField>(GAP2_SF);
+		s_M3C2Params.sectorGapSF     = std::make_shared<ccScalarField>(SECTOR_GAP_SF);
+	}
+	// COMPUTE WELCH
+	computeWelch = dlg.computeWelch();
     if (computeWelch)
     {
-        s_M3C2Params.welch_t_SF = new ccScalarField(WELCH_T_SF_NAME);
-        s_M3C2Params.welch_t_SF->link(); //will be released anyway at the end of the process
-
-        s_M3C2Params.welch_v_SF = new ccScalarField(WELCH_V_SF_NAME);
-        s_M3C2Params.welch_v_SF->link(); //will be released anyway at the end of the process
-
-        s_M3C2Params.welch_q_SF = new ccScalarField(WELCH_Q_SF_NAME);
-        s_M3C2Params.welch_q_SF->link(); //will be released anyway at the end of the process
-
-        s_M3C2Params.welch_p_SF = new ccScalarField(WELCH_P_SF_NAME);
-        s_M3C2Params.welch_p_SF->link(); //will be released anyway at the end of the process
-
-        s_M3C2Params.welch_lod_SF = new ccScalarField(WELCH_LOD_SF_NAME);
-        s_M3C2Params.welch_lod_SF->link(); //will be released anyway at the end of the process
-
-        s_M3C2Params.welch_sig_SF = new ccScalarField(WELCH_SIG_SF_NAME);
-        s_M3C2Params.welch_sig_SF->link(); //will be released anyway at the end of the process
-    }
-    // SHARP MEAN
-    sharpMean = dlg.getSharpMean(); // use sharp mean diagnostic to reject projected points
+		s_M3C2Params.welch_t_SF   = std::make_shared<ccScalarField>(WELCH_T_SF_NAME);
+		s_M3C2Params.welch_v_SF   = std::make_shared<ccScalarField>(WELCH_V_SF_NAME);
+		s_M3C2Params.welch_q_SF   = std::make_shared<ccScalarField>(WELCH_Q_SF_NAME);
+		s_M3C2Params.welch_p_SF   = std::make_shared<ccScalarField>(WELCH_P_SF_NAME);
+		s_M3C2Params.welch_lod_SF = std::make_shared<ccScalarField>(WELCH_LOD_SF_NAME);
+		s_M3C2Params.welch_sig_SF = std::make_shared<ccScalarField>(WELCH_SIG_SF_NAME);
+	}
+	// SHARP MEAN
+	sharpMean = dlg.getSharpMean(); // use sharp mean diagnostic to reject projected points
 
     //ccLog::Print("s_M3C2Params.distAndUncerMethod %d", s_M3C2Params.distAndUncerMethod);
 
@@ -1406,8 +1384,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 		bool normalsAreOk2 = false;
 
-		s_M3C2Params.coreNormals2 = new NormsIndexesTableType();
-		s_M3C2Params.coreNormals2->link(); //will be released anyway at the end of the process
+		s_M3C2Params.coreNormals2 = std::make_shared<NormsIndexesTableType>();
 
 		std::vector<PointCoordinateType> radii;
 		if (normMode == qM3C2Normals::MULTI_SCALE_MODE)
@@ -1423,8 +1400,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 				radii.push_back(static_cast<PointCoordinateType>(scale / 2));
 			}
 
-			normalScaleSF2 = new ccScalarField(NORMAL_SCALE_SF_NAME);
-			normalScaleSF2->link(); //will be released anyway at the end of the process
+			normalScaleSF2 = std::make_shared<ccScalarField>(NORMAL_SCALE_SF_NAME);
 		}
 		else
 		{
@@ -1438,14 +1414,14 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 		//dedicated core points method
 		normalsAreOk2 = qM3C2Normals::ComputeCorePointsNormals(s_M3C2Params.corePoints,
-															   s_M3C2Params.coreNormals2,
-															   baseCloud2,
-															   radii,
-															   invalidNormals2,
-															   maxThreadCount,
-															   normalScaleSF2,
-															   &pDlg,
-															   baseOctree2);
+		                                                       s_M3C2Params.coreNormals2.get(),
+		                                                       baseCloud2,
+		                                                       radii,
+		                                                       invalidNormals2,
+		                                                       maxThreadCount,
+		                                                       normalScaleSF2.get(),
+		                                                       &pDlg,
+		                                                       baseOctree2);
 
 		//now fix the orientation
 		if (normalsAreOk2)
@@ -1539,7 +1515,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		s_M3C2Params.nProgress = &nProgress;
 
 		//allocate distances SF
-		s_M3C2Params.m3c2DistSF.reset(new ccScalarField(M3C2_DIST_SF_NAME));
+		s_M3C2Params.m3c2DistSF = std::make_shared<ccScalarField>(M3C2_DIST_SF_NAME);
 		if (!s_M3C2Params.m3c2DistSF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 		{
 			errorMessage = "Failed to allocate memory for distance values!";
