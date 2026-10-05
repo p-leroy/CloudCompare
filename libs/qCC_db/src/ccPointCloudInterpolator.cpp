@@ -15,16 +15,16 @@
 // #                                                                        #
 // ##########################################################################
 
-#include "ccPointCloudInterpolator.h"
+#include "../include/ccPointCloudInterpolator.h"
 
-// qCC_db
-#include "ccPointCloud.h"
+// Local
+#include "../include/ccPointCloud.h"
+#include "../include/ccScalarField.h"
 
 // CCCoreLib
 #include <DgmOctree.h>
 #include <DistanceComputationTools.h>
 #include <GenericProgressCallback.h>
-#include <ccScalarField.h>
 
 struct SFPair
 {
@@ -232,9 +232,9 @@ bool ccPointCloudInterpolator::InterpolateScalarFieldsFrom(ccPointCloud*        
 			overwrite = true;
 		}
 
-		CCCoreLib::ScalarField* inSF  = srcCloud->getScalarField(inSFIndex);
-		CCCoreLib::ScalarField* outSF = destCloud->getScalarField(outSFIndex);
-		scalarFields.push_back(SFPair(inSF, outSF));
+		auto inSF  = srcCloud->getScalarField(inSFIndex);
+		auto outSF = destCloud->getScalarField(outSFIndex);
+		scalarFields.push_back(SFPair(inSF.get(), outSF.get()));
 
 		outSF->fill(CCCoreLib::NAN_VALUE);
 	}

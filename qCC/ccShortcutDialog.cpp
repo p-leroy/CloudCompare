@@ -14,13 +14,15 @@
 // #                   COPYRIGHT: CloudCompare project                      #
 // #                                                                        #
 // ##########################################################################
-//
+
 #include "ccShortcutDialog.h"
 
 #include "ccPersistentSettings.h"
+#include "ui_shortcutEditDialog.h"
+#include "ui_shortcutSettings.h"
 
 #include <QAction>
-#include <QMenu>
+#include <QHash>
 #include <QMessageBox>
 #include <QSettings>
 
@@ -29,11 +31,13 @@ constexpr int KEY_SEQUENCE_COLUMN = 1;
 
 ccShortcutEditDialog::ccShortcutEditDialog(QWidget* parent)
     : QDialog(parent)
-    , m_ui(new Ui_ShortcutEditDialog)
+    , m_ui(std::make_unique<Ui::ShortcutEditDialog>())
 {
 	m_ui->setupUi(this);
 	connect(m_ui->clearButton, &QPushButton::clicked, m_ui->keySequenceEdit, &QKeySequenceEdit::clear);
 }
+
+ccShortcutEditDialog::~ccShortcutEditDialog() = default;
 
 QKeySequence ccShortcutEditDialog::keySequence() const
 {
@@ -53,8 +57,7 @@ int ccShortcutEditDialog::exec()
 
 ccShortcutDialog::ccShortcutDialog(const QList<QAction*>& actions, QWidget* parent)
     : QDialog(parent)
-    , m_ui(new Ui_ShortcutDialog)
-    , m_editDialog(new ccShortcutEditDialog(this))
+    , m_ui(std::make_unique<Ui::ShortcutDialog>())
 {
 	m_ui->setupUi(this);
 	m_ui->tableWidget->setRowCount(actions.count());
@@ -78,20 +81,35 @@ ccShortcutDialog::ccShortcutDialog(const QList<QAction*>& actions, QWidget* pare
 	}
 }
 
+ccShortcutDialog::~ccShortcutDialog() = default;
+
 void ccShortcutDialog::restoreShortcutsFromQSettings() const
 {
 	QSettings settings;
 	settings.beginGroup(ccPS::Shortcuts());
+
+	// older versions saved the shortcuts under the action text, which several actions can share
+	QHash<QString, int> textCount;
+	for (int i = 0; i < m_ui->tableWidget->rowCount(); i++)
+	{
+		textCount[m_ui->tableWidget->item(i, KEY_SEQUENCE_COLUMN)->data(Qt::UserRole).value<QAction*>()->text()]++;
+	}
 
 	for (int i = 0; i < m_ui->tableWidget->rowCount(); i++)
 	{
 		QTableWidgetItem* item   = m_ui->tableWidget->item(i, KEY_SEQUENCE_COLUMN);
 		auto*             action = item->data(Qt::UserRole).value<QAction*>();
 
-		if (settings.contains(action->text()))
+		QString key = action->objectName();
+		if (!settings.contains(key) && textCount.value(action->text()) == 1)
+		{
+			key = action->text();
+		}
+
+		if (settings.contains(key))
 		{
 			const QKeySequence defaultValue;
-			const auto         sequence = settings.value(action->text(), defaultValue).value<QKeySequence>();
+			const auto         sequence = settings.value(key, defaultValue).value<QKeySequence>();
 
 			item->setText(sequence.toString());
 			action->setShortcut(sequence);
@@ -126,16 +144,18 @@ void ccShortcutDialog::handleDoubleClick(QTableWidgetItem* item)
 	{
 		item = m_ui->tableWidget->item(item->row(), KEY_SEQUENCE_COLUMN);
 	}
-
 	auto* action = item->data(Qt::UserRole).value<QAction*>();
-	m_editDialog->setKeySequence(action->shortcut());
 
-	if (m_editDialog->exec() == Rejected)
+	// Editor modal windows
+	ccShortcutEditDialog editDialog(this);
+	editDialog.setKeySequence(action->shortcut());
+
+	if (editDialog.exec() == Rejected)
 	{
 		return;
 	}
 
-	const QKeySequence keySequence = m_editDialog->keySequence();
+	const QKeySequence keySequence = editDialog.keySequence();
 	if (keySequence == action->shortcut())
 	{
 		// User did not change it
@@ -160,5 +180,5 @@ void ccShortcutDialog::handleDoubleClick(QTableWidgetItem* item)
 
 	QSettings settings;
 	settings.beginGroup(ccPS::Shortcuts());
-	settings.setValue(action->text(), keySequence);
+	settings.setValue(action->objectName(), keySequence);
 }

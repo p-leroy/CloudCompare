@@ -18,6 +18,7 @@
 // ##########################################################################
 
 // Local
+#include "ccAdvancedTypes.h"
 #include "ccGenericPointCloud.h"
 
 // System
@@ -29,11 +30,6 @@ class QCC_DB_LIB_API ccNormalVectors
   public:
 	//! Returns unique instance
 	static ccNormalVectors* GetUniqueInstance();
-
-	//! Releases unique instance
-	/** Call to this method is now optional.
-	 **/
-	static void ReleaseUniqueInstance();
 
 	//! Returns the number of compressed normal vectors
 	static inline unsigned GetNumberOfVectors()

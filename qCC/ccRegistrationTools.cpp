@@ -65,7 +65,7 @@ bool ccRegistrationTools::ICP(ccHObject*                                        
 	std::unique_ptr<ccProgressDialog> progressDlg;
 	if (parent)
 	{
-		progressDlg.reset(new ccProgressDialog(false, parent));
+		progressDlg = std::make_unique<ccProgressDialog>(true, parent);
 	}
 
 	CCCoreLib::Garbage<CCCoreLib::GenericIndexedCloudPersist> cloudGarbage;
@@ -101,9 +101,9 @@ bool ccRegistrationTools::ICP(ccHObject*                                        
 	}
 
 	// we activate a temporary scalar field for registration distances computation
-	CCCoreLib::ScalarField* dataDisplayedSF = nullptr;
-	int                     oldDataSfIdx    = -1;
-	int                     dataSfIdx       = -1;
+	CCCoreLib::ScalarField::Shared dataDisplayedSF;
+	int                            oldDataSfIdx = -1;
+	int                            dataSfIdx    = -1;
 
 	// if the 'data' entity is a real ccPointCloud, we can even create a proper temporary SF for registration distances
 	if (data->isA(CC_TYPES::POINT_CLOUD))
@@ -174,7 +174,10 @@ bool ccRegistrationTools::ICP(ccHObject*                                        
 
 		if (result < CCCoreLib::DistanceComputationTools::DISTANCE_COMPUTATION_RESULTS::SUCCESS)
 		{
-			ccLog::Error("Failed to determine the max (overlap) distance (not enough memory?)");
+			if (progressDlg && progressDlg->wasCanceled())
+				ccLog::Warning("[ICP] Registration canceled by the user");
+			else
+				ccLog::Error("Failed to determine the max (overlap) distance (not enough memory?)");
 			return false;
 		}
 
@@ -286,7 +289,10 @@ bool ccRegistrationTools::ICP(ccHObject*                                        
 
 	if (result >= CCCoreLib::ICPRegistrationTools::ICP_ERROR)
 	{
-		ccLog::Error("Registration failed: an error occurred (code %i)", result);
+		if (progressDlg && progressDlg->wasCanceled())
+			ccLog::Warning("[ICP] Registration canceled by the user");
+		else
+			ccLog::Error("Registration failed: an error occurred (code %i)", result);
 	}
 	else
 	{

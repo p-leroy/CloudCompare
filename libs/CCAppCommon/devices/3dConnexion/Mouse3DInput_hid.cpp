@@ -22,21 +22,23 @@
 
 #include "Mouse3DInput_hid.h"
 
+// Local
 #include "Mouse3DInput.h"
+
+// CCCoreLib
+#include <CCPlatform.h>
 
 // qCC_db
 #include <ccLog.h>
 
 // Qt
+#include <QElapsedTimer>
 #include <QProcess>
 
-// system
+// System
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
-#include <cstring>
-#include <wchar.h>
 
 // 3DConnexion vendor IDs.
 // Newer devices (since ~2016) use 0x256f. Older devices (SpaceNavigator,
@@ -48,29 +50,41 @@ static constexpr unsigned short c_old3dconnexionVID = 0x046d;
 //! Object angular velocity per mouse tick (in radians per ms per count)
 //! Mirrors the definition in Mouse3DInput.cpp (Windows path uses eventData.period,
 //! which is roughly the report period in ms - we use the polling period instead).
-static const double c_3dmouseAngularVelocity_hid = 1.0e-6;
+static const double c_3DMouseAngularVelocity_hid = 1.0e-6;
 //! Polling period (ms) - approximately 60 Hz
-static constexpr int c_hidPollPeriodMs = 16;
+static constexpr int c_HIDPollPeriod_ms = 16;
 
 //! Overall speed multiplier (calibrated for Blender-like feel).
-static constexpr float c_3dmouseGain = 1.5f;
+static constexpr float c_3DMouseGain = 1.5f;
 //! Reference deflection for the progressive curve (typical HID full-scale ~±350).
-static constexpr float c_3dmouseProgressiveRef = 250.0f;
+static constexpr float c_3DMouseProgressiveRef = 250.0f;
+
+// Number of consecutive (read) errors before giving up (e.g. device unplugged).
+static constexpr int MaxConsecutiveErrors = 100;
+
+// Read timeout (shouldn't be too long so that the loop stays responsive)
+// and doesn't busy-poll.
+static constexpr int ReadTimeout_ms = 100;
+
+// If no report arrives within this many ms of startup, warn the user once.
+// The threshold is deliberately generous: some users take a few seconds
+// before they interact with the cap, and we don't want a false alarm.
+constexpr qint64 NoReportsWarn_ms = 5000;
 
 //! Progressive (non-linear) axis scaling: small deflections stay fine, large
 //! deflections get amplified. Curve: out = raw * (1 + |raw|/ref) * gain * ds.
-static float scaleAxis(int raw, double ds)
+static float ScaleAxis(int raw, double ds)
 {
 	float a           = static_cast<float>(raw);
-	float progressive = 1.0f + std::min(std::abs(a) / c_3dmouseProgressiveRef, 1.0f);
-	return a * progressive * c_3dmouseGain * static_cast<float>(ds);
+	float progressive = 1.0f + std::min(std::abs(a) / c_3DMouseProgressiveRef, 1.0f);
+	return a * progressive * c_3DMouseGain * static_cast<float>(ds);
 }
 
 #ifdef CC_HID_DEBUG
 //! Logs a raw HID report as a hex string. Only compiled when CC_HID_DEBUG is
 //! defined (CMake option OPTION_HID_DEBUG). Used to diagnose device-specific
 //! report formats (e.g. SpaceMouse Compact vs Wireless).
-static void logHidReport(const char* label, const unsigned char* buf, int n)
+static void LogHidReport(const char* label, const unsigned char* buf, int n)
 {
 	QString hex;
 	hex.reserve(n * 3);
@@ -82,19 +96,21 @@ static void logHidReport(const char* label, const unsigned char* buf, int n)
 }
 #endif // CC_HID_DEBUG
 
-//! Returns true if the 3Dconnexion driver daemon (3DConnexionHelper.app) is
+#ifndef CC_WINDOWS
+//! Returns true if the 3Dconnexion driver daemon (3DConnexionHelper application) is
 //! currently running. On macOS it holds an exclusive lock on 3DConnexion HID
 //! devices and silently consumes reports, so our hid_read returns 0 forever.
-static bool is3dConnexionHelperRunning()
+static bool Is3dConnexionHelperRunning()
 {
 	// pgrep -x matches the exact process name. Exit code 0 == found.
 	int exitCode = QProcess::execute(QStringLiteral("pgrep"), {QStringLiteral("-x"), QStringLiteral("3DConnexionHelper")});
 	return exitCode == 0;
 }
+#endif
 
 //! Maps a button bitmask bit to a Mouse3DInput::VirtualKey value.
 //! Layout documented by the spacenavd / 3DConnexion HID community.
-static const int c_buttonMap[] = {
+static const int c_buttonMap[]{
     Mouse3DInput::V3DK_FIT,    // bit 0
     Mouse3DInput::V3DK_MENU,   // bit 1
     Mouse3DInput::V3DK_TOP,    // bit 2
@@ -106,16 +122,94 @@ static const int c_buttonMap[] = {
 };
 static constexpr size_t c_buttonMapSize = sizeof(c_buttonMap) / sizeof(c_buttonMap[0]);
 
+//! Known 3DConnexion space-mouse product IDs (VID 0x046d / Logitech era)
+static const unsigned short c_old3dconnexionPIDs[]{
+    0xc603, // SpaceMouse Plus XT
+    0xc605, // CadMan
+    0xc606, // SpaceMouse Classic
+    0xc621, // SpaceBall 5000
+    0xc623, // SpaceTraveler
+    0xc625, // SpacePilot
+    0xc626, // SpaceNavigator
+    0xc627, // SpaceExplorer
+    0xc628, // SpaceNavigator for Notebooks
+    0xc629, // SpacePilot Pro
+    0xc62b, // SpaceMouse Pro
+    0xc640, // NuLooq
+};
+
+//! Known 3DConnexion space-mouse product IDs (VID 0x256f / 3DConnexion era)
+static const unsigned short c_3dconnexionPIDs[]{
+    0xc62e, // SpaceMouse Wireless (USB)
+    0xc62f, // SpaceMouse Wireless Receiver
+    0xc631, // SpaceMouse Pro Wireless
+    0xc632, // SpaceMouse Pro Wireless Receiver
+    0xc633, // SpaceMouse Enterprise
+    0xc635, // SpaceMouse Compact
+    0xc636, // SpaceMouse Module
+    0xc638, // SpaceMouse Pro Wireless BT (USB)
+    0xc63a, // SpaceMouse Wireless (Bluetooth)
+};
+
+//! Returns true if the given vendor/product ID pair is a known space-mouse device.
+static bool IsKnownSpaceMouse(unsigned short vid, unsigned short pid)
+{
+	if (vid == c_3dconnexionVID)
+	{
+		// Check whitelist
+		for (auto p : c_3dconnexionPIDs)
+			if (pid == p)
+				return true;
+
+		ccLog::Warning(QString("Unknown 3DConnexion device detected (PID %1). "
+		                       "Please report this to the CloudCompare developers so it "
+		                       "can be added to the whitelist.")
+		                   .arg(pid));
+
+		// We can still try to open it
+		return true;
+	}
+
+	if (vid == c_old3dconnexionVID)
+	{
+		// For legacy Logitech devices, only accept known PIDs (SpaceNavigator, SpaceExplorer, SpacePilot, etc.)
+		for (auto p : c_old3dconnexionPIDs)
+			if (pid == p)
+				return true;
+	}
+
+	return false;
+}
+
+HIDWorker::HIDWorker(Mouse3DInput* parent)
+    : QThread(parent)
+    , m_handle(nullptr)
+    , m_running(false)
+    , m_parent(parent)
+    , m_lastAxes{}
+{
+}
+
+HIDWorker::~HIDWorker()
+{
+	stop();
+	if (isRunning())
+	{
+		wait();
+	}
+	closeDevice();
+}
+
 bool HIDWorker::openDevice()
 {
-	hid_device_info* devs = hid_enumerate(c_3dconnexionVID, 0x0);
-	if (!devs)
+	hid_device_info* devices = hid_enumerate(c_3dconnexionVID, 0x0);
+	if (!devices)
 	{
 		// Fall back to the legacy Logitech vendor ID for older 3DConnexion
 		// devices (SpaceNavigator, SpaceExplorer, SpacePilot, etc.).
-		devs = hid_enumerate(c_old3dconnexionVID, 0x0);
+		devices = hid_enumerate(c_old3dconnexionVID, 0x0);
 	}
-	if (!devs)
+	if (!devices)
 	{
 		ccLog::Warning("[3D Mouse] No 3DConnexion HID device found");
 		return false;
@@ -124,16 +218,17 @@ bool HIDWorker::openDevice()
 	// Preferred interface: Generic Desktop page (0x01), Multi-axis Controller usage (0x08).
 	// This is the interface that carries the 6-DOF motion reports. The SpaceMouse Wireless
 	// exposes several HID interfaces; the others (e.g. Pointer, Consumer Control) do not.
-	hid_device_info* cur = devs;
-	for (; cur; cur = cur->next)
+	hid_device_info* currentDevice = devices;
+	for (; currentDevice; currentDevice = currentDevice->next)
 	{
-		if (cur->usage_page == 0x01 && cur->usage == 0x08)
+		if (IsKnownSpaceMouse(currentDevice->vendor_id, currentDevice->product_id)
+		    && currentDevice->usage_page == 0x01
+		    && currentDevice->usage == 0x08)
 		{
-			m_handle = hid_open_path(cur->path);
+			m_handle = hid_open_path(currentDevice->path);
 			if (m_handle)
 			{
-				m_devicePath = cur->path;
-				QString name = (cur->product_string ? QString::fromWCharArray(cur->product_string) : QStringLiteral("3DConnexion device"));
+				QString name = (currentDevice->product_string ? QString::fromWCharArray(currentDevice->product_string) : QStringLiteral("Unknown 3DConnexion device"));
 				ccLog::Print(QString("[3D Mouse] Device: %1 (HID)").arg(name));
 				break;
 			}
@@ -141,44 +236,48 @@ bool HIDWorker::openDevice()
 	}
 
 	// Fallback: first openable interface. This is typically only reached when
-	// 3DConnexionHelper.app is running (it creates virtual HID interfaces that
+	// 3DConnexionHelper application is running (it creates virtual HID interfaces that
 	// don't carry the Multi-axis Controller usage), or on devices that simply
 	// don't expose that usage descriptor (e.g. the wired SpaceMouse Compact).
 	if (!m_handle)
 	{
-		cur = devs;
-		for (; cur; cur = cur->next)
+		currentDevice = devices;
+		for (; currentDevice; currentDevice = currentDevice->next)
 		{
-			m_handle = hid_open_path(cur->path);
-			if (m_handle)
+			if (IsKnownSpaceMouse(currentDevice->vendor_id, currentDevice->product_id))
 			{
-				m_devicePath = cur->path;
-				QString name = (cur->product_string ? QString::fromWCharArray(cur->product_string) : QStringLiteral("3DConnexion device"));
-				ccLog::Print(QString("[3D Mouse] Device: %1 (HID, fallback)").arg(name));
-				break;
+				m_handle = hid_open_path(currentDevice->path);
+				if (m_handle)
+				{
+					QString name = (currentDevice->product_string ? QString::fromWCharArray(currentDevice->product_string) : QStringLiteral("Unknown 3DConnexion device"));
+					ccLog::Print(QString("[3D Mouse] Device: %1 (HID, fallback)").arg(name));
+					break;
+				}
 			}
 		}
 	}
 
-	hid_free_enumeration(devs);
+	hid_free_enumeration(devices);
+	devices = nullptr;
 
 	if (!m_handle)
 	{
-		ccLog::Warning("[3D Mouse] Could not open any 3DConnexion HID device "
-		               "(is the 3Dconnexion driver holding it exclusively?)");
+		ccLog::Warning("[3D Mouse] Could not open any 3DConnexion HID device");
 		return false;
 	}
 
+#ifndef CC_WINDOWS
 	// Warn if the 3Dconnexion driver daemon is running: it holds an exclusive
 	// lock on the device and silently consumes reports, so our hid_read would
 	// return 0 forever. The user must quit 3DConnexionHelper.app (System
 	// Settings -> General -> Login Items / Background) for the HID path to work.
-	if (is3dConnexionHelperRunning())
+	if (Is3dConnexionHelperRunning())
 	{
-		ccLog::Warning("[3D Mouse] 3DConnexionHelper.app is running and will "
-		               "intercept the device. Quit it (System Settings -> "
+		ccLog::Warning("[3D Mouse] 3DConnexionHelper application is running and may "
+		               "intercept the device. If so, quit it (System Settings -> "
 		               "General -> Login Items / Background) to use the HID path.");
 	}
+#endif
 
 	// Blocking reads with a timeout - avoids the spurious -1 returns that
 	// non-blocking hid_read produces when no data is available.
@@ -186,6 +285,11 @@ bool HIDWorker::openDevice()
 	// iteration and the timeout bounds how long we wait.
 	hid_set_nonblocking(m_handle, 0);
 	return true;
+}
+
+void HIDWorker::stop()
+{
+	m_running.store(false);
 }
 
 void HIDWorker::closeDevice()
@@ -204,44 +308,37 @@ void HIDWorker::run()
 	// State for button edge detection
 	unsigned int prevButtonMask = 0;
 	// State for "released" emission (analogous to SI_ZERO_EVENT on Windows)
-	auto lastMotionTime = std::chrono::steady_clock::now();
-	bool motionActive   = false;
+	QElapsedTimer lastMotionTimer;
+	lastMotionTimer.start();
+	bool motionActive = false;
 
 	// Tracks whether any report has ever arrived. Used to warn the user once
 	// if no reports arrive within the first few seconds of running, which
 	// typically means the 3Dconnexion driver daemon is holding an exclusive
 	// lock on the device and silently consuming reports.
-	auto threadStartTime  = lastMotionTime;
 	bool warnedNoReports  = false;
 	bool anyReportArrived = false;
 
-	unsigned char buf[80] = {0};
+	unsigned char buf[80]{};
 
 	// Give up only after this many consecutive read errors (e.g. device unplugged).
-	constexpr int kMaxConsecutiveErrors = 100;
-	int           consecutiveErrors     = 0;
-
-	// Read with a timeout so the loop stays responsive to m_running changes
-	// and doesn't busy-poll. hid_read_timeout returns 0 on timeout (not -1).
-	constexpr int kReadTimeoutMs = 100;
-	// If no report arrives within this many ms of startup, warn the user once.
-	// The threshold is deliberately generous: some users take a few seconds
-	// before they interact with the cap, and we don't want a false alarm.
-	constexpr int kNoReportsWarnMs = 5000;
+	int consecutiveErrors = 0;
 
 	while (m_running.load())
 	{
-		int n = hid_read_timeout(m_handle, buf, sizeof(buf), kReadTimeoutMs);
+		// Read with a timeout so the loop stays responsive to m_running changes
+		// and doesn't busy-poll. hid_read_timeout returns 0 on timeout.
+		int n = hid_read_timeout(m_handle, buf, sizeof(buf), ReadTimeout_ms);
 		if (n < 0)
 		{
 			// Genuine read error (device unplugged, I/O error).
 			++consecutiveErrors;
-			if (consecutiveErrors >= kMaxConsecutiveErrors)
+			if (consecutiveErrors >= MaxConsecutiveErrors)
 			{
 				ccLog::Warning("[3D Mouse] Too many HID read errors, giving up");
 				break;
 			}
-			QThread::msleep(c_hidPollPeriodMs);
+			QThread::msleep(c_HIDPollPeriod_ms);
 			continue;
 		}
 		consecutiveErrors = 0;
@@ -252,9 +349,8 @@ void HIDWorker::run()
 			// period, analogous to SI_ZERO_EVENT on Windows.
 			if (motionActive)
 			{
-				auto now     = std::chrono::steady_clock::now();
-				auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastMotionTime).count();
-				if (elapsed > 100)
+				auto elapsed_ms = lastMotionTimer.elapsed();
+				if (elapsed_ms > 100)
 				{
 					Q_EMIT sigReleased();
 					motionActive = false;
@@ -266,17 +362,17 @@ void HIDWorker::run()
 			// also happen if the user simply hasn't touched the cap yet.
 			if (!anyReportArrived && !warnedNoReports)
 			{
-				auto elapsedSinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(
-				                             std::chrono::steady_clock::now() - threadStartTime)
-				                             .count();
-				if (elapsedSinceStart >= kNoReportsWarnMs)
+				auto elapsedSinceStart_ms = lastMotionTimer.elapsed();
+				if (elapsedSinceStart_ms >= NoReportsWarn_ms)
 				{
 					warnedNoReports = true;
 					ccLog::Warning("[3D Mouse] No HID reports received yet. "
 					               "If you have moved the cap and nothing happens, "
-					               "make sure the 3DConnexion driver "
-					               "(3DConnexionHelper.app) is not running - it "
-					               "intercepts the device and prevents the HID "
+					               "you may want to try stopping the 3DConnexion driver "
+#ifndef CC_WINDOWS
+					               "(3DConnexionHelper application)"
+#endif
+					               "as it can intercept the device and prevent the HID "
 					               "path from seeing reports.");
 				}
 			}
@@ -286,7 +382,7 @@ void HIDWorker::run()
 		anyReportArrived = true;
 
 #ifdef CC_HID_DEBUG
-		logHidReport("report", buf, n);
+		LogHidReport("report", buf, n);
 #endif
 
 		// Identify the report type.
@@ -307,15 +403,15 @@ void HIDWorker::run()
 			// a different ID on other devices). processMotion() reads the
 			// first byte as the report ID and skips it when parsing axes.
 			processMotion(buf, n);
-			lastMotionTime = std::chrono::steady_clock::now();
-			motionActive   = true;
+			lastMotionTimer.restart();
+			motionActive = true;
 		}
 		else if (n == 7)
 		{
 			// Separate translation/rotation report (SpaceMouse Compact).
 			processMotion(buf, n);
-			lastMotionTime = std::chrono::steady_clock::now();
-			motionActive   = true;
+			lastMotionTimer.restart();
+			motionActive = true;
 		}
 		else
 		{
@@ -329,7 +425,9 @@ void HIDWorker::run()
 				{
 					QString hex;
 					for (int i = 0; i < n; ++i)
+					{
 						hex += QString("%1 ").arg(buf[i], 2, 16, QLatin1Char('0'));
+					}
 					ccLog::Print(QString("[3D Mouse] Unknown report (%1 bytes): %2").arg(n).arg(hex));
 				}
 			}
@@ -443,7 +541,7 @@ void HIDWorker::processMotion(const unsigned char* buf, int n)
 
 	// Scaling: progressive (non-linear) curve so small deflections stay fine
 	// while large deflections are amplified for fast navigation.
-	double ds = c_hidPollPeriodMs * c_3dmouseAngularVelocity_hid;
+	double ds = c_HIDPollPeriod_ms * c_3DMouseAngularVelocity_hid;
 
 	std::vector<float> axes(6);
 	// NDOF axis mapping with Y/Z swap (matching spacenavd's DF_SWAPYZ flag).
@@ -459,12 +557,12 @@ void HIDWorker::processMotion(const unsigned char* buf, int n)
 	//   rx (pitch)               -> orbit X  = +rx  (no swap, no invert)
 	//   rz (yaw / twist)         -> orbit Y  = -rz  (device RZ -> CC RY, swap+invert)
 	//   ry (roll / tilt sideways)-> orbit Z  = -ry  (device RY -> CC RZ, swap+invert)
-	axes[0] = -scaleAxis(tx, ds); // pan X
-	axes[1] = -scaleAxis(tz, ds); // pan Y (Y/Z swap)
-	axes[2] = -scaleAxis(ty, ds); // zoom   (Y/Z swap)
-	axes[3] = scaleAxis(rx, ds);  // orbit X
-	axes[4] = -scaleAxis(rz, ds); // orbit Y (Y/Z swap)
-	axes[5] = scaleAxis(ry, ds);  // orbit Z (Y/Z swap)
+	axes[0] = -ScaleAxis(tx, ds); // pan X
+	axes[1] = -ScaleAxis(tz, ds); // pan Y (Y/Z swap)
+	axes[2] = -ScaleAxis(ty, ds); // zoom   (Y/Z swap)
+	axes[3] = ScaleAxis(rx, ds);  // orbit X
+	axes[4] = -ScaleAxis(rz, ds); // orbit Y (Y/Z swap)
+	axes[5] = ScaleAxis(ry, ds);  // orbit Z (Y/Z swap)
 
 	Q_EMIT sigMove3d(axes);
 }
@@ -491,11 +589,11 @@ void HIDWorker::processButtons(const unsigned char* buf, int n, unsigned int& pr
 		unsigned int mask = 1u << bit;
 		if (pressed & mask)
 		{
-			Q_EMIT sigOn3dmouseKeyDown(c_buttonMap[bit]);
+			Q_EMIT sigOn3DMouseKeyDown(c_buttonMap[bit]);
 		}
 		if (released & mask)
 		{
-			Q_EMIT sigOn3dmouseKeyUp(c_buttonMap[bit]);
+			Q_EMIT sigOn3DMouseKeyUp(c_buttonMap[bit]);
 		}
 	}
 

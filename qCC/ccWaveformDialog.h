@@ -33,7 +33,10 @@ class QCPColoredBars;
 class QCPHiddenArea;
 class QCPTextElement;
 
-class Ui_WaveDialog;
+namespace Ui
+{
+	class WaveDialog;
+} // namespace Ui
 class ccPointCloud;
 class ccPickingHub;
 
@@ -117,7 +120,7 @@ class ccWaveDialog : public QDialog
 	}
 
 	// inherited from ccPickingListener
-	virtual void onItemPicked(const PickedItem& pi) override;
+	void onItemPicked(const PickedItem& pi) override;
 
   protected:
 	void onPointIndexChanged(int);
@@ -137,7 +140,7 @@ class ccWaveDialog : public QDialog
 	ccPickingHub* m_pickingHub;
 
 	//! GUI
-	Ui_WaveDialog* m_gui;
+	std::unique_ptr<Ui::WaveDialog> m_ui;
 
 	//! Maximum wave amplitude (for all points)
 	double m_waveMax;

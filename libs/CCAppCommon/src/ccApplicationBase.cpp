@@ -15,7 +15,26 @@
 // #                                                                        #
 // ##########################################################################
 
-#include <clocale>
+#include "../include/ccApplicationBase.h"
+
+// Local
+#include "../include/ccPluginManager.h"
+#include "../include/ccTranslationManager.h"
+
+// CCCoreLib
+#include <CCPlatform.h>
+
+// CCPluginAPI
+#include <ccPersistentSettings.h>
+
+// qCC_db
+#include <ccGenericMesh.h>
+#include <ccLog.h>
+#include <ccMaterial.h>
+#include <ccPointCloud.h>
+
+// qCC_glWindow
+#include <ccGLWindowInterface.h>
 
 // Qt
 #include <QDir>
@@ -29,25 +48,8 @@
 #include <QTranslator>
 #include <QtGlobal>
 
-// CCCoreLib
-#include <CCPlatform.h>
-
-// qCC_db
-#include <ccColorScalesManager.h>
-#include <ccMaterial.h>
-#include <ccMesh.h>
-#include <ccPointCloud.h>
-
-// qCC_glWindow
-#include <ccGLWindowInterface.h>
-
-// Common
-#include "ccApplicationBase.h"
-#include "ccPluginManager.h"
-#include "ccTranslationManager.h"
-
-// ccPluginAPI
-#include <ccPersistentSettings.h>
+// System
+#include <clocale>
 
 #if (QT_VERSION < QT_VERSION_CHECK(6, 4, 0))
 #error CloudCompare does not support versions of Qt prior to 6.4
@@ -96,6 +98,8 @@ ccApplicationBase::ccApplicationBase(int& argc, char** argv, bool isCommandLine,
 {
 	setOrganizationName("CCCorp");
 
+	ccLog::Start();
+
 	setupPaths();
 
 #ifdef Q_OS_MAC
@@ -134,8 +138,7 @@ ccApplicationBase::ccApplicationBase(int& argc, char** argv, bool isCommandLine,
 
 	connect(this, &ccApplicationBase::aboutToQuit, [=]()
 	        { ccMaterial::ReleaseTextures();
-			  ccColorScalesManager::ReleaseUniqueInstance();
-	          ccMesh::ReleaseOpenGLRessources();
+	          ccGenericMesh::ReleaseOpenGLRessources();
 	          ccPointCloud::ReleaseOpenGLRessources(); });
 }
 
@@ -274,17 +277,18 @@ bool ccApplicationBase::setAppStyle(QString styleKey)
 		QFile f(resourcePath);
 		if (!f.exists())
 		{
-			f.close();
+			ccLog::Warning(tr("Style sheet file does not exist: ") + resourcePath);
 			return false;
 		}
-		else
+		if (!f.open(QFile::ReadOnly | QFile::Text))
 		{
-			f.open(QFile::ReadOnly | QFile::Text);
-			QTextStream ts(&f);
-			setStyleSheet(ts.readAll());
-			f.close();
-			return true;
+			ccLog::Warning(tr("Failed to open style sheet file: ") + resourcePath);
+			return false;
 		}
+		QTextStream ts(&f);
+		setStyleSheet(ts.readAll());
+		f.close();
+		return true;
 	};
 
 	if (styleKey == "QDarkStyleSheet::Dark")

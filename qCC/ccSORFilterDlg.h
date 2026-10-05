@@ -33,7 +33,7 @@ class ccSORFilterDlg : public QDialog
 	//! Default constructor
 	explicit ccSORFilterDlg(QWidget* parent = nullptr);
 
-	~ccSORFilterDlg();
+	~ccSORFilterDlg() override;
 
 	int  KNN() const;
 	void setKNN(int knn);
@@ -45,5 +45,5 @@ class ccSORFilterDlg : public QDialog
 	int  maxThreadCount() const;
 
   private:
-	Ui::SorFilterDialog* m_ui;
+	std::unique_ptr<Ui::SorFilterDialog> m_ui;
 };

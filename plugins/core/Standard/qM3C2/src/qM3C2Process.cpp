@@ -108,7 +108,7 @@ struct PrecisionMaps
 {
 	PrecisionMaps() : sX(nullptr), sY(nullptr), sZ(nullptr), scale(1.0) {}
 	bool valid() const { return (sX != nullptr && sY != nullptr && sZ != nullptr); }
-	CCCoreLib::ScalarField *sX, *sY, *sZ;
+	CCCoreLib::ScalarField::Shared sX, sY, sZ;
 	double scale;
 };
 
@@ -179,8 +179,8 @@ struct M3C2Params
 	ccPointCloud* outputCloud = nullptr;
     ccPointCloud* outputCloud2 = nullptr;
 	ccPointCloud* corePoints = nullptr;
-	NormsIndexesTableType* coreNormals = nullptr;
-    NormsIndexesTableType* coreNormals2 = nullptr;
+	NormsIndexesTableType::Shared coreNormals;
+	NormsIndexesTableType::Shared coreNormals2;
 
 	//main options
 	PointCoordinateType projectionRadius = 0;
@@ -204,30 +204,30 @@ struct M3C2Params
 	unsigned char level2 = 0;
 
 	//scalar fields
-	ccScalarField* m3c2DistSF = nullptr;		//M3C2 distance
-	ccScalarField* distUncertaintySF = nullptr;	//distance uncertainty
-	ccScalarField* sigChangeSF = nullptr;		//significant change
-	ccScalarField* stdDevCloud1SF = nullptr;	//standard deviation information for cloud #1
-	ccScalarField* stdDevCloud2SF = nullptr;	//standard deviation information for cloud #2
-	ccScalarField* densityCloud1SF = nullptr;	//export point density at projection scale for cloud #1
-	ccScalarField* densityCloud2SF = nullptr;	//export point density at projection scale for cloud #2
-	ccScalarField* searchDepth1SF = nullptr;    //the search depth used during the projection of cloud #1
-	ccScalarField* searchDepth2SF = nullptr;    //the search depth used during the projection of cloud #2
-	ccScalarField* indexSF = nullptr;           // index of the core point
-	ccScalarField* welch_t_SF = nullptr;        // Welch's test
-	ccScalarField* welch_v_SF = nullptr;        // Welch's test degrees of freedom
-	ccScalarField* welch_q_SF = nullptr;        // probability that difference is due to chance
-	ccScalarField* welch_p_SF = nullptr;        // critical value
-	ccScalarField* welch_lod_SF = nullptr;      // lod aka distance uncertainty
-	ccScalarField* welch_sig_SF = nullptr;      // significant change
-	ccScalarField* meanMinusMed1SF = nullptr;   // the search depth used during the projection of cloud #1
-	ccScalarField* meanMinusMed2SF = nullptr;   // the search depth used during the projection of cloud #2
-	ccScalarField* normalsAngleSF = nullptr;    // the angle between the normal and the normal of the extracted cloud 2 neighbour set
-	ccScalarField* sector1SF = nullptr;          // angular sector covered by the points of cloud 2 projected in the plane perpendicular to the normal
-	ccScalarField* gap1SF = nullptr;
-	ccScalarField* sector2SF = nullptr;         // angular sector covered by the points of cloud 2 projected in the plane perpendicular to the normal
-	ccScalarField* gap2SF = nullptr;
-	ccScalarField* sectorGapSF = nullptr;
+	ccScalarField::Shared m3c2DistSF;        // M3C2 distance
+	ccScalarField::Shared distUncertaintySF; // distance uncertainty
+	ccScalarField::Shared sigChangeSF;       // significant change
+	ccScalarField::Shared stdDevCloud1SF;    // standard deviation information for cloud #1
+	ccScalarField::Shared stdDevCloud2SF;    // standard deviation information for cloud #2
+	ccScalarField::Shared densityCloud1SF;   // export point density at projection scale for cloud #1
+	ccScalarField::Shared densityCloud2SF;   // export point density at projection scale for cloud #2
+	ccScalarField::Shared searchDepth1SF;    //the search depth used during the projection of cloud #1
+	ccScalarField::Shared searchDepth2SF;    //the search depth used during the projection of cloud #2
+	ccScalarField::Shared indexSF;           // index of the core point
+	ccScalarField::Shared welch_t_SF;        // Welch's test
+	ccScalarField::Shared welch_v_SF;        // Welch's test degrees of freedom
+	ccScalarField::Shared welch_q_SF;        // probability that difference is due to chance
+	ccScalarField::Shared welch_p_SF;        // critical value
+	ccScalarField::Shared welch_lod_SF;      // lod aka distance uncertainty
+	ccScalarField::Shared welch_sig_SF;      // significant change
+	ccScalarField::Shared meanMinusMed1SF;   // the search depth used during the projection of cloud #1
+	ccScalarField::Shared meanMinusMed2SF;   // the search depth used during the projection of cloud #2
+	ccScalarField::Shared normalsAngleSF;    // the angle between the normal and the normal of the extracted cloud 2 neighbour set
+	ccScalarField::Shared sector1SF;         // angular sector covered by the points of cloud 2 projected in the plane perpendicular to the normal
+	ccScalarField::Shared gap1SF;
+	ccScalarField::Shared sector2SF;         // angular sector covered by the points of cloud 2 projected in the plane perpendicular to the normal
+	ccScalarField::Shared gap2SF;
+	ccScalarField::Shared sectorGapSF;
 
 	//precision maps
 	PrecisionMaps cloud1PM, cloud2PM;
@@ -973,8 +973,8 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 	}
 	ccLog::Print(msg);
 	double samplingDist = dlg.cpSubsamplingDoubleSpinBox->value();
-	ccScalarField* normalScaleSF = nullptr; //normal scale (multi-scale mode only)
-    ccScalarField* normalScaleSF2 = nullptr; //normal scale (multi-scale mode only)
+	ccScalarField::Shared normalScaleSF;  //normal scale (multi-scale mode only)
+	ccScalarField::Shared normalScaleSF2; //normal scale (multi-scale mode only)
 
 	//other parameters are stored in 's_M3C2Params' for parallel call
 	s_M3C2Params = M3C2Params();
@@ -1251,8 +1251,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		case qM3C2Normals::DEFAULT_MODE:
 		case qM3C2Normals::MULTI_SCALE_MODE:
 		{
-			s_M3C2Params.coreNormals = new NormsIndexesTableType();
-			s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
+			s_M3C2Params.coreNormals.reset(new NormsIndexesTableType);
 
 			std::vector<PointCoordinateType> radii;
 			if (normMode == qM3C2Normals::MULTI_SCALE_MODE)
@@ -1271,8 +1270,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 				outputName += QString(" [Multi-scale norms:{%1:%2:%3}]").arg(startScale).arg(step).arg(stopScale);
                 outputName2 += QString(" scale=%1").arg(normalScale);
 
-				normalScaleSF = new ccScalarField(NORMAL_SCALE_SF_NAME);
-				normalScaleSF->link(); //will be released anyway at the end of the process
+				normalScaleSF.reset(new ccScalarField(NORMAL_SCALE_SF_NAME));
 			}
 			else
 			{
@@ -1290,12 +1288,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 
 			//dedicated core points method
 			normalsAreOk = qM3C2Normals::ComputeCorePointsNormals(s_M3C2Params.corePoints,
-				s_M3C2Params.coreNormals,
+				s_M3C2Params.coreNormals.get(),
 				baseCloud,
 				radii,
 				invalidNormals,
 				maxThreadCount,
-				normalScaleSF,
+				normalScaleSF.get(),
 				&pDlg,
 				baseOctree);
 
@@ -1362,7 +1360,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			if (s_M3C2Params.coreNormals)
 			{
 				normalsAreOk = (s_M3C2Params.coreNormals->currentSize() == sourceCloud->size());
-				s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
 			}
 			else
 			{
@@ -1378,7 +1375,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			if (normalsAreOk)
             {
 				s_M3C2Params.coreNormals = s_M3C2Params.corePoints->normals();
-				s_M3C2Params.coreNormals->link(); //will be released anyway at the end of the process
 			}
 		}
 		break;
@@ -1543,8 +1539,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		s_M3C2Params.nProgress = &nProgress;
 
 		//allocate distances SF
-		s_M3C2Params.m3c2DistSF = new ccScalarField(M3C2_DIST_SF_NAME);
-		s_M3C2Params.m3c2DistSF->link();
+		s_M3C2Params.m3c2DistSF.reset(new ccScalarField(M3C2_DIST_SF_NAME));
 		if (!s_M3C2Params.m3c2DistSF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 		{
 			errorMessage = "Failed to allocate memory for distance values!";
@@ -1666,8 +1661,7 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
         }
 
 		//allocate dist. uncertainty SF
-		s_M3C2Params.distUncertaintySF = new ccScalarField(DIST_UNCERTAINTY_SF_NAME);
-		s_M3C2Params.distUncertaintySF->link();
+		s_M3C2Params.distUncertaintySF.reset(new ccScalarField(DIST_UNCERTAINTY_SF_NAME));
 		if (!s_M3C2Params.distUncertaintySF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 		{
 			errorMessage = "Failed to allocate memory for dist. uncertainty values!";
@@ -1675,14 +1669,12 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			break;
 		}
 		//allocate change significance SF
-		s_M3C2Params.sigChangeSF = new ccScalarField(SIG_CHANGE_SF_NAME);
-		s_M3C2Params.sigChangeSF->link();
+		s_M3C2Params.sigChangeSF.reset(new ccScalarField(SIG_CHANGE_SF_NAME));
 		if (!s_M3C2Params.sigChangeSF->resizeSafe(corePointCount, true, SCALAR_ZERO))
 		{
 			if (app)
 				app->dispToConsole("Failed to allocate memory for change significance values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-			s_M3C2Params.sigChangeSF->release();
-			s_M3C2Params.sigChangeSF = nullptr;
+			s_M3C2Params.sigChangeSF.reset();
 			//no need to stop just for this SF!
 			//error = true;
 			//break;
@@ -1713,48 +1705,40 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 			}
 			//allocate cloud #1 std. dev. SF
 			QString stdDevSFName1 = QString(STD_DEV_CLOUD1_SF_NAME).arg(prefix);
-			s_M3C2Params.stdDevCloud1SF = new ccScalarField(stdDevSFName1.toStdString());
-			s_M3C2Params.stdDevCloud1SF->link();
+			s_M3C2Params.stdDevCloud1SF.reset(new ccScalarField(stdDevSFName1.toStdString()));
 			if (!s_M3C2Params.stdDevCloud1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #1 std. dev. values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.stdDevCloud1SF->release();
-				s_M3C2Params.stdDevCloud1SF = nullptr;
+				s_M3C2Params.stdDevCloud1SF.reset();
 			}
 			//allocate cloud #2 std. dev. SF
 			QString stdDevSFName2 = QString(STD_DEV_CLOUD2_SF_NAME).arg(prefix);
-			s_M3C2Params.stdDevCloud2SF = new ccScalarField(stdDevSFName2.toStdString());
-			s_M3C2Params.stdDevCloud2SF->link();
+			s_M3C2Params.stdDevCloud2SF.reset(new ccScalarField(stdDevSFName2.toStdString()));
 			if (!s_M3C2Params.stdDevCloud2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #2 std. dev. values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.stdDevCloud2SF->release();
-				s_M3C2Params.stdDevCloud2SF = nullptr;
+				s_M3C2Params.stdDevCloud2SF.reset();
 			}
 		}
 		if (dlg.exportDensityAtProjScaleCheckBox->isChecked())
 		{
 			//allocate cloud #1 density SF
-			s_M3C2Params.densityCloud1SF = new ccScalarField(DENSITY_CLOUD1_SF_NAME);
-			s_M3C2Params.densityCloud1SF->link();
+			s_M3C2Params.densityCloud1SF.reset(new ccScalarField(DENSITY_CLOUD1_SF_NAME));
 			if (!s_M3C2Params.densityCloud1SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #1 density values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.densityCloud1SF->release();
-				s_M3C2Params.densityCloud1SF = nullptr;
+				s_M3C2Params.densityCloud1SF.reset();
 			}
 			//allocate cloud #2 density SF
-			s_M3C2Params.densityCloud2SF = new ccScalarField(DENSITY_CLOUD2_SF_NAME);
-			s_M3C2Params.densityCloud2SF->link();
+			s_M3C2Params.densityCloud2SF.reset(new ccScalarField(DENSITY_CLOUD2_SF_NAME));
 			if (!s_M3C2Params.densityCloud2SF->resizeSafe(corePointCount, true, CCCoreLib::NAN_VALUE))
 			{
 				if (app)
 					app->dispToConsole("Failed to allocate memory for cloud #2 density values!", ccMainAppInterface::WRN_CONSOLE_MESSAGE);
-				s_M3C2Params.densityCloud2SF->release();
-				s_M3C2Params.densityCloud2SF = nullptr;
+				s_M3C2Params.densityCloud2SF.reset();
 			}
 		}
 
@@ -2070,9 +2054,9 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
                 s_M3C2Params.outputCloud2->setName(outputName2);
             }
 			s_M3C2Params.outputCloud->setDisplay(s_M3C2Params.corePoints->getDisplay());
-			s_M3C2Params.outputCloud->importParametersFrom(s_M3C2Params.corePoints);
-            if (s_M3C2Params.outputCloud2)
-                s_M3C2Params.outputCloud2->importParametersFrom(s_M3C2Params.corePoints);
+			s_M3C2Params.outputCloud->importParametersFrom(*s_M3C2Params.corePoints);
+			if (s_M3C2Params.outputCloud2)
+				s_M3C2Params.outputCloud2->importParametersFrom(*s_M3C2Params.corePoints);
 			if (app)
 			{
 				app->addToDB(s_M3C2Params.outputCloud);
@@ -2113,66 +2097,6 @@ bool qM3C2Process::Compute(const qM3C2Dialog& dlg, QString& errorMessage, ccPoin
 		app->refreshAll();
 	}
 
-	//release structures
-	if (normalScaleSF)
-		normalScaleSF->release();
-	if (s_M3C2Params.coreNormals)
-		s_M3C2Params.coreNormals->release();
-	if (s_M3C2Params.m3c2DistSF)
-		s_M3C2Params.m3c2DistSF->release();
-	if (s_M3C2Params.sigChangeSF)
-		s_M3C2Params.sigChangeSF->release();
-	if (s_M3C2Params.distUncertaintySF)
-		s_M3C2Params.distUncertaintySF->release();
-	if (s_M3C2Params.stdDevCloud1SF)
-		s_M3C2Params.stdDevCloud1SF->release();
-	if (s_M3C2Params.stdDevCloud2SF)
-		s_M3C2Params.stdDevCloud2SF->release();
-	if (s_M3C2Params.densityCloud1SF)
-		s_M3C2Params.densityCloud1SF->release();
-	if (s_M3C2Params.densityCloud2SF)
-		s_M3C2Params.densityCloud2SF->release();
-
-    if (s_M3C2Params.searchDepth1SF)
-        s_M3C2Params.searchDepth1SF->release();
-    if (s_M3C2Params.searchDepth2SF)
-        s_M3C2Params.searchDepth2SF->release();
-    if (s_M3C2Params.normalsAngleSF)
-        s_M3C2Params.normalsAngleSF->release();
-    if (s_M3C2Params.sector1SF)
-        s_M3C2Params.sector1SF->release();
-    if (s_M3C2Params.gap1SF)
-        s_M3C2Params.gap1SF->release();
-    if (s_M3C2Params.sector2SF)
-        s_M3C2Params.sector2SF->release();
-    if (s_M3C2Params.gap2SF)
-        s_M3C2Params.gap2SF->release();
-    if (s_M3C2Params.sectorGapSF)
-        s_M3C2Params.sectorGapSF->release();
-    if (s_M3C2Params.indexSF)
-        s_M3C2Params.indexSF->release();
-    if (s_M3C2Params.meanMinusMed1SF)
-        s_M3C2Params.meanMinusMed1SF->release();
-    if (s_M3C2Params.meanMinusMed2SF)
-        s_M3C2Params.meanMinusMed2SF->release();
-    if (s_M3C2Params.welch_t_SF)
-        s_M3C2Params.welch_t_SF->release();
-    if (s_M3C2Params.welch_v_SF)
-        s_M3C2Params.welch_v_SF->release();
-    if (s_M3C2Params.welch_q_SF)
-        s_M3C2Params.welch_q_SF->release();
-    if (s_M3C2Params.welch_p_SF)
-        s_M3C2Params.welch_p_SF->release();
-    if (s_M3C2Params.welch_lod_SF)
-        s_M3C2Params.welch_lod_SF->release();
-    if (s_M3C2Params.welch_sig_SF)
-        s_M3C2Params.welch_sig_SF->release();
-
-    if (normalScaleSF2)
-        normalScaleSF2->release();
-    if (s_M3C2Params.coreNormals2)
-        s_M3C2Params.coreNormals2->release();
-
-    return !error;
+	return !error;
 }
 

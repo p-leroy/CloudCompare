@@ -4,6 +4,10 @@ CloudCompare Version History
 v2.14.beta (???) - (??/??/202?)
 ----------------------
 New features:
+	- New I/O filter: dotBIM (.bim)
+		- to load dotBIM meshes (https://dotbim.net/)
+		- import only; each 'element' is loaded as its own mesh, with its rotation and translation applied
+
 	- Edit > Polyline > Extrude
 		- vertical extrusion within specified ownward (-Z) and upward (+Z) offsets
 
@@ -43,6 +47,9 @@ New features:
 			- saves the plane information file to this file instead of the automatically generated '{cloud path}/{cloud name}_BEST_FIT_PLANE_INFO.txt'
 			- the filename is used as is: no timestamp and no '.txt' extension are appended
 			- as this command writes one information file per loaded cloud, this option requires that a single cloud is loaded
+		- New sub-options for the -RANSAC command: MIN_SPHERE_RADIUS {value}, MAX_SPHERE_RADIUS {value}, MIN_CYLINDER_RADIUS {value}, MAX_CYLINDER_RADIUS {value}, MIN_TORUS_MINOR_RADIUS {value}, MAX_TORUS_MINOR_RADIUS {value}, MIN_TORUS_MAJOR_RADIUS {value} and MAX_TORUS_MAJOR_RADIUS {value}
+			- same radius limits as in the plugin dialog: shapes with a radius outside the range are not detected
+			- all are optional, and no limit is applied by default
 		- New command -DISTANCES_FROM_SENSOR [-SQUARED]
 			- to compute the distances from every point of the cloud to the associated sensor origin (if any)
 		- New command -SCATTERING_ANGLES [-DEGREES]
@@ -77,6 +84,13 @@ New features:
 					- optional, only used when bilateral filter applied
 		- New SF_OP suboption: -NOT_IN_PLACE
 			- to create new scalar field during the operation.
+		- New option -OUTPUT_IMAGE {HEIGHT|RGB} for the -RASTERIZE command
+			- saves the height layer or the RGB layer of the raster grid as a PNG image ('{cloud name}_RASTER_IMAGE.png', with a timestamp unless -NO_TIMESTAMP is set)
+			- the height layer uses the 'Blue>Green>Yellow>Red' color scale
+			- empty cells follow the -EMPTY_FILL option (transparent by default)
+		- New option -IMAGE_COLOR_SCALE {name} for the -RASTERIZE command (with -OUTPUT_IMAGE HEIGHT)
+			- {name} is a color scale name as shown in the Color Scales Manager (not case sensitive), custom scales included
+			- the default scale remains 'Blue>Green>Yellow>Red'
 		- New SF-to-normals and normals-to-SF conversion methods:
 			- NORM_TO_SF {X/Y/Z}
 				where {X/Y/Z} is any combination of X, Y and Z, such as 'XYZ', 'XZ' or 'Y'
@@ -168,6 +182,10 @@ Improvements:
 		- default shortcut: F12
 		- warning: clipping planes must have already been defined (with the Camera Settings dialog
 			or the CTRL+mouse wheel and CTRL+SHIFT+mouse wheel shortcuts). Both clipping planes are toggled at the same time.
+
+	- Edit > Select all displayed entities
+		- selects all the entities displayed in the active 3D view (visible entities that are enabled, with all their parents enabled)
+		- default shortcut: CTRL+A (can be changed in the shortcut settings). CTRL+A still selects all the items when the DB tree or the console has the focus
 
 	- Rasterize tool
 		- New 'X-ray' field calculation tool (same tab as 'hillshade')
@@ -263,6 +281,7 @@ Improvements:
 	- Display > Display settings
 		- new option to set the logs verbosity level (Verbose/Standard/Important/Warning & Errors)
 		- new option to choose whether a confirmation dialog (Are you sure?) should appear when deleting entities
+		- new option to always display the middle screen cross on top of the entities (off by default)
 
 	- Quadric model/fitting
 		- improved fitting of quadric functions on points:
@@ -407,14 +426,14 @@ Bug fixes:
 	- CC will now consider infinite SF values as 'invalid' (just as NaN values currently) so as to avoid various types of issues
 	- the STEP file loader was behaving strangely when loading files a second time (or more). For instance, the scale was divided by
 		1000 the second time a file was loaded.
-	- When specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
+	- when specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
 	- E57/PCD: when saving a cloud after having applied a 'reflection' transformation (e.g. inverting a single axis), the saved
 		sensor pose was truncated due to the internal representation of these formats (as a quaternion)
 	- E57: the local (sensor) pose was not applied to normals at saving time
 	- M3C2:
 		- bug corrected: when the "use other cloud" is checked, do not propose the use of cloud #1 as a possible source for the normals
 		- force the vertical mode in CLI call when NormalMode=3 is requested (needed in case of multiple calls in the same command line)
-	- Waveform
+	- LAS waveform:
 		- each LAS point with missing waveform data was triggering a warning message
 		- the Waveform picking dialog could display an annoying error message each time a new point was picked
 	- the 'Translation' field of the Translate/Rotate tool could remain disabled if only the 'Ty' option was checked
@@ -434,15 +453,29 @@ Bug fixes:
 	- some SHP files could not be opened due to longer records than specified
 	- DXF files: the 'elevation' of LWPOLYLINE entities was ignored
 	- High DPI displays with a 1.5 ratio would be badly handled (point picking, 2D labels, etc.)
-	- When loading a file, the user could change the Global scale, but the value was ignored. The field will be disabled to avoid confusion for the time being.
-	- Point picking would not work on entities below a mesh displayed with wireframe in the DB tree (typically its vertices)
-	- In some cases, especially when using the 'advanced mode', the Rotate/Translate tool could apply the wrong rotation matrix when closing the tool
-	- Despite what the tooltip was saying, using 0 as max edge length in the contour extraction option of the Cross Section tool would not lead to the
-		extraction of the convex hull.
-	- When using some tools and changing the selection was CloudCompare was still working, the tool could be applied to the newly selected entities
-	- The sphere detection feature of the point-pair-based-alignment tool could lead to a crash (2.14.alpha and 2.14.beta only)
-	- The Ransac Shape Detection plugin could output spheres or cylinders outside the min/max radius limits
+	- the middle screen cross was not scaled on high DPI screens, making it hard to see
+	- when loading a file, the user could change the Global scale, but the value was ignored. The field will be disabled to avoid confusion
+		for the time being.
+	- point picking would not work on entities below a mesh displayed with wireframe in the DB tree (typically its vertices)
+	- in some cases, especially when using the 'advanced mode', the Rotate/Translate tool could apply the wrong rotation matrix when closing
+		the tool
+	- despite what the tooltip was saying, using 0 as max edge length in the contour extraction option of the Cross Section tool would not
+		lead to the extraction of the convex hull.
+	- when using some tools and changing the selection was CloudCompare was still working, the tool could be applied to the newly selected entities
+	- the sphere detection feature of the point-pair-based-alignment tool could lead to a crash (2.14.alpha and 2.14.beta only)
+	- the Ransac Shape Detection plugin could output spheres or cylinders outside the min/max radius limits
 		(the limits were not checked after the shape refinement step), and it never refined the detected tori
+	- Custom shortcuts were applied to every action with the same name after a restart (e.g. a shortcut set on the scalar field
+		'Delete' action would replace the 'Del' shortcut of the main 'Delete' action)
+	- duplicating materials (during cloning, or with Cross Section for section) could lead to the loss of the texture for the source entities
+		(or the destination entity) after the other entity is removed
+	- CC could take a long time to start (and to open a file) if the recent files list contained files on an unreachable network drive.
+		The recent files are now only checked when one of them is clicked (and a missing file is then removed from the list).
+	- the scalar field name above the color scale in the 3D view was not properly updated after renaming the active scalar field
+	- LAS 1.4 files: the extra fields described by an Extra Bytes EVLR (instead of a VLR) were ignored at loading time
+		(a VLR can describe at most 341 extra fields, so files with more fields have to use an EVLR).
+		If a file has both, the VLR is used and a warning is issued.
+	- LAS files: an extra field name of 32 characters (the maximum) was loaded with the field description appended to it
 
 Unresolved anomalies:
 	- 'LAS.vlrs' meta-data items saved in BIN files with any version prior to 2.14.beta cannot be restored anymore due to Qt 6

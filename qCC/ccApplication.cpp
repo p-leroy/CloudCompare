@@ -15,11 +15,8 @@
 // #                                                                        #
 // ##########################################################################
 
-#include <QtGlobal>
-
-#ifdef Q_OS_MAC
 #include <QFileOpenEvent>
-#endif
+#include <QtGlobal>
 
 // qCC_io
 #include "FileIO.h"
@@ -75,10 +72,7 @@ struct FileVersionToCCVersion : QMap<short, QString>
 		{
 			return value(fileVersion);
 		}
-		else
-		{
-			return "Unknown version";
-		}
+		return "Unknown version";
 	}
 };
 static FileVersionToCCVersion s_fileVersionToCCVersion;
@@ -98,11 +92,19 @@ ccApplication::ccApplication(int& argc, char** argv, bool isCommandLine)
 
 bool ccApplication::event(QEvent* inEvent)
 {
-#ifdef Q_OS_MAC
 	switch (inEvent->type())
 	{
 	case QEvent::FileOpen:
 	{
+		QString filename = static_cast<QFileOpenEvent*>(inEvent)->file();
+
+		// when CC is launched by opening a file, this event may arrive before the I/O filters are loaded
+		if (!m_mainWindowReady)
+		{
+			m_pendingFiles << filename;
+			return true;
+		}
+
 		MainWindow* mainWindow = MainWindow::TheInstance();
 
 		if (mainWindow == nullptr)
@@ -110,14 +112,26 @@ bool ccApplication::event(QEvent* inEvent)
 			return false;
 		}
 
-		mainWindow->addToDB(QStringList(static_cast<QFileOpenEvent*>(inEvent)->file()));
+		mainWindow->addToDB(QStringList(filename));
 		return true;
 	}
 
 	default:
 		break;
 	}
-#endif
 
 	return ccApplicationBase::event(inEvent);
+}
+
+void ccApplication::setMainWindowReady()
+{
+	m_mainWindowReady = true;
+
+	if (!m_pendingFiles.isEmpty())
+	{
+		QStringList filenames = m_pendingFiles;
+		m_pendingFiles.clear();
+
+		MainWindow::TheInstance()->addToDB(filenames);
+	}
 }
