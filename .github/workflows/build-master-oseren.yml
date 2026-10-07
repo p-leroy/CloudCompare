@@ -107,8 +107,9 @@ jobs:
           curl.exe -L $exeUrl -o $exePath
         }
         7z x $exePath -o"$env:RUNNER_TEMP"
-        $env:OPENCV_DIR = "$env:RUNNER_TEMP/opencv/build/x64/vc16/lib"  # VC16
-        $env:OPENCV_WORLD_DLL = "$env:RUNNER_TEMP/opencv/build/x64/vc16/bin/opencv_world4120.dll"
+        $tmp = $env:RUNNER_TEMP -replace '\\', '/'
+        $env:OPENCV_DIR = "$tmp/opencv/build/x64/vc16/lib"  # VC16
+        $env:OPENCV_WORLD_DLL = "$tmp/opencv/build/x64/vc16/bin/opencv_world4120.dll"
         echo "OPENCV_DIR=$env:OPENCV_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append  # Export for all subsequent steps
         echo "OPENCV_WORLD_DLL=$env:OPENCV_WORLD_DLL" | Out-File -FilePath $env:GITHUB_ENV -Append
         Write-Host "OPENCV_DIR set to $env:OPENCV_DIR"
