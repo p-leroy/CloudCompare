@@ -65,6 +65,7 @@
 #include "ccSectionExtractionTool.h"
 #include "ccSensorComputeDistancesDlg.h"
 #include "ccSensorComputeScatteringAnglesDlg.h"
+#include "ccSFvsSFWindowDlg.h"
 #include "ccShortcutDialog.h"
 #include "ccSmoothPolylineDlg.h"
 #include "ccSubsamplingDlg.h"
