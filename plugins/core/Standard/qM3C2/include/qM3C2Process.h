@@ -31,15 +31,13 @@ class ccMainAppInterface;
 class qM3C2Process
 {
 public:
-	
-	static bool Compute(const qM3C2Dialog& dlg,
-						QString& errorMessage,
-                        ccPointCloud*& outputCloud,
-                        ccPointCloud*& outputCloud2,
-						bool allowDialogs,
-						QWidget* parentWidget = nullptr,
-                        ccMainAppInterface* app = nullptr);
-
+  static bool Compute(const qM3C2Dialog&  dlg,
+	                  QString&            errorMessage,
+	                  ccPointCloud*&      outputCloud,
+	                  bool                allowDialogs,
+	                  QWidget*            parentWidget = nullptr,
+	                  ccMainAppInterface* app          = nullptr,
+	                  ccPointCloud*       outputCloud2 = nullptr);
 };
 
 #endif //Q_M3C2_PROCESS_HEADER
