@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -15,12 +17,10 @@
 // #                                                                        #
 // ##########################################################################
 
-#ifndef CC_POINT_PROPERTIES_DIALOG_HEADER
-#define CC_POINT_PROPERTIES_DIALOG_HEADER
-
+// Local
 #include "ccPointPickingGenericInterface.h"
 
-// Local
+// Ui
 #include <ui_pointPropertiesDlg.h>
 
 class cc2DLabel;
@@ -37,12 +37,12 @@ class ccPointPropertiesDlg : public ccPointPickingGenericInterface
 	//! Default constructor
 	explicit ccPointPropertiesDlg(ccPickingHub* pickingHub, QWidget* parent);
 	//! Default destructor
-	virtual ~ccPointPropertiesDlg();
+	~ccPointPropertiesDlg() override;
 
 	// inherited from ccPointPickingGenericInterface
-	virtual bool start() override;
-	virtual void stop(bool state) override;
-	virtual bool linkWith(ccGLWindowInterface* win) override;
+	bool start() override;
+	void stop(bool state) override;
+	bool linkWith(ccGLWindowInterface* win) override;
 
   protected:
 	void onClose();
@@ -55,6 +55,9 @@ class ccPointPropertiesDlg : public ccPointPickingGenericInterface
 	void update2DZone(int x, int y, Qt::MouseButtons buttons);
 	void processClickedPoint(int x, int y);
 	void close2DZone();
+
+	//! To capture overridden shortcuts (pause button, etc.)
+	void onShortcutTriggered(int);
 
   Q_SIGNALS:
 
@@ -83,5 +86,3 @@ class ccPointPropertiesDlg : public ccPointPickingGenericInterface
 	//! Associated 2D label
 	cc2DViewportLabel* m_rect2DLabel;
 };
-
-#endif

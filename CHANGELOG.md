@@ -4,6 +4,13 @@ CloudCompare Version History
 v2.14.beta (???) - (??/??/202?)
 ----------------------
 New features:
+	- New I/O filter: dotBIM (.bim)
+		- to load dotBIM meshes (https://dotbim.net/)
+		- import only; each 'element' is loaded as its own mesh, with its rotation and translation applied
+
+	- Edit > Polyline > Extrude
+		- vertical extrusion within specified ownward (-Z) and upward (+Z) offsets
+
 	- Edit > Color > Gaussian filter
 	- Edit > Color > Bilateral filter
 	- Edit > Color > Median filter
@@ -16,7 +23,38 @@ New features:
 		- New method: 'Edit > Circle > Promote to Cylinder'
 			-can be used on a Circle entity to derive a cylinder from it (CC will simply ask for the cylinder height)
 
+	- New entity: Disc
+		- the user can control the radius and the display resolution
+		- distances between a point cloud and a disc can be computed with 'Tools > Distances > Cloud/primitive dist'
+
 	- New Command line options
+		- New command -MATCH_SCALES {BB_MAX_DIM|BB_VOLUME|PCA_MAX_DIM|ICP} [-REFERENCE {index}] [-RMS_DIFF {value}] [-OVERLAP {percent}] [-MIN_SCALE {value}] [-MAX_SCALE {value}]
+			- ports the 'Tools > Registration > Match scales' tool to the command line
+			- rescales all loaded clouds/meshes to match the scale of the reference entity (0-based index, 0 by default)
+			- -RMS_DIFF and -OVERLAP only apply to the ICP algorithm (defaults: 1e-5 and 100 respectively)
+			- -MIN_SCALE and -MAX_SCALE constrain the scale factor: a factor falling outside the range is clamped to the nearest bound and a warning is issued (both are optional, and no limit is applied by default)
+		- New command -PLY_NO_SF_PREFIX
+			- tells the PLY filter not to add the 'scalar_' prefix to the scalar field names when saving
+			- scalar fields coming from an input PLY file already keep their original name
+		- New command -STAT_FIT {GAUSS|WEIBULL}
+			- ports the 'Compute stat. params' tool (distribution fitting) to the command line
+			- fits the distribution on the active scalar field of each loaded cloud (see -SET_ACTIVE_SF)
+			- the fitted parameters are printed to the console, and therefore to the -LOG_FILE file if one is set
+		- New option -OUTPUT_MATRIX_FILE {filename} for the -ICP command
+			- saves the registration matrix to this file instead of the automatically generated '{cloud path}/{cloud name}_REGISTRATION_MATRIX.txt'
+			- the filename is used as is: no timestamp and no '.txt' extension are appended
+		- New option -OUTPUT_INFO_FILE {filename} for the -BEST_FIT_PLANE command
+			- saves the plane information file to this file instead of the automatically generated '{cloud path}/{cloud name}_BEST_FIT_PLANE_INFO.txt'
+			- the filename is used as is: no timestamp and no '.txt' extension are appended
+			- as this command writes one information file per loaded cloud, this option requires that a single cloud is loaded
+		- New sub-options for the -RANSAC command: MIN_SPHERE_RADIUS {value}, MAX_SPHERE_RADIUS {value}, MIN_CYLINDER_RADIUS {value}, MAX_CYLINDER_RADIUS {value}, MIN_TORUS_MINOR_RADIUS {value}, MAX_TORUS_MINOR_RADIUS {value}, MIN_TORUS_MAJOR_RADIUS {value} and MAX_TORUS_MAJOR_RADIUS {value}
+			- same radius limits as in the plugin dialog: shapes with a radius outside the range are not detected
+			- all are optional, and no limit is applied by default
+		- New command -DISTANCES_FROM_SENSOR [-SQUARED]
+			- to compute the distances from every point of the cloud to the associated sensor origin (if any)
+		- New command -SCATTERING_ANGLES [-DEGREES]
+			- to compute the scattering angle from every point of the cloud (and its associated normal) w.r.t. to the associated sensor (if any)
+			- the cloud must have normals
 		- New command -FILTER -RGB -SF {-MEAN|-MEDIAN|GAUSSIAN|BILATERAL} -SIGMA {sigma} -SIGMA_SF {sigma_sf} -BURNT_COLOR_THRESHOLD {burnt_color_threshold} -BLEND_GRAYSCALE {grayscale_threshold} {grayscale_percent}
 			- command arguments with a dash can be in any order
 			- -RGB runs the filter on color
@@ -46,6 +84,13 @@ New features:
 					- optional, only used when bilateral filter applied
 		- New SF_OP suboption: -NOT_IN_PLACE
 			- to create new scalar field during the operation.
+		- New option -OUTPUT_IMAGE {HEIGHT|RGB} for the -RASTERIZE command
+			- saves the height layer or the RGB layer of the raster grid as a PNG image ('{cloud name}_RASTER_IMAGE.png', with a timestamp unless -NO_TIMESTAMP is set)
+			- the height layer uses the 'Blue>Green>Yellow>Red' color scale
+			- empty cells follow the -EMPTY_FILL option (transparent by default)
+		- New option -IMAGE_COLOR_SCALE {name} for the -RASTERIZE command (with -OUTPUT_IMAGE HEIGHT)
+			- {name} is a color scale name as shown in the Color Scales Manager (not case sensitive), custom scales included
+			- the default scale remains 'Blue>Green>Yellow>Red'
 		- New SF-to-normals and normals-to-SF conversion methods:
 			- NORM_TO_SF {X/Y/Z}
 				where {X/Y/Z} is any combination of X, Y and Z, such as 'XYZ', 'XZ' or 'Y'
@@ -53,28 +98,55 @@ New features:
 				where {SFnIndex} can be a numerical index, a name or 'LAST', or -1 if the
 				dimension should not be initialized from a SF (in which case it will be
 				left at its previous value, or 0 if no normal was previously set)
+		- New command -FACETS -EXTRACT_FACETS -ALGO {ALGO_KD_TREE|ALGO_FAST_MARCHING} -KD_TREE_FUSION_MAX_ANGLE_DEG {kd_tree_fusion_max_angle_deg} -KD_TREE_FUSION_MAX_RELATIVE_DISTANCE {kd_tree_fusion_max_relative_distance} -OCTREE_LEVEL {octree_level} -USE_RETRO_PROJECTION_ERROR -ERROR_MEASURE {RMS|MAX_DIST_68_PERCENT|MAX_DIST_95_PERCENT|MAX_DIST_99_PERCENT|MAX_DIST} -ERROR_MAX_PER_FACET {error_max_per_facet} -MIN_POINTS_PER_FACET {min_points_per_facet} -MAX_EDGE_LENGTH {max_edge_length} -CLASSIFY_FACETS_BY_ANGLE -CLASSIF_ANGLE_STEP {classif_angle_step} -CLASSIF_MAX_DIST {classif_max_dist} -EXPORT_FACETS -SHAPE_FILENAME {shape_filename} -USE_NATIVE_ORIENTATION -USE_GLOBAL_ORIENTATION -USE_CUSTOM_ORIENTATION {nX nY nZ} -EXPORT_FACETS_INFO -CSV_FILENAME {csv_filename}
+			- Runs the qFacets plugin from command line.  Note the stereogram option has not been implemented on command line.			
+			- -EXTRACT_FACETS extracts the facets.  Need this parameter for others to work
+				- -ALGO {ALGO_KD_TREE|ALGO_FAST_MARCHING} specifies which algorithm to use. default=ALGO_KD_TREE
+					- {ALGO_KD_TREE} uses kd tree
+						- -KD_TREE_FUSION_MAX_ANGLE_DEG {kd_tree_fusion_max_angle_deg} default=20
+						- -KD_TREE_FUSION_MAX_RELATIVE_DISTANCE {kd_tree_fusion_max_relative_distance} default=1.0
+					- {ALGO_FAST_MARCHING} uses fast marching
+						- -OCTREE_LEVEL {octree_level} default=8
+						- -USE_RETRO_PROJECTION_ERROR default=false			                     
+			    - -ERROR_MEASURE {RMS|MAX_DIST_68_PERCENT|MAX_DIST_95_PERCENT|MAX_DIST_99_PERCENT|MAX_DIST} default=MAX_DIST_99_PERCENT
+			    - -ERROR_MAX_PER_FACET {error_max_per_facet} default=0.2
+			    - -MIN_POINTS_PER_FACET {min_points_per_facet} default=10
+			    - -MAX_EDGE_LENGTH {max_edge_length} default=1.0
+			- -CLASSIFY_FACETS_BY_ANGLE groups the facets into angular groups. default=false
+				- -CLASSIF_ANGLE_STEP {classif_angle_step} default=30
+                - -CLASSIF_MAX_DIST {classif_max_dist} default=1.0
+			- -EXPORT_FACETS saves facet info including geometry to a shape file file.  default=false
+                - -SHAPE_FILENAME {shape_filename} default='[name of cloud]_facets.shp'
+				- -USE_NATIVE_ORIENTATION default=true 
+				- -USE_GLOBAL_ORIENTATION default=false
+                - -USE_CUSTOM_ORIENTATION {nX nY nZ} default=false, default nx nY nZ = 0.0 0.0 1.0
+			- -EXPORT_FACETS_INFO saves facet info to a csv file (no geometry saved). default=false
+              - -CSV_FILENAME {csv_filename} default = '[name of cloud]_facets.csv'
+			  - -COORDS_IN_CSV will add facet polyline coordinates to the csv file in wkt format "POLYGONZ(x1 y1 z1,x2 y2 z2,...,x1 y1 z1)". default=false
+					If present then -USE_NATIVE_ORIENTATION etc will apply.
 
 	- New option to discard the confirmation popup dialog when exiting CloudCompare
 		- one can choose to discard it the first time it appears
 		- it can then be restored via the 'Display > Display options' menu entry
 
-	- 3DMASC: add verticality (VERT) to the neighborhood features (PCA1, PCA2, PCA3, SPHER, LINEA, etc.)
-
 	- New tool: 'Display > Current 3D view Information'
 		- display some pieces of information on the current 3D view (resolution, pixel size, image size, camera orientation, etc.)
 		- also available via the new 'info' button of the 'Display > Render to file' option (taking into account a potential scaling)
-
-	- Display > Lock rotation about an axis
-		- now a proper 'turntable' rotation mode
-		- dedicated icon in the left 'View' toolbar
-		- choice is now persistent, and will be reactivated when running CC again, or creating a new 3D view
-		- currently ignored by 3D mice and controllers
 
 	- New setting dialog to customize keyboard shortcuts for common CC actions
 
 	- DB tree: new context menu option 'Export images'
 		- to export as PNG files all images highlighted or children of highlighted entities (recursive)
 		- thanks to https://github.com/stolariks for the initial contribution
+
+	- New method: Display > Lights > Set Custom Light position
+		- to manually set (or read) the custom light 3D position
+		- shortcut: ALT + F7
+
+	- New stereo rendering mode: 'Side-by-side'
+		- can be used with any stereo glasses / headset that support this mode
+		- simply splits the screen into two 3D views (left / right)
+	- (the Oculus support has been dropped)
 
 New plugins
 
@@ -86,8 +158,34 @@ New plugins
 		- computes volume differences between 2 meshes, with some visual representation
   		- exports detected volumes as individual meshes
 		- option to generate CSV report
+		
+	- 3D Forest Inventory
+		- previously available as a Python plugin, now a standalone C++ one
 
 Improvements:
+
+	- Display speed of clouds and meshes has been improved a lot
+		- use of a composite GLSL 1.2 program
+		- use of a LUT texture with uncompressed normals
+		- use of a color scale texture when displaying scalar fields
+		- visibility filtering done in the same program
+		- (does not work for meshes with partial visibility or multi-textured yet)
+
+	- Display > Lock rotation about an axis
+		- now a proper 'turntable' rotation mode
+		- dedicated icon in the left 'View' toolbar
+		- choice is now persistent, and will be reactivated when running CC again, or creating a new 3D view
+		- currently ignored by 3D mice and controllers
+
+	- Display > Toggle clipping planes
+		- to quickly toggle any already defined clipping planes on and off
+		- default shortcut: F12
+		- warning: clipping planes must have already been defined (with the Camera Settings dialog
+			or the CTRL+mouse wheel and CTRL+SHIFT+mouse wheel shortcuts). Both clipping planes are toggled at the same time.
+
+	- Edit > Select all displayed entities
+		- selects all the entities displayed in the active 3D view (visible entities that are enabled, with all their parents enabled)
+		- default shortcut: CTRL+A (can be changed in the shortcut settings). CTRL+A still selects all the items when the DB tree or the console has the focus
 
 	- Rasterize tool
 		- New 'X-ray' field calculation tool (same tab as 'hillshade')
@@ -117,10 +215,8 @@ Improvements:
 			this means the user really wants to apply the input Global shift to all the entities (instead of showing the dialog again and again)
 
 	- Command line:
-		- new options
-			- -DISTANCES_FROM_SENSOR [-SQUARED]
-			- -SCATTERING_ANGLES [-DEGREES]
-			- -OCTREE_NORMALS {radius} [-WITH_GRIDS {angle}] [-ORIENT WITH_GRIDS] [-ORIENT WITH_SENSOR]
+		- new sub-options for -OCTREE_NORMALS:
+			- -OCTREE_NORMALS {radius} [-WITH_GRIDS {angle}] [-ORIENT WITH_GRIDS/WITH_SENSOR]
 		- the -SF_OP command now supports MIN/DISP_MIN/SAT_MIN/N_SIGMA_MIN/MAX/DISP_MAX/SAT_MAX/N_SIGMA_MAX as input values
 		- Rename -CSF command's resulting clouds to be able to select them later:
 			- {original cloud name} + '_ground_points'
@@ -134,6 +230,10 @@ Improvements:
 			- Option -GLOBAL_SHIFT (must be placed just after the orthogonal dimension setting)
 				- this allows to apply a Global Shift to the polyline vertices. Similar syntax to the -GLOBAL_SHIFT option of the -O command.
 			- The orthogonal dimension can now be Xflip, Yflip or Zflip to reverse the order in whcih CC expects the coordinates
+		- the -SF_INTERP option now has more sub-options
+			- '-SF_INTERP {SF index} -INTERP_NN k' to use nearest neighbors interpolation (k = number of neighbors)
+			- '-SF_INTERP {SF index} -INTERP_RADIUS r' to use interpolation inside a sphere (r = sphere radius)
+			- (these new options must always be placed after 'DEST_IS_FIRST')
 
 	- LAS file loading dialog
 		- Option to decompose the classification fields into Classification, Synthetic, Key Point and Withheld sub-fields
@@ -162,8 +262,8 @@ Improvements:
 			preserving the image sensor definition
 		- CC will now properly handle the case when a reflective transformation has been applied to a cloud (see bug fixes)
 		- Empty scans will not trigger an error anymore (just a warning message)
-
-	- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
+		- E57 timestamps are now loaded as scalar fields
+		- image viewport projection now accounts for the principal point (principalPointX/Y) specified in pinhole image metadata
 
 	- PLY files:
 		- loading dialog: new 'Add all' button to add all the unused standard properties to be loaded as scalar fields
@@ -180,6 +280,8 @@ Improvements:
 
 	- Display > Display settings
 		- new option to set the logs verbosity level (Verbose/Standard/Important/Warning & Errors)
+		- new option to choose whether a confirmation dialog (Are you sure?) should appear when deleting entities
+		- new option to always display the middle screen cross on top of the entities (off by default)
 
 	- Quadric model/fitting
 		- improved fitting of quadric functions on points:
@@ -193,6 +295,8 @@ Improvements:
 		- general improvement, with a better behavior when changing the active scalar field, the name of a class,
 			or the camera FOV and other parameters
 		- option to export the colors as RGB
+
+	- 3DMASC: add verticality (VERT) to the neighborhood features (PCA1, PCA2, PCA3, SPHER, LINEA, etc.)
 
 	- M3C2 plugin
 		- better handling of the normal mode
@@ -221,11 +325,78 @@ Improvements:
 			- The 'ASPRS classes' scale will now be used by default when loading the LAS classification field
 		- Improvement of the color scale preview (better accuracy)
 
+	- Point picking dialog
+		- New shortcuts:
+			- I: pick 1 point and display its (i)nformation
+			- D: pick 2 points and display the (d)istance
+			- A: pick 3 points and display the (a)ngles
+			- R: draw a (r)ectangle with a subtitle
+			- S: (s)ave the current label
+		- All scalar fields of the picked point are now shown in the resulting Label properties dialog.
+
+	- Cross section tool
+		- the default bounding-box is now very slightly larger than the entities bounding-box so as
+			to avoid display display artefacts and small accuracy issue when segmenting the entities
+
+	- Graphical segmentation tool
+		- new tool button to switch between RGB and SF colors (if present)
+			- shortcut 'C'
+		- new icons for better visibility in Dark mode
+
+	- Edit > Sensors > Edit and Edit > Sensors > TLS/GBL > Create
+		- the user can now see and edit the angular ranges
+
 	- ccViewer:
 		- new shortcuts to change the active scalar field: SHIFT + Up or Down arrows
 		- updated shortcuts list (F1)
 
+	- Tools > Projection > Unroll
+		- new option when unrolling a mesh: 'remove stretched triangles'
+		- automatically discards triangles which are stretched from one end to the other of the unrolled entity
+
+	- Improved SSAO filter
+		- enhanced default parameters
+		- when activated, the user will now see a dialog that will give full control over the parameters
+
+	- Interpolate SF from another entity
+		- new option 'no normalization' to compute the sum of nearest values (potentially with Normal weights)
+			instead of the average or weighted average.
+		- allows 'Kernel Density Estimation'
+
+	- PTX files
+		- CloudCompare will now handle PTX files with normals
+
+	- DB tree context menu:
+		- the 'Expand branch' and 'Collapse branch' options have been renamed 'Expand' and 'Collapse' and will
+			now apply to all selected DB tree item
+		- the 'Search by name and/or type' entry can now be applied with multiple entities selected at once
+
+	- 3D mouse support
+		- 3D mouse support on macOS, Linux and Windows (thanks to https://github.com/braunsi23 and Paul Rascle!)
+		- on Windows, option to compile with the 3DxWare SDK or the generic hidapi library
+
+	- Tools > Other > Compute geometric feature
+		- new geometric features: (from "Obtaining a Best Fitting Plane Through 3D Georeferenced Data", Fernandez, 2005)
+			- Degree of planarity (M): ln(L1 / L3)
+			- Degree of linearity (K): ln(L1 / L2) / ln(L2 / L3)
+		- the approximate density can be computed again (it was only reachable with the -APPROX_DENSITY
+			command line option since 2.10)
+			- it only looks at the nearest neighbor, so it ignores the radius and is much faster than the
+				exact density on large neighborhoods
+			- the 'number of neighbors' variant is in fact the inverse of the distance to the nearest
+				neighbor, and its scalar field is now named accordingly
+
+	- SOR/Cleaning filters
+		- the user can now choose the number of threads to use
+
+	- ICP
+		- new option to define/restrict the scaling range if 'adjust scale' is enabled
+
+	- Cross Section (clipping box) tool
+		- new 'invert' button to invert the selection (i.e. the 'inside' and 'outside' of the box)
+
 	- Others:
+		- the Subsampling dialog won't allow the user to input sampling modulation parameters if all SF values are the same
 		- the shortcut to the 'Level' tool in the 'View' toolbar (left) has been removed. Contrarily to the other options in this toolbar,
 			the Level tool can change the cloud coordinates, and not only the camera position. This could lead to strange issues when the
 			GUI is frozen, but not the View toolbar.
@@ -236,8 +407,14 @@ Improvements:
 		- the 'Escape' key should now allow to close any currently opened 'overlay' dialog in the top right corner of the 3D views (point picking, rotate/translate, etc.)
 		- CloudCompare is now built upon Qt 6.
 		- Removed Gamepad support (QGamepad is no longer part of Qt starting from Qt6).
+		- point picking now works on mesh displayed with wireframe
+		- the ASCII loading dialog now warns the user when a file has more columns than it can handle
+			(only the first 512 columns are loaded, the other ones were previously ignored silently)
+		- the PoissonRecon library (used by the Poisson Surface reconstruction plugin) has been updated to version 18.76
+		- dxflib upgraded from version 3.17.0 to 3.26.4
 
 Bug fixes:
+	- ASCII files saved with legacy Mac line endings (a lone CR) were read as a single line, silently loading only one point
 	- the weights derived from normals comparison during ICP registration of 2 clouds could be wrong (the wrong normals were compared)
 	- editing the Global Shift & Scale information of a polyline would make CC crash
 	- segmenting a cloud with polylines depending on it but not directly present below the cloud entity in the DB tree could lead
@@ -250,14 +427,14 @@ Bug fixes:
 	- CC will now consider infinite SF values as 'invalid' (just as NaN values currently) so as to avoid various types of issues
 	- the STEP file loader was behaving strangely when loading files a second time (or more). For instance, the scale was divided by
 		1000 the second time a file was loaded.
-	- When specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
+	- when specifying some scalar fields by name or by index as weights to the ICP command line, those would be ignored
 	- E57/PCD: when saving a cloud after having applied a 'reflection' transformation (e.g. inverting a single axis), the saved
 		sensor pose was truncated due to the internal representation of these formats (as a quaternion)
 	- E57: the local (sensor) pose was not applied to normals at saving time
 	- M3C2:
 		- bug corrected: when the "use other cloud" is checked, do not propose the use of cloud #1 as a possible source for the normals
 		- force the vertical mode in CLI call when NormalMode=3 is requested (needed in case of multiple calls in the same command line)
-	- Waveform
+	- LAS waveform:
 		- each LAS point with missing waveform data was triggering a warning message
 		- the Waveform picking dialog could display an annoying error message each time a new point was picked
 	- the 'Translation' field of the Translate/Rotate tool could remain disabled if only the 'Ty' option was checked
@@ -277,6 +454,34 @@ Bug fixes:
 	- some SHP files could not be opened due to longer records than specified
 	- DXF files: the 'elevation' of LWPOLYLINE entities was ignored
 	- High DPI displays with a 1.5 ratio would be badly handled (point picking, 2D labels, etc.)
+	- the middle screen cross was not scaled on high DPI screens, making it hard to see
+	- when loading a file, the user could change the Global scale, but the value was ignored. The field will be disabled to avoid confusion
+		for the time being.
+	- point picking would not work on entities below a mesh displayed with wireframe in the DB tree (typically its vertices)
+	- in some cases, especially when using the 'advanced mode', the Rotate/Translate tool could apply the wrong rotation matrix when closing
+		the tool
+	- despite what the tooltip was saying, using 0 as max edge length in the contour extraction option of the Cross Section tool would not
+		lead to the extraction of the convex hull.
+	- when using some tools and changing the selection was CloudCompare was still working, the tool could be applied to the newly selected entities
+	- the sphere detection feature of the point-pair-based-alignment tool could lead to a crash (2.14.alpha and 2.14.beta only)
+	- the Ransac Shape Detection plugin could output spheres or cylinders outside the min/max radius limits
+		(the limits were not checked after the shape refinement step), and it never refined the detected tori
+	- Custom shortcuts were applied to every action with the same name after a restart (e.g. a shortcut set on the scalar field
+		'Delete' action would replace the 'Del' shortcut of the main 'Delete' action)
+	- duplicating materials (during cloning, or with Cross Section for section) could lead to the loss of the texture for the source entities
+		(or the destination entity) after the other entity is removed
+	- CC could take a long time to start (and to open a file) if the recent files list contained files on an unreachable network drive.
+		The recent files are now only checked when one of them is clicked (and a missing file is then removed from the list).
+	- the scalar field name above the color scale in the 3D view was not properly updated after renaming the active scalar field
+	- LAS 1.4 files: the extra fields described by an Extra Bytes EVLR (instead of a VLR) were ignored at loading time
+		(a VLR can describe at most 341 extra fields, so files with more fields have to use an EVLR).
+		If a file has both, the VLR is used and a warning is issued.
+	- LAS files: an extra field name of 32 characters (the maximum) was loaded with the field description appended to it
+	- LAS 1.4 files: only the first 341 extra fields could be saved. The others are now saved too, described by an Extra Bytes EVLR.
+
+Unresolved anomalies:
+	- 'LAS.vlrs' meta-data items saved in BIN files with any version prior to 2.14.beta cannot be restored anymore due to Qt 6
+		being unable to recognize the QVariant blob as being of the custom LasVlr meta-type.
 
 v2.13.2 (Kharkiv) - (06/30/2024)
 ----------------------

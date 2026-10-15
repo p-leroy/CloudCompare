@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                       CLOUDCOMPARE PLUGIN: qSSAO                       #
@@ -32,77 +34,66 @@
 //
 /*****************************************************************/
 
-#ifndef CC_FILTER_SSAO_H
-#define CC_FILTER_SSAO_H
-
-// CC_FBO
+// CCFbo
 #include <ccGlFilter.h>
 
 // Qt
 #include <QOpenGLFunctions_2_1>
 
-// system
-#include <vector>
-
 class ccShader;
 class ccBilateralFilter;
 class ccFrameBufferObject;
+
+class QOpenGLTexture;
 
 class ccSSAOFilter : public ccGlFilter
 {
   public:
 	ccSSAOFilter();
-	virtual ~ccSSAOFilter();
+	~ccSSAOFilter() override;
 
 	void reset();
 
 	// inherited from ccGlFilter
-	virtual ccGlFilter* clone() const override;
-	virtual bool        init(unsigned width, unsigned height, const QString& shadersPath, QString& error) override;
-	virtual void        shade(GLuint texDepth, GLuint texColor, ViewportParameters& parameters) override;
-	virtual GLuint      getTexture() override;
+	ccGlFilter* clone() const override;
+	bool        init(unsigned width, unsigned height, const QString& shadersPath, QString& error, bool silent, std::function<void()>& makeCurrentCallaback) override;
+	void        shade(GLuint texDepth, GLuint texColor, ViewportParameters& parameters) override;
+	GLuint      getTexture() override;
 
-	bool init(unsigned       width,
-	          unsigned       height,
-	          bool           enableBilateralFilter,
-	          bool           useReflectTexture,
-	          const QString& shadersPath,
-	          QString&       error);
-
-	void setParameters(int N, float Kz, float R, float F);
+	void setParameters(float Kz, float R, float F);
 
   protected:
+	//! Maximum number of sampling directions
+	static constexpr int MAX_N = 32; // see shader code
+
 	void initReflectTexture();
 	void sampleSphere();
 
 	unsigned m_w;
 	unsigned m_h;
 
-	ccFrameBufferObject* m_fbo;
-	ccShader*            m_shader;
-	GLuint               m_texReflect;
+	std::unique_ptr<ccFrameBufferObject> m_fbo;
+	std::unique_ptr<ccShader>            m_shader;
+	std::unique_ptr<QOpenGLTexture>      m_texReflect;
 
-	int   m_N;  // nb of neighbours
 	float m_Kz; // attenuation with distance
 	float m_R;  // radius in image of neighbour sphere
 	float m_F;  // amplification
 
-	//! Maximum number of sampling directions
-	static const int MAX_N = 256;
-
 	//!	Full sphere sampling
-	float m_ssao_neighbours[3 * MAX_N];
+	std::array<float, MAX_N * 3> m_ssaoNeighbours;
 
-	ccBilateralFilter* m_bilateralFilter;
-	bool               m_bilateralFilterEnabled;
-	unsigned           m_bilateralGHalfSize;
-	float              m_bilateralGSigma;
-	float              m_bilateralGSigmaZ;
+	//!	Random sampling seed
+	unsigned m_randSeed;
+
+	std::unique_ptr<ccBilateralFilter> m_bilateralFilter;
+	bool                               m_bilateralFilterEnabled;
+	unsigned                           m_bilateralGHalfSize;
+	float                              m_bilateralGSigma;
+	float                              m_bilateralGSigmaZ;
 
 	//! Associated OpenGL functions set
 	QOpenGLFunctions_2_1 m_glFunc;
 	//! Associated OpenGL functions set validity
 	bool m_glFuncIsValid;
 };
-
-#endif

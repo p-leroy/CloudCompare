@@ -17,35 +17,36 @@
 
 #include "ccEnvelopeExtractor.h"
 
-// local
+// Local
 #include "ccEnvelopeExtractorDlg.h"
-
-// qCC_db
-#include <cc2DLabel.h>
-#include <ccLog.h>
-#include <ccPointCloud.h>
 
 // CCCoreLib
 #include <DistanceComputationTools.h>
 #include <Neighbourhood.h>
 #include <PointProjectionTools.h>
 
-#ifdef CC_CORE_LIB_USES_TBB
-#ifndef Q_MOC_RUN
-#if defined(emit)
-#undef emit
-#include <tbb/parallel_for.h>
-#define emit // restore the macro definition of "emit", as it was defined in gtmetamacros.h
-#else
-#include <tbb/parallel_for.h>
-#endif // defined(emit)
-#endif // Q_MOC_RUN
-#endif
+// qCC_db
+#include <cc2DLabel.h>
+#include <ccLog.h>
+#include <ccPointCloud.h>
 
 // System
 #include <cassert>
 #include <cmath>
-#include <set>
+
+// TBB
+#ifdef CC_CORE_LIB_USES_TBB
+#ifndef Q_MOC_RUN
+#if defined(emit)
+#undef emit
+#include <oneapi/tbb/parallel_for.h>
+#define emit // restore the macro definition of "emit", as it was defined in gtmetamacros.h
+#else
+#include <oneapi/tbb/parallel_for.h>
+#endif // defined(emit)
+#endif // Q_MOC_RUN
+using namespace oneapi;
+#endif
 
 // list of already used point to avoid hull's inner loops
 enum HullPointFlags
@@ -233,7 +234,7 @@ bool ccEnvelopeExtractor::ExtractConcaveHull2D(std::vector<Vertex2D>& points,
 		return false;
 
 	// do we really need to compute the concave hull?
-	if (hullPoints.size() < 2 || maxSquareEdgeLength < 0)
+	if (hullPoints.size() < 2 || maxSquareEdgeLength <= 0) // if maxSquareEdgeLength == 0, we just extract the convex hull
 		return true;
 
 	unsigned pointCount = static_cast<unsigned>(points.size());
@@ -633,9 +634,8 @@ bool ccEnvelopeExtractor::ExtractConcaveHull2D(std::vector<Vertex2D>& points,
 						}
 
 						// update the removed edges info and put them back in the main list
-						for (size_t i = 0; i < removed.size(); ++i)
+						for (auto itC : removed)
 						{
-							VertexIterator itC = removed[i];
 							VertexIterator itD = itC;
 							++itD;
 							if (itD == hullPoints.end())
@@ -911,7 +911,7 @@ bool ccEnvelopeExtractor::ExtractFlatEnvelope(CCCoreLib::GenericIndexedCloudPers
 	{
 		return false;
 	}
-	else if (!allowSplitting)
+	if (!allowSplitting)
 	{
 		parts.push_back(basePoly);
 		return true;

@@ -15,15 +15,12 @@
 // #                                                                        #
 // ##########################################################################
 
-// Always first
-#include "ccGBLSensor.h"
-
-#include "ccIncludeGL.h"
+#include "../include/ccGBLSensor.h"
 
 // Local
-#include "ccPointCloud.h"
-#include "ccProgressDialog.h"
-#include "ccSphere.h"
+#include "../include/ccIncludeGL.h"
+#include "../include/ccPointCloud.h"
+#include "../include/ccProgressDialog.h"
 
 // Qt
 #include <QCoreApplication>
@@ -109,7 +106,10 @@ void ccGBLSensor::setPitchRange(PointCoordinateType minPhi, PointCoordinateType 
 	m_phiMax = maxPhi;
 
 	if (m_phiMax > static_cast<PointCoordinateType>(M_PI))
+	{
 		m_pitchAnglesAreShifted = true;
+		m_phiMin                = std::max(m_phiMin, static_cast<PointCoordinateType>(0));
+	}
 
 	clearDepthBuffer();
 }
@@ -123,13 +123,16 @@ void ccGBLSensor::setPitchStep(PointCoordinateType dPhi)
 	}
 }
 
-void ccGBLSensor::setYawRange(PointCoordinateType minTehta, PointCoordinateType maxTheta)
+void ccGBLSensor::setYawRange(PointCoordinateType minTheta, PointCoordinateType maxTheta)
 {
-	m_thetaMin = minTehta;
+	m_thetaMin = minTheta;
 	m_thetaMax = maxTheta;
 
 	if (m_thetaMax > static_cast<PointCoordinateType>(M_PI))
+	{
 		m_yawAnglesAreShifted = true;
+		m_thetaMin            = std::max(m_thetaMin, static_cast<PointCoordinateType>(0));
+	}
 
 	clearDepthBuffer();
 }
@@ -182,16 +185,39 @@ void ccGBLSensor::projectPoint(const CCVector3&     sourcePoint,
 	}
 	default:
 		assert(false);
+		break;
 	}
 
 	// if the yaw angles are shifted
 	if (m_yawAnglesAreShifted && destPoint.x < 0)
+	{
 		destPoint.x += static_cast<PointCoordinateType>(2.0 * M_PI);
+	}
 	// if the pitch angles are shifted
 	if (m_pitchAnglesAreShifted && destPoint.y < 0)
+	{
 		destPoint.y += static_cast<PointCoordinateType>(2.0 * M_PI);
+	}
 
 	depth = P.norm();
+}
+
+PointCoordinateType ccGBLSensor::computeDistanceToPoint(const CCVector3& sourcePoint,
+                                                        double           posIndex /*=0*/) const
+{
+	// project point in sensor world
+	CCVector3 P = sourcePoint;
+
+	// sensor to world global transformation = sensor position * rigid transformation
+	ccIndexedTransformation sensorPos; // identity by default
+	if (m_posBuffer)
+		m_posBuffer->getInterpolatedTransformation(posIndex, sensorPos);
+	sensorPos *= m_rigidTransformation;
+
+	// apply (inverse) global transformation (i.e world to sensor)
+	sensorPos.inverse().apply(P);
+
+	return P.norm();
 }
 
 bool ccGBLSensor::convertToDepthMapCoords(PointCoordinateType yaw, PointCoordinateType pitch, unsigned& i, unsigned& j) const
@@ -344,9 +370,9 @@ ccGBLSensor::NormalGrid* ccGBLSensor::projectNormals(CCCoreLib::GenericCloud* cl
 }
 
 ccGBLSensor::ColorGrid* ccGBLSensor::projectColors(CCCoreLib::GenericCloud* cloud,
-                                                   const ColorGrid&         theColors) const
+                                                   const ColorGrid&         rgbColors) const
 {
-	if (!cloud || theColors.capacity() == 0)
+	if (!cloud || rgbColors.capacity() == 0)
 		return nullptr;
 
 	unsigned gridSize = m_depthBuffer.height * m_depthBuffer.width;
@@ -411,7 +437,7 @@ ccGBLSensor::ColorGrid* ccGBLSensor::projectColors(CCCoreLib::GenericCloud* clou
 					unsigned index = y * m_depthBuffer.width + x;
 
 					// accumulate color
-					const ccColor::Rgb& srcC  = theColors[i];
+					const ccColor::Rgb& srcC  = rgbColors[i];
 					ccColor::Rgbf&      destC = colorAccumGrid[index];
 
 					destC.r += srcC.r;
@@ -524,122 +550,143 @@ bool ccGBLSensor::computeAutoParameters(CCCoreLib::GenericCloud* theCloud)
 		// invalid input parameter
 		return false;
 	}
-
-	std::vector<bool> nonEmptyAnglesYaw;
-	std::vector<bool> nonEmptyAnglesPitch;
-	try
-	{
-		nonEmptyAnglesYaw.resize(360, false);
-		nonEmptyAnglesPitch.resize(360, false);
-	}
-	catch (const std::bad_alloc&)
-	{
-		// not enough memory
-		return false;
-	}
-	// force no shift for auto search (we'll fix this later if necessary)
-	m_yawAnglesAreShifted   = false;
-	m_pitchAnglesAreShifted = false;
-
 	unsigned pointCount = theCloud->size();
 
-	PointCoordinateType minPitch = 0;
-	PointCoordinateType maxPitch = 0;
-	PointCoordinateType minYaw   = 0;
-	PointCoordinateType maxYaw   = 0;
-	PointCoordinateType maxDepth = 0;
+	bool hasValidThetaRange = (m_thetaMin != m_thetaMax);
+	bool hasValidPhiRange   = (m_phiMin != m_phiMax);
+
+	if (!hasValidThetaRange || !hasValidPhiRange)
 	{
+		std::vector<bool> nonEmptyAnglesYaw;
+		std::vector<bool> nonEmptyAnglesPitch;
+		try
+		{
+			nonEmptyAnglesYaw.resize(360, false);
+			nonEmptyAnglesPitch.resize(360, false);
+		}
+		catch (const std::bad_alloc&)
+		{
+			// not enough memory
+			return false;
+		}
+		// force no shift for auto search (we'll fix this later if necessary)
+		m_yawAnglesAreShifted   = false;
+		m_pitchAnglesAreShifted = false;
+
+		PointCoordinateType minPitch = 0;
+		PointCoordinateType maxPitch = 0;
+		PointCoordinateType minYaw   = 0;
+		PointCoordinateType maxYaw   = 0;
+		PointCoordinateType maxDepth = 0;
+		{
+			// first project all points to compute the (yaw,pitch) ranges
+			theCloud->placeIteratorAtBeginning();
+			for (unsigned i = 0; i < pointCount; ++i)
+			{
+				const CCVector3*    P = theCloud->getNextPoint();
+				CCVector2           Q;
+				PointCoordinateType depth;
+				// Q.x and Q.y are inside [-pi;pi] by default (result of atan2)
+				projectPoint(*P, Q, depth, m_activeIndex);
+
+				// yaw
+				int angleYaw = static_cast<int>(CCCoreLib::RadiansToDegrees(Q.x));
+				assert(angleYaw >= -180 && angleYaw <= 180);
+				if (angleYaw == 180) // 360 degrees warp
+					angleYaw = -180;
+				nonEmptyAnglesYaw[180 + angleYaw] = true;
+				if (i != 0)
+				{
+					if (minYaw > Q.x)
+						minYaw = Q.x;
+					else if (maxYaw < Q.x)
+						maxYaw = Q.x;
+				}
+				else
+				{
+					minYaw = maxYaw = Q.x;
+				}
+
+				// pitch
+				int anglePitch = static_cast<int>(CCCoreLib::RadiansToDegrees(Q.y));
+				assert(anglePitch >= -180 && anglePitch <= 180);
+				if (anglePitch == 180)
+					anglePitch = -180;
+				nonEmptyAnglesPitch[180 + anglePitch] = true;
+				if (i != 0)
+				{
+					if (minPitch > Q.y)
+						minPitch = Q.y;
+					else if (maxPitch < Q.y)
+						maxPitch = Q.y;
+				}
+				else
+				{
+					minPitch = maxPitch = Q.y;
+				}
+
+				maxDepth = std::max(depth, maxDepth);
+			}
+		}
+
+		Interval bestEmptyPartYaw   = Interval::FindBiggest<bool>(nonEmptyAnglesYaw, false, true);
+		Interval bestEmptyPartPitch = Interval::FindBiggest<bool>(nonEmptyAnglesPitch, false, true);
+
+		m_yawAnglesAreShifted   = (bestEmptyPartYaw.start != 0 && bestEmptyPartYaw.span > 1 && bestEmptyPartYaw.start + bestEmptyPartYaw.span < 360);
+		m_pitchAnglesAreShifted = (bestEmptyPartPitch.start != 0 && bestEmptyPartPitch.span > 1 && bestEmptyPartPitch.start + bestEmptyPartPitch.span < 360);
+
+		if (m_yawAnglesAreShifted || m_pitchAnglesAreShifted)
+		{
+			// we re-project all the points in order to update the boundaries!
+			theCloud->placeIteratorAtBeginning();
+			for (unsigned i = 0; i < pointCount; ++i)
+			{
+				const CCVector3*    P = theCloud->getNextPoint();
+				CCVector2           Q;
+				PointCoordinateType depth;
+				projectPoint(*P, Q, depth, m_activeIndex);
+
+				if (i != 0)
+				{
+					if (minYaw > Q.x)
+						minYaw = Q.x;
+					else if (maxYaw < Q.x)
+						maxYaw = Q.x;
+
+					if (minPitch > Q.y)
+						minPitch = Q.y;
+					else if (maxPitch < Q.y)
+						maxPitch = Q.y;
+				}
+				else
+				{
+					minYaw = maxYaw = Q.x;
+					minPitch = maxPitch = Q.y;
+				}
+			}
+		}
+
+		setYawRange(minYaw, maxYaw);
+		setPitchRange(minPitch, maxPitch);
+		if (m_sensorRange == 0)
+		{
+			setSensorRange(maxDepth);
+		}
+	}
+	else if (m_sensorRange == 0)
+	{
+		PointCoordinateType maxDepth = 0;
 		// first project all points to compute the (yaw,pitch) ranges
 		theCloud->placeIteratorAtBeginning();
 		for (unsigned i = 0; i < pointCount; ++i)
 		{
-			const CCVector3*    P = theCloud->getNextPoint();
-			CCVector2           Q;
-			PointCoordinateType depth;
-			// Q.x and Q.y are inside [-pi;pi] by default (result of atan2)
-			projectPoint(*P, Q, depth, m_activeIndex);
+			const CCVector3*    P     = theCloud->getNextPoint();
+			PointCoordinateType depth = computeDistanceToPoint(*P, m_activeIndex);
 
-			// yaw
-			int angleYaw = static_cast<int>(CCCoreLib::RadiansToDegrees(Q.x));
-			assert(angleYaw >= -180 && angleYaw <= 180);
-			if (angleYaw == 180) // 360 degrees warp
-				angleYaw = -180;
-			nonEmptyAnglesYaw[180 + angleYaw] = true;
-			if (i != 0)
-			{
-				if (minYaw > Q.x)
-					minYaw = Q.x;
-				else if (maxYaw < Q.x)
-					maxYaw = Q.x;
-			}
-			else
-			{
-				minYaw = maxYaw = Q.x;
-			}
-
-			// pitch
-			int anglePitch = static_cast<int>(CCCoreLib::RadiansToDegrees(Q.y));
-			assert(anglePitch >= -180 && anglePitch <= 180);
-			if (anglePitch == 180)
-				anglePitch = -180;
-			nonEmptyAnglesPitch[180 + anglePitch] = true;
-			if (i != 0)
-			{
-				if (minPitch > Q.y)
-					minPitch = Q.y;
-				else if (maxPitch < Q.y)
-					maxPitch = Q.y;
-			}
-			else
-			{
-				minPitch = maxPitch = Q.y;
-			}
-
-			if (depth > maxDepth)
-				maxDepth = depth;
+			maxDepth = std::max(depth, maxDepth);
 		}
+		setSensorRange(maxDepth);
 	}
-
-	Interval bestEmptyPartYaw   = Interval::FindBiggest<bool>(nonEmptyAnglesYaw, false, true);
-	Interval bestEmptyPartPitch = Interval::FindBiggest<bool>(nonEmptyAnglesPitch, false, true);
-
-	m_yawAnglesAreShifted   = (bestEmptyPartYaw.start != 0 && bestEmptyPartYaw.span > 1 && bestEmptyPartYaw.start + bestEmptyPartYaw.span < 360);
-	m_pitchAnglesAreShifted = (bestEmptyPartPitch.start != 0 && bestEmptyPartPitch.span > 1 && bestEmptyPartPitch.start + bestEmptyPartPitch.span < 360);
-
-	if (m_yawAnglesAreShifted || m_pitchAnglesAreShifted)
-	{
-		// we re-project all the points in order to update the boundaries!
-		theCloud->placeIteratorAtBeginning();
-		for (unsigned i = 0; i < pointCount; ++i)
-		{
-			const CCVector3*    P = theCloud->getNextPoint();
-			CCVector2           Q;
-			PointCoordinateType depth;
-			projectPoint(*P, Q, depth, m_activeIndex);
-
-			if (i != 0)
-			{
-				if (minYaw > Q.x)
-					minYaw = Q.x;
-				else if (maxYaw < Q.x)
-					maxYaw = Q.x;
-
-				if (minPitch > Q.y)
-					minPitch = Q.y;
-				else if (maxPitch < Q.y)
-					maxPitch = Q.y;
-			}
-			else
-			{
-				minYaw = maxYaw = Q.x;
-				minPitch = maxPitch = Q.y;
-			}
-		}
-	}
-
-	setYawRange(minYaw, maxYaw);
-	setPitchRange(minPitch, maxPitch);
-	setSensorRange(maxDepth);
 
 	return true;
 }
@@ -795,7 +842,10 @@ unsigned char ccGBLSensor::checkVisibility(const CCVector3& P) const
 	}
 
 	// hidden?
-	if (depth > m_depthBuffer.zBuff[y * m_depthBuffer.width + x] * (1.0f + m_uncertainty))
+	PointCoordinateType bufferDepth     = m_depthBuffer.zBuff[y * m_depthBuffer.width + x];
+	PointCoordinateType safeBufferDepth = bufferDepth * (CCCoreLib::PC_ONE + m_uncertainty);
+
+	if (depth > safeBufferDepth)
 	{
 		return CCCoreLib::POINT_HIDDEN;
 	}
@@ -919,21 +969,21 @@ ccBBox ccGBLSensor::getOwnBB(bool withGLFeatures /*=false*/)
 {
 	if (!withGLFeatures)
 	{
-		return ccBBox();
+		return {};
 	}
 
 	// get sensor position
 	ccIndexedTransformation sensorPos;
 	if (!getAbsoluteTransformation(sensorPos, m_activeIndex))
 	{
-		return ccBBox();
+		return {};
 	}
 
 	ccPointCloud cloud;
 	if (!cloud.reserve(8))
 	{
 		// not enough memory?!
-		return ccBBox();
+		return {};
 	}
 
 	cloud.addPoint(CCVector3(-m_scale, -m_scale, -m_scale));
@@ -954,13 +1004,13 @@ ccBBox ccGBLSensor::getOwnFitBB(ccGLMatrix& trans)
 	// get sensor position
 	ccIndexedTransformation sensorPos;
 	if (!getAbsoluteTransformation(sensorPos, m_activeIndex))
-		return ccBBox();
+		return {};
 
 	trans = sensorPos;
 
-	return ccBBox(CCVector3(-m_scale, -m_scale, -m_scale),
-	              CCVector3(m_scale, m_scale, m_scale),
-	              true);
+	return {CCVector3(-m_scale, -m_scale, -m_scale),
+	        CCVector3(m_scale, m_scale, m_scale),
+	        true};
 }
 
 bool ccGBLSensor::applyViewport(ccGenericGLDisplay* win /*=nullptr*/) const
@@ -1070,9 +1120,9 @@ bool ccGBLSensor::toFile_MeOnly(QFile& out, short dataVersion) const
 	return true;
 }
 
-bool ccGBLSensor::fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccGBLSensor::fromFile_MeOnly(QFile& in, LoadingContext& context)
 {
-	if (!ccSensor::fromFile_MeOnly(in, dataVersion, flags, oldToNewIDMap))
+	if (!ccSensor::fromFile_MeOnly(in, context))
 		return false;
 
 	// rotation order (dataVersion>=34)
@@ -1083,30 +1133,30 @@ bool ccGBLSensor::fromFile_MeOnly(QFile& in, short dataVersion, int flags, Loade
 
 	// parameters (dataVersion>=34)
 	QDataStream inStream(&in);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_phiMin, 1);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_phiMax, 1);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_deltaPhi, 1);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_thetaMin, 1);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_thetaMax, 1);
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_deltaTheta, 1);
-	if (dataVersion < 38)
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_phiMin, 1);
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_phiMax, 1);
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_deltaPhi, 1);
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_thetaMin, 1);
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_thetaMax, 1);
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_deltaTheta, 1);
+	if (context.dataVersion < 38)
 	{
 		ScalarType sensorRange{};
 		ScalarType uncertainty{};
-		ccSerializationHelper::ScalarsFromDataStream(inStream, flags, &sensorRange, 1);
-		ccSerializationHelper::ScalarsFromDataStream(inStream, flags, &uncertainty, 1);
+		ccSerializationHelper::ScalarsFromDataStream(inStream, context.flags, &sensorRange, 1);
+		ccSerializationHelper::ScalarsFromDataStream(inStream, context.flags, &uncertainty, 1);
 		m_sensorRange = static_cast<PointCoordinateType>(sensorRange);
 		m_uncertainty = static_cast<PointCoordinateType>(uncertainty);
 	}
 	else
 	{
-		ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_sensorRange, 1);
-		ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_uncertainty, 1);
+		ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_sensorRange, 1);
+		ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_uncertainty, 1);
 	}
-	ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_scale, 1);
+	ccSerializationHelper::CoordsFromDataStream(inStream, context.flags, &m_scale, 1);
 
 	// other parameters (dataVersion>=38)
-	if (dataVersion >= 38)
+	if (context.dataVersion >= 38)
 	{
 		inStream >> m_pitchAnglesAreShifted;
 		inStream >> m_yawAnglesAreShifted;

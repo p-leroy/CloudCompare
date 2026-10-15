@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -14,9 +16,6 @@
 // #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
 // #                                                                        #
 // ##########################################################################
-
-#ifndef CC_ITEM_DELEGATE_HEADER
-#define CC_ITEM_DELEGATE_HEADER
 
 // qCC_db
 #include <ccArray.h>
@@ -42,7 +41,6 @@ class ccOctree;
 class ccPlanarEntityInterface;
 class ccPolyline;
 class ccSensor;
-class CCShareable;
 class ccShiftedObject;
 class ccCoordinateSystem;
 
@@ -92,6 +90,7 @@ class ccPropertiesTreeDelegate : public QStyledItemDelegate
 		OBJECT_CIRCLE_RESOLUTION,
 		OBJECT_SPHERE_RADIUS,
 		OBJECT_CIRCLE_RADIUS,
+		OBJECT_DISC_RADIUS,
 		OBJECT_CONE_HEIGHT,
 		OBJECT_CONE_BOTTOM_RADIUS,
 		OBJECT_CONE_TOP_RADIUS,
@@ -160,6 +159,7 @@ class ccPropertiesTreeDelegate : public QStyledItemDelegate
 	void circleResolutionChanged(int);
 	void sphereRadiusChanged(double);
 	void circleRadiusChanged(double);
+	void discRadiusChanged(double);
 	void coneHeightChanged(double);
 	void coneBottomRadiusChanged(double);
 	void coneTopRadiusChanged(double);
@@ -206,7 +206,6 @@ class ccPropertiesTreeDelegate : public QStyledItemDelegate
 	void fillWithGBLSensor(const ccGBLSensor*);
 	void fillWithCameraSensor(const ccCameraSensor*);
 	void fillWithMaterialSet(const ccMaterialSet*);
-	void fillWithShareable(const CCShareable*);
 	void fillWithMetaData(const ccObject*);
 	void fillWithShifted(const ccShiftedObject*);
 	void fillWithCoordinateSystem(const ccCoordinateSystem*);
@@ -225,5 +224,3 @@ class ccPropertiesTreeDelegate : public QStyledItemDelegate
 	QAbstractItemView*  m_view;
 	CC_PROPERTY_ROLE    m_lastFocusItemRole;
 };
-
-#endif

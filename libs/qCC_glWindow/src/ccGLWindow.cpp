@@ -100,6 +100,20 @@ bool ccGLWindow::event(QEvent* evt)
 	}
 	break;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+	case QEvent::DevicePixelRatioChange:
+	{
+		// On Wayland, the compositor sends the actual surface scale only
+		// after the first frame has been displayed.
+		// this event help to handle the resizing all Qt internal states.
+		// should be harmless on other systems and help to handle "on the flight"
+		// changes of pixel ratio (when qCC windows is moved on another monitor with
+		// different pixel ratio)
+		onResizeGL(QOpenGLWidget::width(), QOpenGLWidget::height());
+		update();
+	}
+#endif
+
 	default:
 		// nothing to do
 		break;
@@ -130,15 +144,7 @@ void ccGLWindow::requestUpdate()
 
 bool ccGLWindow::enableStereoMode(const StereoParams& params)
 {
-	if (params.glassType == StereoParams::OCULUS)
-	{
-		QMessageBox::critical(asWidget(), "Oculus", "The Oculus device is not supported by this type of 3D view");
-		return false;
-	}
-	else
-	{
-		return ccGLWindowInterface::enableStereoMode(params);
-	}
+	return ccGLWindowInterface::enableStereoMode(params);
 }
 
 void ccGLWindow::Create(ccGLWindow*& window, QWidget*& widget, bool silentInitialization /*=false*/)

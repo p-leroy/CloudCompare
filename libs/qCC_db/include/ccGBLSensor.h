@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -14,9 +16,6 @@
 // #          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
 // #                                                                        #
 // ##########################################################################
-
-#ifndef CC_GROUND_LIDAR_SENSOR_HEADER
-#define CC_GROUND_LIDAR_SENSOR_HEADER
 
 // Local
 #include "ccDepthBuffer.h"
@@ -87,8 +86,9 @@ class QCC_DB_LIB_API ccGBLSensor : public ccSensor
 	**/
 	unsigned char checkVisibility(const CCVector3& P) const override;
 
-	//! Computes angular parameters automatically (all but the angular steps!)
+	//! Computes angular range and max range automatically (if not defined yet)
 	/** \warning this method uses the cloud global iterator.
+	    \note this method will only compute the angular range parameters and/or the max range if these values are zero.
 	 **/
 	bool computeAutoParameters(CCCoreLib::GenericCloud* theCloud);
 
@@ -223,6 +223,14 @@ class QCC_DB_LIB_API ccGBLSensor : public ccSensor
 	                  PointCoordinateType& depth,
 	                  double               posIndex = 0) const;
 
+	//! Computes the distance from the sensor to a given 3D point
+	/** \param[in] sourcePoint 3D point to project
+	    \param[in] posIndex (optional) sensor position index (see ccIndexedTransformationBuffer)
+	    \return distance between the sensor optical center and the 3D point
+	**/
+	PointCoordinateType computeDistanceToPoint(const CCVector3& sourcePoint,
+	                                           double           posIndex = 0) const;
+
 	//! 2D grid of normals
 	using NormalGrid = std::vector<CCVector3>;
 
@@ -273,7 +281,7 @@ class QCC_DB_LIB_API ccGBLSensor : public ccSensor
   protected:
 	// Inherited from ccHObject
 	bool  toFile_MeOnly(QFile& out, short dataVersion) const override;
-	bool  fromFile_MeOnly(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap) override;
+	bool  fromFile_MeOnly(QFile& in, LoadingContext& context) override;
 	short minimumFileVersion_MeOnly() const override;
 	void  drawMeOnly(CC_DRAW_CONTEXT& context) override;
 
@@ -313,5 +321,3 @@ class QCC_DB_LIB_API ccGBLSensor : public ccSensor
 	//! Associated Z-buffer
 	ccDepthBuffer m_depthBuffer;
 };
-
-#endif // CC_GROUND_LIDAR_SENSOR_HEADER

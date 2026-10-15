@@ -639,7 +639,7 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 {
 	error.clear();
 
-	std::ifstream mscfile(qPrintable(filename), std::ifstream::binary); //DGM: warning, toStdString doesn't preserve "local" characters
+	std::ifstream mscfile(qUtf8Printable(filename), std::ifstream::binary); //DGM: warning, toStdString doesn't preserve "local" characters
 
 	if (!mscfile.is_open())
 	{
@@ -707,7 +707,7 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 	int ptnparams;
 	mscfile.read((char*)&ptnparams, sizeof(int));
 
-	std::vector<CCCoreLib::ScalarField*> paramsSf(3, nullptr);
+	std::vector<CCCoreLib::ScalarField::Shared> paramsSf(3, nullptr);
 	if (corePoints)
 	{
 		//above 3, ptnparams contains additional scalars
@@ -734,7 +734,9 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 		mscfile.read((char*)&y, sizeof(float));
 		mscfile.read((char*)&z, sizeof(float));
 		if (corePoints)
+		{
 			corePoints->addPoint(CCVector3(x, y, z));
+		}
 		if (ptnparams >= 4)
 		{
 			float dummy;
@@ -746,7 +748,9 @@ bool CorePointDescSet::loadFromMSC(QString filename, QString& error, ccPointClou
 				mscfile.read((char*)&param, sizeof(float));
 
 				if (static_cast<int>(paramsSf.size()) > i)
+				{
 					paramsSf[i]->addElement(static_cast<ScalarType>(param));
+				}
 			}
 		}
 

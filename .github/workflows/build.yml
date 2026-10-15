@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -45,6 +45,10 @@ jobs:
           environment-file: ${{ matrix.config.conda_dep_file }}
           channels: conda-forge
           conda-remove-defaults: "true"
+
+      - name: Verify macOS bundle identifiers
+        shell: bash -l {0}
+        run: python .ci/verify_macos_bundle_identifiers.py .
 
       - name: Configure MSVC console (Windows)
         if: matrix.config.os == 'windows-latest'
@@ -72,6 +76,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_LIB_DIR" \
             -DEIGEN_ROOT_DIR="$EIGEN_ROOT_DIR" \
+            -DOPTION_SUPPORT_3DMOUSE_WITH_HIDAPI=ON \
             -DPLUGIN_EXAMPLE_GL=ON \
             -DPLUGIN_EXAMPLE_IO=ON \
             -DPLUGIN_EXAMPLE_STANDARD=ON \
@@ -85,10 +90,11 @@ jobs:
             -DPLUGIN_IO_QRDB=${{ matrix.config.compile_riegl }}  \
             -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=${{ matrix.config.compile_riegl }}  \
             -DPLUGIN_IO_QRDB_INSTALL_DEPENDENCY=${{ matrix.config.compile_riegl }}  \
+            -DPLUGIN_STANDARD_3DFIN=ON \
             -DPLUGIN_STANDARD_QANIMATION=ON \
             -DQANIMATION_WITH_FFMPEG_SUPPORT=ON \
             -DPLUGIN_STANDARD_QBROOM=ON \
-            -DPLUGIN_STANDARD_QCANUPO=OFF \
+            -DPLUGIN_STANDARD_QCANUPO=ON \
             -DPLUGIN_STANDARD_QCOMPASS=ON \
             -DPLUGIN_STANDARD_QCSF=ON \
             -DPLUGIN_STANDARD_QFACETS=ON \
@@ -131,7 +137,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -152,6 +158,7 @@ jobs:
           libopencv-dev
           libboost-dev libboost-iostreams-dev libboost-system-dev libpcap-dev libflann-dev
           libglu1-mesa-dev
+          udev libudev-dev libhidapi-dev libusb-1.0-0-dev
           xvfb
 
       - name: Setup GCC
@@ -167,7 +174,7 @@ jobs:
           echo "CXX=clang++" >> $GITHUB_ENV
 
       - name: Cache PCL Build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-pcl
         with:
           path: pcl-cached
@@ -195,9 +202,8 @@ jobs:
           -S .
           -G Ninja
           -DEIGEN_ROOT_DIR=/usr/include/eigen3
-          -DJSON_ROOT_DIR=/usr/include/jsoncpp
           -DPCL_DIR=${{ github.workspace }}/pcl-cached/share/pcl-1.15
-          -DDLIB_ROOT=/usr/include
+          -DOPTION_SUPPORT_3DMOUSE_WITH_HIDAPI=ON
           -DCCCORELIB_USE_TBB=ON
           -DPLUGIN_EXAMPLE_GL=ON
           -DPLUGIN_EXAMPLE_IO=ON
@@ -213,6 +219,7 @@ jobs:
           -DPLUGIN_IO_QRDB=ON
           -DPLUGIN_IO_QRDB_FETCH_DEPENDENCY=ON
           -DPLUGIN_IO_QRDB_INSTALL_DEPENDENCY=ON
+          -DPLUGIN_STANDARD_3DFIN=ON
           -DPLUGIN_STANDARD_QANIMATION=ON
           -DQANIMATION_WITH_FFMPEG_SUPPORT=OFF
           -DPLUGIN_STANDARD_QBROOM=ON

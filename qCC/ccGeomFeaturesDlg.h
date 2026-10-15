@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -15,11 +17,11 @@
 // #                                                                        #
 // ##########################################################################
 
-#ifndef CC_GEOM_FEATURES_DIALOG_HEADER
-#define CC_GEOM_FEATURES_DIALOG_HEADER
-
 // Local
 #include "ccLibAlgorithms.h"
+
+// Ui
+#include <ui_geomFeaturesDlg.h>
 
 // Qt
 #include <QDialog>
@@ -73,5 +75,3 @@ class ccGeomFeaturesDlg : public QDialog
 
 	QButtonGroup* buttonGroup;
 };
-
-#endif // CC_GEOM_FEATURES_DIALOG_HEADER

@@ -15,9 +15,10 @@
 // #                                                                        #
 // ##########################################################################
 
-#include "DepthMapFileFilter.h"
+#include "../include/DepthMapFileFilter.h"
 
-#include "FileIO.h"
+// Local
+#include "../include/FileIO.h"
 
 // qCC_db
 #include <ccGBLSensor.h>
@@ -29,7 +30,7 @@
 #include <QFileInfo>
 #include <QString>
 
-// system
+// System
 #include <cassert>
 
 DepthMapFileFilter::DepthMapFileFilter()
@@ -73,7 +74,8 @@ CC_FILE_ERROR DepthMapFileFilter::saveToFile(ccHObject* entity, const QString& f
 
 	// multiple filenames handling
 	QFileInfo fi(filename);
-	QString   baseName  = fi.baseName();
+	QString   path      = fi.path();
+	QString   baseName  = fi.completeBaseName();
 	QString   extension = fi.suffix();
 
 	CC_FILE_ERROR result = CC_FERR_NO_ERROR;
@@ -82,7 +84,7 @@ CC_FILE_ERROR DepthMapFileFilter::saveToFile(ccHObject* entity, const QString& f
 	for (size_t i = 0; i < sensorCount && result == CC_FERR_NO_ERROR; ++i)
 	{
 		// more than one sensor? we must generate auto filename
-		QString sensorFilename = (sensorCount > 1 ? QString("%1_%2.%3").arg(baseName).arg(i).arg(extension) : filename);
+		QString sensorFilename = (sensorCount > 1 ? QString("%1/%2_%3.%4").arg(path, baseName).arg(i).arg(extension) : filename);
 
 		ccGBLSensor* sensor = static_cast<ccGBLSensor*>(sensors[i]);
 		if (sensor)
@@ -129,7 +131,7 @@ CC_FILE_ERROR DepthMapFileFilter::saveToFile(const QString& filename, ccGBLSenso
 #ifdef _MSC_VER
 	FILE* fp = _wfopen(filename.toStdWString().c_str(), L"wt");
 #else
-	FILE* fp = fopen(qPrintable(filename), "wt");
+	FILE* fp = fopen(qUtf8Printable(filename), "wt");
 #endif
 	if (!fp)
 	{
@@ -140,7 +142,7 @@ CC_FILE_ERROR DepthMapFileFilter::saveToFile(const QString& filename, ccGBLSenso
 	fprintf(fp, "// SENSOR DEPTH MAP\n");
 	fprintf(fp, "// %s\n", qPrintable(FileIO::createdBy()));
 	fprintf(fp, "// %s\n", qPrintable(FileIO::createdDateTime()));
-	fprintf(fp, "// Associated cloud: %s\n", qPrintable(cloud ? cloud->getName() : "none"));
+	fprintf(fp, "// Associated cloud: %s\n", qUtf8Printable(cloud ? cloud->getName() : "none"));
 	fprintf(fp, "// Pitch  = %f [ %f : %f ]\n", sensor->getPitchStep(), sensor->getMinPitch(), sensor->getMaxPitch());
 	fprintf(fp, "// Yaw   = %f [ %f : %f ]\n", sensor->getYawStep(), sensor->getMinYaw(), sensor->getMaxYaw());
 	fprintf(fp, "// Range  = %f\n", sensor->getSensorRange());

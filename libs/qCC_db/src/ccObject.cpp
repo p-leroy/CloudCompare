@@ -15,18 +15,18 @@
 // #                                                                        #
 // ##########################################################################
 
-#include "ccObject.h"
+#include "../include/ccObject.h"
 
 // Qt
 #include <QSettings>
+
+// System
+#include <cstdint>
 
 #ifdef USE_VLD
 // VLD
 #include <vld.h>
 #endif
-
-// System
-#include <cstdint>
 
 /** Versions:
     V1.0 = prior to 05/04/2012 = old version
@@ -67,8 +67,9 @@
     v5.4 - 01/29/2023 - ccColorScale custom labels can be overridden by a string
     v5.5 - 11/10/2024 - Scalar fields with 'double' offset and names as std::string
     v5.6 - 02/18/2025 - Circle entity
+    v5.7 - 10/01/2025 - Disc entity
 **/
-const unsigned c_currentDBVersion = 56; // 5.6
+const unsigned c_currentDBVersion = 57; // 5.7
 
 //! Default unique ID generator (using the system persistent settings as we did previously proved to be not reliable)
 static ccUniqueIDGenerator::Shared s_uniqueIDGenerator(new ccUniqueIDGenerator);
@@ -266,11 +267,11 @@ bool ccObject::hasMetaData(const QString& key) const
 	return m_metaData.contains(key);
 }
 
-bool ccObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& oldToNewIDMap)
+bool ccObject::fromFile(QFile& in, LoadingContext& context)
 {
 	assert(in.isOpen() && (in.openMode() & QIODevice::ReadOnly));
 
-	if (dataVersion < 20)
+	if (context.dataVersion < 20)
 		return CorruptError();
 
 	// DGM: if we are here, we assume the class ID has already been read!
@@ -285,14 +286,13 @@ bool ccObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& ol
 	if (in.read((char*)&uniqueID, 4) < 0)
 		return ReadError();
 	// DGM: this ID will be useful to recreate dynamic links between entities later!
-	if (oldToNewIDMap.contains(uniqueID))
+	if (context.oldToNewIDMap.contains(uniqueID))
 	{
 		ccLog::Warning(QString("Malformed file: uniqueID #%1 is used several times! (not that unique ;)").arg(uniqueID));
 	}
-	oldToNewIDMap.insert(uniqueID, m_uniqueID);
-
+	context.oldToNewIDMap.insert(uniqueID, m_uniqueID);
 	// name
-	if (dataVersion < 22) // old style
+	if (context.dataVersion < 22) // old style
 	{
 		char name[256];
 		if (in.read(name, 256) < 0)
@@ -312,7 +312,7 @@ bool ccObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& ol
 	m_flags = (unsigned)objFlags;
 
 	// meta data (dataVersion>=30)
-	if (dataVersion >= 30)
+	if (context.dataVersion >= 30)
 	{
 		// count
 		uint32_t metaDataCount = 0;
@@ -326,8 +326,31 @@ bool ccObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& ol
 			QString     key;
 			QVariant    value;
 			inStream >> key;
-			inStream >> value;
-			setMetaData(key, value);
+			if (key == "LAS.vlrs")
+			{
+				inStream.skipRawData(16); // size of a partial QVariant object on Windows
+				quint64 vlrSize = 0;
+				inStream >> vlrSize;
+				for (quint64 i = 0; i < vlrSize; ++i)
+				{
+					inStream.skipRawData(sizeof(uint16_t));
+					inStream.skipRawData(16 * sizeof(char));
+					inStream.skipRawData(sizeof(uint16_t));
+					uint16_t record_length_after_header;
+					inStream >> record_length_after_header;
+					inStream.skipRawData(32 * sizeof(char));
+					inStream.skipRawData(record_length_after_header);
+				}
+
+				quint64 extraScalarFieldCount = 0;
+				inStream >> extraScalarFieldCount;
+				inStream.skipRawData(272 * extraScalarFieldCount);
+			}
+			else
+			{
+				inStream >> value;
+				setMetaData(key, value);
+			}
 		}
 	}
 

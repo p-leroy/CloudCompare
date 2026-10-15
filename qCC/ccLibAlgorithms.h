@@ -1,5 +1,5 @@
-#ifndef CCLIBALGORITHMS_H
-#define CCLIBALGORITHMS_H
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -17,8 +17,7 @@
 // #                                                                        #
 // ##########################################################################
 
-#include "ccHObject.h"
-
+// CCCoreLib
 #include <GeometricalAnalysisTools.h>
 
 #include <Neighbourhood.h>
@@ -54,7 +53,7 @@ namespace ccLibAlgorithms
 	};
 
 	//! Set of GeomCharacteristic instances
-	typedef std::vector<GeomCharacteristic> GeomCharacteristicSet;
+	using GeomCharacteristicSet = std::vector<GeomCharacteristic>;
 
 	//! Computes geometrical characteristics (see GeometricalAnalysisTools::GeomCharacteristic) on a set of entities
 	bool ComputeGeomCharacteristics(const GeomCharacteristicSet&       characteristics,
@@ -101,7 +100,7 @@ namespace ccLibAlgorithms
 	                                 double                 icpRmsDiff,
 	                                 int                    icpFinalOverlap,
 	                                 unsigned               refEntityIndex = 0,
-	                                 QWidget*               parent         = nullptr);
+	                                 QWidget*               parent         = nullptr,
+	                                 double                 minScale       = std::numeric_limits<double>::quiet_NaN(),
+	                                 double                 maxScale       = std::numeric_limits<double>::quiet_NaN());
 } // namespace ccLibAlgorithms
-
-#endif

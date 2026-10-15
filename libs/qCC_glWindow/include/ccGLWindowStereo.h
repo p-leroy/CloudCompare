@@ -190,9 +190,6 @@ class CCGLWINDOW_LIB_API ccGLWindowStereo : public QWindow
 	{
 		showNormal();
 	}
-	bool prepareOtherStereoGlassType(CC_DRAW_CONTEXT& context, RenderingParams& params, ccFrameBufferObject*& currentFBO) override;
-	void processOtherStereoGlassType(RenderingParams& renderingParams) override;
-	bool setCustomCameraProjection(RenderingParams& params, ccGLMatrixd& modelViewMat, ccGLMatrixd& projectionMat) override;
 	bool initPaintGL() override;
 	void swapGLBuffers() override;
 
@@ -295,7 +292,7 @@ class CCGLWINDOW_LIB_API ccGLStereoWidget : public QWidget
 		}
 	}
 
-	virtual ~ccGLStereoWidget()
+	~ccGLStereoWidget() override
 	{
 		if (m_associatedWindow)
 		{

@@ -15,11 +15,13 @@
 // #                                                                        #
 // ##########################################################################
 
-#include "BundlerFilter.h"
+#include "../include/BundlerFilter.h"
 
 // Local
-#include "BinFilter.h"
-#include "BundlerImportDlg.h"
+#include "../include/BundlerImportDlg.h"
+
+// qCC_io
+#include <BinFilter.h>
 
 // qCC_db
 #include <ccCameraSensor.h>
@@ -39,12 +41,14 @@
 #include <QString>
 #include <QTextStream>
 
-// CCCoreLib (for DTM generation)
+// CCCoreLib
 #include <MeshSamplingTools.h>
 #include <PointProjectionTools.h>
 #include <ccMesh.h>
 
 // System
+#include <algorithm>
+#include <memory>
 #include <string>
 
 //! Bundler camera
@@ -223,15 +227,15 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 	// Read Bundler '.out' file
 	{
 		// progress dialog
-		QScopedPointer<ccProgressDialog> pDlg(nullptr);
+		std::unique_ptr<ccProgressDialog> pDlg(nullptr);
 		if (parameters.parentWidget)
 		{
-			pDlg.reset(new ccProgressDialog(true, parameters.parentWidget)); // cancel available
+			pDlg = std::make_unique<ccProgressDialog>(true, parameters.parentWidget); // cancel available
 			pDlg->setMethodTitle(QObject::tr("Open Bundler file"));
 			pDlg->setInfo(QObject::tr("Cameras: %1\nPoints: %2").arg(camCount).arg(ptsCount));
 			pDlg->start();
 		}
-		CCCoreLib::NormalizedProgress nprogress(pDlg.data(), camCount + (importKeypoints || orthoRectifyImages || generateColoredDTM ? ptsCount : 0));
+		CCCoreLib::NormalizedProgress nprogress(pDlg.get(), camCount + (importKeypoints || orthoRectifyImages || generateColoredDTM ? ptsCount : 0));
 
 		// read cameras info (whatever the case!)
 		cameras.resize(camCount);
@@ -278,7 +282,7 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 			}
 			if (importImages && CCCoreLib::LessThanEpsilon(sum))
 			{
-				ccLog::Warning("[Bundler] Camera #%i is invalid!", camIndex + 1);
+				ccLog::Warningf("[Bundler] Camera #%i is invalid!", camIndex + 1);
 				it->isValid = false;
 			}
 
@@ -385,14 +389,14 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 							keypointsCloud->setGlobalShift(Pshift);
 						}
 						// we must apply the shift to the cameras as well!!!
-						for (size_t j = 0; j < cameras.size(); ++j)
+						for (auto& camera : cameras)
 						{
-							ccGLMatrixd& trans = cameras[j].trans;
+							ccGLMatrixd& trans = camera.trans;
 							trans.invert();
 							trans.setTranslation(trans.getTranslationAsVec3D() + Pshift);
 							trans.invert();
 						}
-						ccLog::Warning("[Bundler] Cloud has been recentered! Translation: (%.2f ; %.2f ; %.2f)", Pshift.x, Pshift.y, Pshift.z);
+						ccLog::Warningf("[Bundler] Cloud has been recentered! Translation: (%.2f ; %.2f ; %.2f)", Pshift.x, Pshift.y, Pshift.z);
 					}
 				}
 				keypointsCloud->addPoint((Pd + Pshift).toPC());
@@ -431,7 +435,7 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 				{
 					// sometimes, it appears that keypoints have no associated color!
 					// so we skip the line and assume it's in fact the keypoint description...
-					ccLog::Warning("[Bundler] Keypoint #%i has no associated color!", i);
+					ccLog::Warningf("[Bundler] Keypoint #%i has no associated color!", i);
 					if (hasColors)
 						keypointsCloud->addColor(ccColor::black); // black by default
 				}
@@ -457,7 +461,7 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 						unsigned nviews = parts[0].toInt(&ok);
 						if (!ok || nviews * 4 + 1 > static_cast<unsigned>(parts.size()))
 						{
-							ccLog::Warning("[Bundler] View list for point #%i is invalid!", i);
+							ccLog::Warningf("[Bundler] View list for point #%i is invalid!", i);
 						}
 						else
 						{
@@ -555,12 +559,9 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 
 			return CC_FERR_WRONG_FILE_TYPE;
 		}
-		else
-		{
-			altEntity = altKeypointsContainer->getChild(0);
-			if (importKeypoints)
-				container.addChild(altEntity);
-		}
+		altEntity = altKeypointsContainer->getChild(0);
+		if (importKeypoints)
+			container.addChild(altEntity);
 	}
 
 	if (!importImages)
@@ -623,30 +624,30 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 	}
 
 	// let's try to open the image corresponding to each camera
-	QScopedPointer<ccProgressDialog> ipDlg(nullptr);
+	std::unique_ptr<ccProgressDialog> ipDlg(nullptr);
 	if (parameters.parentWidget)
 	{
-		ipDlg.reset(new ccProgressDialog(true, parameters.parentWidget)); // cancel available
+		ipDlg = std::make_unique<ccProgressDialog>(true, parameters.parentWidget); // cancel available
 		ipDlg->setMethodTitle(QObject::tr("Open & process images"));
 		ipDlg->setInfo(QObject::tr("Images: %1").arg(camCount));
 		ipDlg->start();
 		QApplication::processEvents();
 	}
-	CCCoreLib::NormalizedProgress inprogress(ipDlg.data(), camCount);
+	CCCoreLib::NormalizedProgress inprogress(ipDlg.get(), camCount);
 
 	assert(imageFilenames.size() >= static_cast<int>(camCount));
 
 	/*** pre-processing steps (colored MNT computation, etc.) ***/
 
 	// for colored DTM generation
-	std::vector<int>                      mntColors;
-	QScopedPointer<CCCoreLib::PointCloud> mntSamples;
+	std::vector<int>                       mntColors;
+	std::unique_ptr<CCCoreLib::PointCloud> mntSamples;
 	if (generateColoredDTM)
 	{
-		QScopedPointer<ccProgressDialog> toDlg(nullptr);
+		std::unique_ptr<ccProgressDialog> toDlg(nullptr);
 		if (parameters.parentWidget)
 		{
-			toDlg.reset(new ccProgressDialog(true, parameters.parentWidget)); // cancel available
+			toDlg = std::make_unique<ccProgressDialog>(true, parameters.parentWidget); // cancel available
 			toDlg->setMethodTitle(QObject::tr("Preparing colored DTM"));
 			toDlg->start();
 			QApplication::processEvents();
@@ -799,12 +800,12 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 			ccBBox                                keypointsImageBB;
 			if (_keypointsCloud == keypointsCloud) // keypoints from Bundler file
 			{
-				for (std::vector<KeypointAndCamIndex>::const_iterator key = keypointsDescriptors.begin(); key != keypointsDescriptors.end(); ++key)
+				for (const auto& keypointsDescriptor : keypointsDescriptors)
 				{
-					if (key->first == i)
+					if (keypointsDescriptor.first == i)
 					{
-						keypointsImage.push_back(key->second);
-						keypointsImageBB.add(CCVector3(key->second.x, key->second.y, 0));
+						keypointsImage.push_back(keypointsDescriptor.second);
+						keypointsImageBB.add(CCVector3(keypointsDescriptor.second.x, keypointsDescriptor.second.y, 0));
 					}
 				}
 			}
@@ -916,10 +917,10 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 						rectMesh->addChild(rectVertices);
 
 						// materials (=textures)
-						ccMaterialSet* matSet = new ccMaterialSet("Texture");
+						auto matSet = std::make_shared<ccMaterialSet>("Texture");
 
 						// texture coordinates table
-						TextureCoordsContainer* texCoords = new TextureCoordsContainer();
+						auto texCoords = std::make_shared<TextureCoordsContainer>();
 						// texCoords->reserve(verts);
 						texCoords->reserve(4);
 						{
@@ -1009,14 +1010,10 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 						OR_infos.push_back(info);
 
 						// update global boundaries
-						if (OR_globalCorners[0] > info.minC[0])
-							OR_globalCorners[0] = info.minC[0];
-						if (OR_globalCorners[1] > info.minC[1])
-							OR_globalCorners[1] = info.minC[1];
-						if (OR_globalCorners[2] < info.maxC[0])
-							OR_globalCorners[2] = info.maxC[0];
-						if (OR_globalCorners[3] < info.maxC[1])
-							OR_globalCorners[3] = info.maxC[1];
+						OR_globalCorners[0] = std::min(OR_globalCorners[0], info.minC[0]);
+						OR_globalCorners[1] = std::min(OR_globalCorners[1], info.minC[1]);
+						OR_globalCorners[2] = std::max(OR_globalCorners[2], info.maxC[0]);
+						OR_globalCorners[3] = std::max(OR_globalCorners[3], info.maxC[1]);
 					}
 					else
 					{
@@ -1134,13 +1131,13 @@ CC_FILE_ERROR BundlerFilter::loadFileExtended(const QString&  filename,
 			int globalHeight = static_cast<int>((OR_globalCorners[3] - OR_globalCorners[1]) / OR_pixelSize);
 			stream << "Global2DBBox" << ' ' << 0 << ' ' << 0 << ' ' << globalWidth - 1 << ' ' << globalHeight - 1 << Qt::endl;
 
-			for (unsigned i = 0; i < OR_infos.size(); ++i)
+			for (auto& OR_info : OR_infos)
 			{
-				stream << "Image" << ' ' << OR_infos[i].name << ' ';
-				stream << "Local3DBBox" << ' ' << OR_infos[i].minC[0] << ' ' << OR_infos[i].minC[1] << ' ' << OR_infos[i].maxC[0] << ' ' << OR_infos[i].maxC[1] << ' ';
-				int xShiftGlobal = static_cast<int>((OR_infos[i].minC[0] - OR_globalCorners[0]) / OR_pixelSize);
-				int yShiftGlobal = static_cast<int>((OR_globalCorners[3] - OR_infos[i].maxC[1]) / OR_pixelSize);
-				stream << "Local2DBBox" << ' ' << xShiftGlobal << ' ' << yShiftGlobal << ' ' << xShiftGlobal + (static_cast<int>(OR_infos[i].w) - 1) << ' ' << yShiftGlobal + (static_cast<int>(OR_infos[i].h) - 1) << Qt::endl;
+				stream << "Image" << ' ' << OR_info.name << ' ';
+				stream << "Local3DBBox" << ' ' << OR_info.minC[0] << ' ' << OR_info.minC[1] << ' ' << OR_info.maxC[0] << ' ' << OR_info.maxC[1] << ' ';
+				int xShiftGlobal = static_cast<int>((OR_info.minC[0] - OR_globalCorners[0]) / OR_pixelSize);
+				int yShiftGlobal = static_cast<int>((OR_globalCorners[3] - OR_info.maxC[1]) / OR_pixelSize);
+				stream << "Local2DBBox" << ' ' << xShiftGlobal << ' ' << yShiftGlobal << ' ' << xShiftGlobal + (static_cast<int>(OR_info.w) - 1) << ' ' << yShiftGlobal + (static_cast<int>(OR_info.h) - 1) << Qt::endl;
 			}
 		}
 		else

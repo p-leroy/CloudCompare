@@ -17,9 +17,12 @@
 
 #include "ccUnrollDlg.h"
 
+// Local
 #include "ccEntitySelectionDlg.h"
 #include "ccUtils.h"
-#include "ui_unrollDlg.h"
+
+// Ui
+#include <ui_unrollDlg.h>
 
 // qCC_db
 #include <ccCylinder.h>
@@ -28,13 +31,14 @@
 #include <QSettings>
 
 // semi-persistent settings
-static double s_startAngle_deg    = 0.0;
-static double s_stopAngle_deg     = 360.0;
-static bool   s_arbitraryOutputCS = false;
+static double s_startAngle_deg           = 0.0;
+static double s_stopAngle_deg            = 360.0;
+static bool   s_arbitraryOutputCS        = false;
+static bool   s_removeStretchedTriangles = true;
 
 ccUnrollDlg::ccUnrollDlg(ccHObject* dbRootEntity, QWidget* parent /*=nullptr*/)
     : QDialog(parent)
-    , m_ui(new Ui::UnrollDialog)
+    , m_ui(std::make_unique<Ui::UnrollDialog>())
     , m_dbRootEntity(dbRootEntity)
 {
 	m_ui->setupUi(this);
@@ -64,10 +68,7 @@ ccUnrollDlg::ccUnrollDlg(ccHObject* dbRootEntity, QWidget* parent /*=nullptr*/)
 	}
 }
 
-ccUnrollDlg::~ccUnrollDlg()
-{
-	delete m_ui;
-}
+ccUnrollDlg::~ccUnrollDlg() = default;
 
 ccPointCloud::UnrollMode ccUnrollDlg::getType() const
 {
@@ -104,17 +105,17 @@ CCVector3d ccUnrollDlg::getAxis() const
 	switch (axisDim)
 	{
 	case 0:
-		return CCVector3d(1.0, 0.0, 0.0);
+		return {1.0, 0.0, 0.0};
 		break;
 	case 1:
-		return CCVector3d(0.0, 1.0, 0.0);
+		return {0.0, 1.0, 0.0};
 		break;
 	case 2:
-		return CCVector3d(0.0, 0.0, 1.0);
+		return {0.0, 0.0, 1.0};
 		break;
 	case 3:
 	default:
-		return CCVector3d(m_ui->axisXDoubleSpinBox->value(), m_ui->axisYDoubleSpinBox->value(), m_ui->axisZDoubleSpinBox->value());
+		return {m_ui->axisXDoubleSpinBox->value(), m_ui->axisYDoubleSpinBox->value(), m_ui->axisZDoubleSpinBox->value()};
 	}
 
 	return {};
@@ -130,6 +131,11 @@ bool ccUnrollDlg::useArbitraryOutputCS() const
 	return m_ui->arbitraryCSCheckBox->isChecked();
 }
 
+bool ccUnrollDlg::removeStretchedTriangles() const
+{
+	return (m_ui->removeStretchedTrianglesCheckBox->isEnabled() && m_ui->removeStretchedTrianglesCheckBox->isChecked());
+}
+
 void ccUnrollDlg::getAngleRange(double& start_deg, double& stop_deg) const
 {
 	start_deg = m_ui->startAngleDoubleSpinBox->value();
@@ -138,9 +144,9 @@ void ccUnrollDlg::getAngleRange(double& start_deg, double& stop_deg) const
 
 CCVector3 ccUnrollDlg::getAxisPosition() const
 {
-	return CCVector3(static_cast<PointCoordinateType>(m_ui->axisCenterXDoubleSpinBox->value()),
-	                 static_cast<PointCoordinateType>(m_ui->axisCenterYDoubleSpinBox->value()),
-	                 static_cast<PointCoordinateType>(m_ui->axisCenterZDoubleSpinBox->value()));
+	return {static_cast<PointCoordinateType>(m_ui->axisCenterXDoubleSpinBox->value()),
+	        static_cast<PointCoordinateType>(m_ui->axisCenterYDoubleSpinBox->value()),
+	        static_cast<PointCoordinateType>(m_ui->axisCenterZDoubleSpinBox->value())};
 }
 
 double ccUnrollDlg::getRadius() const
@@ -281,7 +287,8 @@ void ccUnrollDlg::toPersistentSettings() const
 
 		getAngleRange(s_startAngle_deg, s_stopAngle_deg);
 
-		s_arbitraryOutputCS = useArbitraryOutputCS();
+		s_arbitraryOutputCS        = useArbitraryOutputCS();
+		s_removeStretchedTriangles = removeStretchedTriangles();
 	}
 	settings.endGroup();
 }
@@ -350,8 +357,14 @@ void ccUnrollDlg::fromPersistentSettings()
 		m_ui->stopAngleDoubleSpinBox->setValue(s_stopAngle_deg);
 
 		m_ui->arbitraryCSCheckBox->setChecked(s_arbitraryOutputCS);
+		m_ui->removeStretchedTrianglesCheckBox->setChecked(s_removeStretchedTriangles);
 	}
 	settings.endGroup();
+}
+
+void ccUnrollDlg::setConfiguration(bool cloudsOnly)
+{
+	m_ui->removeStretchedTrianglesCheckBox->setEnabled(!cloudsOnly);
 }
 
 void ccUnrollDlg::loadParametersFromEntity()

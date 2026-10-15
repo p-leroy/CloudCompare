@@ -15,7 +15,7 @@
 // #                                                                        #
 // ##########################################################################
 
-#include "IcmFilter.h"
+#include "../include/IcmFilter.h"
 
 // qCC_db
 #include <ccCameraSensor.h>
@@ -55,7 +55,7 @@ CC_FILE_ERROR IcmFilter::loadFile(const QString& filename, ccHObject& container,
 #ifdef _MSC_VER
 	FILE* fp = _wfopen(filename.toStdWString().c_str(), L"rt");
 #else
-	FILE* fp = fopen(qPrintable(filename), "rt");
+	FILE* fp = fopen(qUtf8Printable(filename), "rt");
 #endif
 	if (!fp)
 	{
@@ -133,19 +133,17 @@ CC_FILE_ERROR IcmFilter::loadFile(const QString& filename, ccHObject& container,
 		fclose(fp);
 		return CC_FERR_READING;
 	}
-	else
-	{
-		if (strncmp(line, "IMAGES_DESCRIPTOR=", 18) != 0)
-		{
-			fclose(fp);
-			return CC_FERR_WRONG_FILE_TYPE;
-		}
-		char imagesDescriptorFileName[MAX_ASCII_FILE_LINE_LENGTH];
-		sscanf(line, "IMAGES_DESCRIPTOR=%s", imagesDescriptorFileName);
 
-		int n = LoadCalibratedImages(entities, path, imagesDescriptorFileName, entities->getBB_recursive());
-		ccLog::Print("[ICM] %i image(s) loaded ...", n);
+	if (strncmp(line, "IMAGES_DESCRIPTOR=", 18) != 0)
+	{
+		fclose(fp);
+		return CC_FERR_WRONG_FILE_TYPE;
 	}
+	char imagesDescriptorFileName[MAX_ASCII_FILE_LINE_LENGTH];
+	sscanf(line, "IMAGES_DESCRIPTOR=%s", imagesDescriptorFileName);
+
+	int n = LoadCalibratedImages(entities, path, imagesDescriptorFileName, entities->getBB_recursive());
+	ccLog::Printf("[ICM] %i image(s) loaded ...", n);
 
 	fclose(fp);
 	return CC_FERR_NO_ERROR;
@@ -166,7 +164,7 @@ int IcmFilter::LoadCalibratedImages(ccHObject* entities, const QString& path, co
 #ifdef _MSC_VER
 	FILE* fp = _wfopen(completeImageDescFilename.toStdWString().c_str(), L"rt");
 #else
-	FILE* fp = fopen(qPrintable(completeImageDescFilename), "rt");
+	FILE* fp = fopen(qUtf8Printable(completeImageDescFilename), "rt");
 #endif
 	if (fp == nullptr)
 	{
@@ -200,7 +198,7 @@ int IcmFilter::LoadCalibratedImages(ccHObject* entities, const QString& path, co
 				return loadedImages;
 			}
 
-			ccLog::Print("[IcmFilter] Image '%s' loaded", imageFileName);
+			ccLog::Printf("[IcmFilter] Image '%s' loaded", imageFileName);
 			CI->setEnabled(false);
 			CI->setName(imageFileName);
 #ifdef INCLUDE_PHOTOS
@@ -220,7 +218,7 @@ int IcmFilter::LoadCalibratedImages(ccHObject* entities, const QString& path, co
 			sscanf(line, "\t fieldOfView %f\n", &fov_rad);
 
 			float fov_deg = CCCoreLib::RadiansToDegrees(fov_rad);
-			ccLog::Print("\t FOV=%f (degrees)", fov_deg);
+			ccLog::Printf("\t FOV=%f (degrees)", fov_deg);
 
 			// Position
 			float t[3];
@@ -233,7 +231,7 @@ int IcmFilter::LoadCalibratedImages(ccHObject* entities, const QString& path, co
 			}
 			sscanf(line, "\t position %f %f %f\n", t, t + 1, t + 2);
 
-			ccLog::Print("\t Camera pos=(%f,%f,%f)", t[0], t[1], t[2]);
+			ccLog::Printf("\t Camera pos=(%f,%f,%f)", t[0], t[1], t[2]);
 
 			// Description
 			char desc[MAX_ASCII_FILE_LINE_LENGTH];
@@ -247,7 +245,7 @@ int IcmFilter::LoadCalibratedImages(ccHObject* entities, const QString& path, co
 			sscanf(line, "\t description \"%s\"\n", desc);
 
 			// CI->setDescription(desc);
-			ccLog::Print("\t Description: '%s'", desc);
+			ccLog::Printf("\t Description: '%s'", desc);
 
 			// Orientation
 			float axis[3]{0.0f, 0.0f, 0.0f};
@@ -260,7 +258,7 @@ int IcmFilter::LoadCalibratedImages(ccHObject* entities, const QString& path, co
 			}
 			sscanf(line, "\t orientation %f %f %f %f\n", axis, axis + 1, axis + 2, &angle_rad);
 
-			ccLog::Print("\t Camera orientation=(%f,%f,%f)+[%f]", axis[0], axis[1], axis[2], angle_rad);
+			ccLog::Printf("\t Camera orientation=(%f,%f,%f)+[%f]", axis[0], axis[1], axis[2], angle_rad);
 
 			ccCameraSensor::IntrinsicParameters params;
 			params.vFOV_rad           = fov_rad;

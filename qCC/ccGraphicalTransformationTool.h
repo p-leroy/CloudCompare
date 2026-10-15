@@ -1,3 +1,5 @@
+#pragma once
+
 // ##########################################################################
 // #                                                                        #
 // #                              CLOUDCOMPARE                              #
@@ -15,12 +17,11 @@
 // #                                                                        #
 // ##########################################################################
 
-#ifndef CC_GRAPHICAL_TRANSFORMATION_TOOL_HEADER
-#define CC_GRAPHICAL_TRANSFORMATION_TOOL_HEADER
-
-// Local
-#include <ccOverlayDialog.h>
+// Ui
 #include <ui_graphicalTransformationDlg.h>
+
+// CCPluginAPI
+#include <ccOverlayDialog.h>
 
 // qCC_db
 #include <ccHObject.h>
@@ -39,12 +40,12 @@ class ccGraphicalTransformationTool : public ccOverlayDialog
 	//! Default constructor
 	explicit ccGraphicalTransformationTool(QWidget* parent);
 	//! Default destructor
-	virtual ~ccGraphicalTransformationTool();
+	~ccGraphicalTransformationTool() override;
 
 	// inherited from ccOverlayDialog
-	virtual bool linkWith(ccGLWindowInterface* win) override;
-	virtual bool start() override;
-	virtual void stop(bool state) override;
+	bool linkWith(ccGLWindowInterface* win) override;
+	bool start() override;
+	void stop(bool state) override;
 
 	//! unselect all advanced mode references
 	void clearAdvModeEntities();
@@ -53,7 +54,7 @@ class ccGraphicalTransformationTool : public ccOverlayDialog
 	/** Only the 'selected' entities are moved.
 	    \return success, if the entity is eligible for graphical transformation
 	**/
-	bool addEntity(ccHObject* anObject);
+	bool addEntity(ccHObject* entity);
 
 	//! Returns the number of valid entities (see addEntity)
 	unsigned getNumberOfValidEntities() const;
@@ -129,7 +130,7 @@ class ccGraphicalTransformationTool : public ccOverlayDialog
 	void glRotate(const ccGLMatrixd&);
 
 	//! Applies rotation and translation factors set on incremental Spin boxes to selected entities
-	void incrementalTransform();
+	void incrementalTransform(bool forward = true);
 
 	//! To capture overridden shortcuts (pause button, etc.)
 	void onShortcutTriggered(int);
@@ -186,7 +187,7 @@ class ccGraphicalTransformationTool : public ccOverlayDialog
 	CCVector3d m_advRotationAxis;
 
 	//! Current reference object for rotation center point
-	CCVector3d m_advRotationRefObjCenter;
+	CCVector3 m_advRotationRefObjCenter;
 
 	//! Rotation center
 	/** The rotation center is actually the center of gravity of the selected 'entities'
@@ -196,5 +197,3 @@ class ccGraphicalTransformationTool : public ccOverlayDialog
 	//! Objects found in the dbtree for adv transate/rotate
 	ccHObject::Container m_advancedModeObjectList;
 };
-
-#endif // CC_GRAPHICAL_TRANSFORMATION_TOOL_HEADER

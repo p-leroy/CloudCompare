@@ -17,10 +17,11 @@
 // #                                                                        #
 // ##########################################################################
 
-#include <QDialog>
-
 // qCC_db
 #include <ccPointCloud.h>
+
+// Qt
+#include <QDialog>
 
 namespace Ui
 {
@@ -41,6 +42,7 @@ class ccUnrollDlg : public QDialog
 	CCVector3d               getAxis() const;
 	bool                     isAxisPositionAuto() const;
 	bool                     useArbitraryOutputCS() const;
+	bool                     removeStretchedTriangles() const;
 	CCVector3                getAxisPosition() const;
 	void                     getAngleRange(double& start_deg, double& stop_deg) const;
 	double                   getRadius() const;
@@ -50,6 +52,7 @@ class ccUnrollDlg : public QDialog
 
 	void toPersistentSettings() const;
 	void fromPersistentSettings();
+	void setConfiguration(bool cloudsOnly);
 
   protected:
 	void shapeTypeChanged(int index);
@@ -61,6 +64,6 @@ class ccUnrollDlg : public QDialog
 	void centerFromClipboard();
 
   protected:
-	Ui::UnrollDialog* m_ui;
-	ccHObject*        m_dbRootEntity;
+	std::unique_ptr<Ui::UnrollDialog> m_ui;
+	ccHObject*                        m_dbRootEntity;
 };
