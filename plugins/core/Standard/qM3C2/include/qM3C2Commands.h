@@ -72,7 +72,7 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 		QString errorMessage;
 		ccPointCloud* outputCloud = nullptr; //only necessary for the command line version in fact
         ccPointCloud* outputCloud2 = nullptr; //only necessary for the command line version in fact
-        if (!qM3C2Process::Compute(dlg, errorMessage, outputCloud, outputCloud2, !cmd.silentMode(), cmd.widgetParent()))
+		if (!qM3C2Process::Compute(dlg, errorMessage, outputCloud, !cmd.silentMode(), cmd.widgetParent()), outputCloud2)
 		{
 			return cmd.error(errorMessage);
 		}
@@ -100,7 +100,6 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud Ny!");
 							ok = false;
-							Nx->clear();
 						}
 					}
 					if (ok) // Nx and Ny allocated, try to allocate Nz
@@ -111,8 +110,6 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud Nz!");
 							ok = false;
-							Nx->clear();
-							Ny->clear();
 						}
 					}
 					if (ok) // Nx, Ny and Nz allocated
@@ -168,7 +165,6 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud2 Ny!");
 							ok = false;
-							Nx->clear();
 						}
 					}
 					if (ok) // Nx and Ny allocated, try to allocate Nz
@@ -179,8 +175,6 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 						{
 							cmd.print("Failed to allocate memory for outputCloud 2Nz!");
 							ok = false;
-							Nx->clear();
-							Ny->clear();
 						}
 					}
 					if (ok) // Nx, Ny and Nz allocated
