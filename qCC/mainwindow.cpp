@@ -352,6 +352,7 @@ MainWindow::~MainWindow()
 	assert(m_ccRoot && m_mdiArea);
 	m_ccRoot->disconnect();
 	m_mdiArea->disconnect();
+	disconnect(qApp, &QGuiApplication::focusWindowChanged, this, nullptr);
 
 	// we don't want any other dialog/function to use the following structures
 	ccDBRoot* ccRoot = m_ccRoot;
@@ -642,6 +643,8 @@ void MainWindow::connectActions()
 	connect(m_ui->actionEditGlobalShiftAndScale, &QAction::triggered, this, &MainWindow::doActionEditGlobalShiftAndScale);
 	connect(m_ui->actionSubsample, &QAction::triggered, this, &MainWindow::doActionSubsample);
 	connect(m_ui->actionDelete, &QAction::triggered, m_ccRoot, &ccDBRoot::deleteSelectedEntities);
+	// a dialog opening or closing changes whether the Delete action can be used (see enableUIItems)
+	connect(qApp, &QGuiApplication::focusWindowChanged, this, &MainWindow::updateUIWithSelection);
 
 	//"Tools > Clean" menu
 	connect(m_ui->actionSORFilter, &QAction::triggered, this, &MainWindow::doActionSORFilter);
@@ -2097,8 +2100,13 @@ void MainWindow::doActionCreateGBLSensor()
 	ccGBLSensorProjectionDlg spDlg(this);
 	spDlg.initWithPrevious();
 	if (!spDlg.exec())
+	{
 		return;
+	}
 	spDlg.saveForNextTime();
+
+	ccProgressDialog progressDlg(true, this);
+	progressDlg.setAutoClose(false);
 
 	// We create the corresponding sensor for each input cloud (in a perfect world, there should be only one ;)
 	for (ccHObject* entity : getSelectedEntities())
@@ -2126,9 +2134,9 @@ void MainWindow::doActionCreateGBLSensor()
 				else if (diag > 10000.0)
 					sensor->setGraphicScale(static_cast<PointCoordinateType>(1.0e3));
 
-				// we display depth buffer
+				// we display the depth buffer
 				int errorCode;
-				if (sensor->computeDepthBuffer(cloud, errorCode))
+				if (sensor->computeDepthBuffer(cloud, errorCode, nullptr, &progressDlg))
 				{
 					ccRenderingTools::ShowDepthBuffer(sensor, this);
 				}
@@ -2281,8 +2289,9 @@ void MainWindow::doActionModifySensor()
 		{
 			ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(gbl->getParent());
 
-			int errorCode;
-			if (gbl->computeDepthBuffer(cloud, errorCode))
+			int              errorCode;
+			ccProgressDialog progressDlg;
+			if (gbl->computeDepthBuffer(cloud, errorCode, nullptr, &progressDlg))
 			{
 				// we display depth buffer
 				ccRenderingTools::ShowDepthBuffer(gbl, this);
@@ -2531,6 +2540,9 @@ void MainWindow::doActionShowDepthBuffer()
 	if (!haveSelection())
 		return;
 
+	ccProgressDialog progressDlg(true, this);
+	progressDlg.setAutoClose(false);
+
 	for (ccHObject* entity : getSelectedEntities())
 	{
 		if (entity->isKindOf(CC_TYPES::GBL_SENSOR))
@@ -2548,7 +2560,7 @@ void MainWindow::doActionShowDepthBuffer()
 
 				// force depth buffer computation
 				int errorCode;
-				if (!sensor->computeDepthBuffer(cloud, errorCode))
+				if (!sensor->computeDepthBuffer(cloud, errorCode, nullptr, &progressDlg))
 				{
 					ccConsole::Error(ccGBLSensor::GetErrorString(errorCode));
 				}
@@ -2661,8 +2673,9 @@ void MainWindow::doActionComputePointsVisibility()
 				return;
 			}
 
-			int errorCode;
-			if (sensor->computeDepthBuffer(static_cast<ccPointCloud*>(defaultCloud), errorCode))
+			int              errorCode;
+			ccProgressDialog progressDlg(true, this);
+			if (sensor->computeDepthBuffer(static_cast<ccPointCloud*>(defaultCloud), errorCode, nullptr, &progressDlg))
 			{
 				ccRenderingTools::ShowDepthBuffer(sensor, this);
 			}
@@ -11752,7 +11765,9 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	m_ui->actionSave->setEnabled(atLeastOneEntity);
 	m_ui->actionSaveProject->setEnabled(!dbIsEmpty);
 	m_ui->actionClone->setEnabled(atLeastOneEntity);
-	m_ui->actionDelete->setEnabled(atLeastOneEntity);
+	// disabled while a dialog is open: on macOS, menu shortcuts get the keys before native dialogs do,
+	// so the delete key typed in a file dialog would delete the selected entities
+	m_ui->actionDelete->setEnabled(atLeastOneEntity && QApplication::activeModalWidget() == nullptr);
 	m_ui->actionExportCoordToSF->setEnabled(atLeastOneCloud || atLeastOneMesh);
 	m_ui->actionExportNormalToSF->setEnabled(atLeastOneNormal);
 	m_ui->actionSegment->setEnabled(atLeastOneEntity && activeWindow);
