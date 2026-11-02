@@ -156,6 +156,7 @@
     <file>images/search.svg</file>
 	<file>images/scatter-plot.png</file>
     <file>images/exportIconSmall.png</file>
+    <file>images/ccCutPursuit.svg</file>
   </qresource>
   <qresource prefix="/CC/Icons">
     <file>images/icon/cc_viewer_icon_16.png</file>
