@@ -9183,9 +9183,10 @@ void MainWindow::doShowPrimitiveFactory()
 
 void MainWindow::doComputeGeometricFeature()
 {
-	static ccLibAlgorithms::GeomCharacteristicSet s_selectedCharacteristics;
-	static CCVector3                              s_upDir(0, 0, 1);
-	static bool                                   s_upDirDefined = false;
+	// semi-persistent parameters
+	static ccLibAlgorithms::GeomCharacteristicWithSubOptionSet s_selectedCharacteristics;
+	static CCVector3                                           s_upDir(0, 0, 1);
+	static bool                                                s_upDirDefined = false;
 
 	ccGeomFeaturesDlg gfDlg(this);
 	double            radius = ccLibAlgorithms::GetDefaultCloudKernelSize(m_selectedEntities);
@@ -9199,7 +9200,9 @@ void MainWindow::doComputeGeometricFeature()
 	}
 
 	if (!gfDlg.exec())
+	{
 		return;
+	}
 
 	radius = gfDlg.getRadius();
 	if (!gfDlg.getSelectedFeatures(s_selectedCharacteristics))
@@ -9207,7 +9210,6 @@ void MainWindow::doComputeGeometricFeature()
 		ccLog::Error(tr("Not enough memory!"));
 		return;
 	}
-
 	CCVector3* upDir = gfDlg.getUpDirection();
 
 	// remember semi-persistent parameters
@@ -9217,7 +9219,11 @@ void MainWindow::doComputeGeometricFeature()
 		s_upDir = *upDir;
 	}
 
-	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics, static_cast<PointCoordinateType>(radius), m_selectedEntities, upDir, this);
+	ccLibAlgorithms::ComputeGeomCharacteristics(s_selectedCharacteristics,
+	                                            static_cast<PointCoordinateType>(radius),
+	                                            m_selectedEntities,
+	                                            /*roughnessUpDir=*/upDir,
+	                                            /*parent=*/this);
 
 	refreshAll();
 	updateUI();
