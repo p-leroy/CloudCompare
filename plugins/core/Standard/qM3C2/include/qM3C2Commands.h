@@ -72,7 +72,7 @@ struct CommandM3C2 : public ccCommandLineInterface::Command
 		QString errorMessage;
 		ccPointCloud* outputCloud = nullptr; //only necessary for the command line version in fact
         ccPointCloud* outputCloud2 = nullptr; //only necessary for the command line version in fact
-		if (!qM3C2Process::Compute(dlg, errorMessage, outputCloud, !cmd.silentMode(), cmd.widgetParent()), outputCloud2)
+		if (!qM3C2Process::Compute(dlg, errorMessage, outputCloud, outputCloud2, !cmd.silentMode(), cmd.widgetParent()))
 		{
 			return cmd.error(errorMessage);
 		}
