@@ -272,6 +272,9 @@ Improvements:
 
 	- PLY files:
 		- loading dialog: new 'Add all' button to add all the unused standard properties to be loaded as scalar fields
+		- slightly smarter auto-fill of the fields to reproduce the previous loading pattern. If 'apply all' was used when loading multiple
+			PLY files at once, even the SF selection will be restored. Else, only the properties selection will be restored, and all available
+			scalar fields will be added. This also fixes an issue when duplicate fields could be populated under certain conditions.
 		- at saving time, CC will not change the internal name of scalar fields that were already present in the input PLY file
 
 	- PCD format:
@@ -488,8 +491,10 @@ Bug fixes:
 		(a VLR can describe at most 341 extra fields, so files with more fields have to use an EVLR).
 		If a file has both, the VLR is used and a warning is issued.
 	- LAS files: an extra field name of 32 characters (the maximum) was loaded with the field description appended to it
+	- LAS files: the VLR data kept in the cloud meta-data (and in each copy of it) was never released
 	- LAS 1.4 files: only the first 341 extra fields could be saved. The others are now saved too, described by an Extra Bytes EVLR.
 	- LAS files: the unused bytes of the Extra Bytes VLR header (the 'reserved' field and the end of the user ID) were saved uninitialized, while the LAS specification requires them to be 0
+	- LAS files: the copy of the VLRs (including the Extra Bytes VLR) made when saving a file was never released
 
 Unresolved anomalies:
 	- 'LAS.vlrs' meta-data items saved in BIN files with any version prior to 2.14.beta cannot be restored anymore due to Qt 6
